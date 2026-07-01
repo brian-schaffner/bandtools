@@ -187,43 +187,51 @@ def _render_background(
     background: BackgroundSpec,
     *,
     photo_bbox: Optional[tuple[int, int, int, int]] = None,
+    seed: int = 42,
 ) -> Image.Image:
     """Render the background layer."""
     w, h = canvas.size
     
     bg_color = _hex_to_rgb(background.color.hex)
     bg = Image.new("RGBA", (w, h), (*bg_color, 255))
+
+    if background.wash_color and background.wash_height_pct > 0:
+        wash_h = max(1, int(h * background.wash_height_pct / 100))
+        wash_rgb = _hex_to_rgb(background.wash_color.hex)
+        wash_alpha = int(255 * background.wash_color.opacity)
+        wash_layer = Image.new("RGBA", (w, wash_h), (*wash_rgb, wash_alpha))
+        bg.paste(wash_layer, (0, 0), wash_layer)
     
     if background.texture == "paper":
-        _apply_paper_texture(bg, background.texture_strength)
+        _apply_paper_texture(bg, background.texture_strength, seed=seed)
     elif background.texture == "photocopy":
-        _apply_photocopy_texture(bg, background.texture_strength)
+        _apply_photocopy_texture(bg, background.texture_strength, seed=seed)
     elif background.texture == "cardboard":
-        _apply_cardboard_texture(bg, background.texture_strength)
+        _apply_cardboard_texture(bg, background.texture_strength, seed=seed)
     
     if background.grain_strength > 0:
         if background.margin_grain_only and photo_bbox:
-            _apply_margin_grain(bg, background.grain_strength, photo_bbox)
+            _apply_margin_grain(bg, background.grain_strength, photo_bbox, seed=seed)
         else:
-            _apply_grain(bg, background.grain_strength)
+            _apply_grain(bg, background.grain_strength, seed=seed)
     
     return bg
 
 
-def _apply_paper_texture(image: Image.Image, strength: float) -> None:
+def _apply_paper_texture(image: Image.Image, strength: float, *, seed: int = 42) -> None:
     """Apply subtle paper texture."""
     if strength <= 0:
         return
     
     w, h = image.size
     pixels = image.load()
-    random.seed(42)
+    rng = random.Random(seed)
     
     noise_range = int(10 * strength)
     for y in range(0, h, 2):
         for x in range(0, w, 2):
             r, g, b, a = pixels[x, y]
-            noise = random.randint(-noise_range, noise_range)
+            noise = rng.randint(-noise_range, noise_range)
             pixels[x, y] = (
                 max(0, min(255, r + noise)),
                 max(0, min(255, g + noise)),
@@ -232,7 +240,7 @@ def _apply_paper_texture(image: Image.Image, strength: float) -> None:
             )
 
 
-def _apply_photocopy_texture(image: Image.Image, strength: float) -> None:
+def _apply_photocopy_texture(image: Image.Image, strength: float, *, seed: int = 42) -> None:
     """Apply photocopy texture (slight contrast, grain, edge artifacts)."""
     if strength <= 0:
         return
@@ -241,23 +249,23 @@ def _apply_photocopy_texture(image: Image.Image, strength: float) -> None:
     enhanced = enhancer.enhance(1.0 + strength * 0.15)
     image.paste(enhanced)
     
-    _apply_grain(image, strength * 0.03)
+    _apply_grain(image, strength * 0.03, seed=seed)
 
 
-def _apply_cardboard_texture(image: Image.Image, strength: float) -> None:
+def _apply_cardboard_texture(image: Image.Image, strength: float, *, seed: int = 42) -> None:
     """Apply cardboard/kraft paper texture."""
     if strength <= 0:
         return
     
     w, h = image.size
     pixels = image.load()
-    random.seed(123)
+    rng = random.Random(seed ^ 0xABCDEF)
     
     for y in range(h):
-        streak = random.randint(-5, 5) * strength
+        streak = rng.randint(-5, 5) * strength
         for x in range(w):
             r, g, b, a = pixels[x, y]
-            noise = random.randint(-8, 8) * strength + streak
+            noise = rng.randint(-8, 8) * strength + streak
             pixels[x, y] = (
                 max(0, min(255, int(r + noise))),
                 max(0, min(255, int(g + noise - 2))),
@@ -266,7 +274,7 @@ def _apply_cardboard_texture(image: Image.Image, strength: float) -> None:
             )
 
 
-def _apply_grain(image: Image.Image, strength: float) -> None:
+def _apply_grain(image: Image.Image, strength: float, *, seed: int = 42) -> None:
     """Apply film grain effect."""
     if strength <= 0:
         return
@@ -274,7 +282,7 @@ def _apply_grain(image: Image.Image, strength: float) -> None:
     w, h = image.size
     pixels = image.load()
     grain_range = int(255 * strength)
-    rng = random.Random(42)
+    rng = random.Random(seed ^ 0x123456)
     
     for y in range(h):
         for x in range(w):
@@ -294,6 +302,8 @@ def _apply_margin_grain(
     image: Image.Image,
     strength: float,
     photo_bbox: tuple[int, int, int, int],
+    *,
+    seed: int = 42,
 ) -> None:
     """Apply grain only outside the photo bbox (paper margins)."""
     if strength <= 0:
@@ -301,7 +311,7 @@ def _apply_margin_grain(
     left, top, right, bottom = photo_bbox
     w, h = image.size
     grain_layer = image.copy()
-    _apply_grain(grain_layer, strength)
+    _apply_grain(grain_layer, strength, seed=seed)
     mask = Image.new("L", (w, h), 255)
     mask_draw = ImageDraw.Draw(mask)
     mask_draw.rectangle([left, top, right, bottom], fill=0)
@@ -373,6 +383,7 @@ def _render_photo(
     canvas_size: tuple[int, int],
     *,
     tier: str = "medium",
+    render_seed: int = 42,
 ) -> tuple[Image.Image, tuple[int, int]]:
     """Render the photo with all allowed treatments.
     
@@ -464,7 +475,7 @@ def _render_photo(
         photo = bordered
 
     if frame.mask_shape == "torn_edge":
-        photo = _apply_torn_edge_mask(photo)
+        photo = _apply_torn_edge_mask(photo, seed=(render_seed ^ 0x7A3F1) if render_seed else 42)
 
     x = int(canvas_w * frame.x / 100)
     y = int(canvas_h * frame.y / 100)
@@ -786,6 +797,34 @@ def _render_graphic(
         layer_draw.polygon(points, fill=strip_fill)
         canvas.alpha_composite(layer)
 
+    elif element.element_type == "diagonal_band":
+        layer = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+        layer_draw = ImageDraw.Draw(layer)
+        band_fill = fill or (139, 0, 0, int(230 * element.opacity))
+        layer_draw.rectangle([x, y, x + w, y + h], fill=band_fill)
+        label = element.properties.get("text", "")
+        if label:
+            font_size = max(14, min(h // 2, w // 8))
+            font = _get_font("Helvetica", font_size, FontWeight.BLACK)
+            tb = layer_draw.textbbox((0, 0), label, font=font)
+            tw, th = tb[2] - tb[0], tb[3] - tb[1]
+            cx, cy = x + w // 2, y + h // 2
+            text_color = (255, 255, 255, 255) if element.properties.get("label") == "venue" else (0, 0, 0, 255)
+            layer_draw.text((cx - tw // 2, cy - th // 2), label, font=font, fill=text_color)
+        if element.rotation != 0:
+            layer = layer.rotate(element.rotation, center=(x + w // 2, y + h // 2), expand=False)
+        canvas.alpha_composite(layer)
+
+    elif element.element_type == "perforated_margin":
+        perf_color = outline or fill or (80, 80, 80, int(120 * element.opacity))
+        holes = int(element.properties.get("holes", 20))
+        step = max(4, h // max(1, holes))
+        for i in range(holes):
+            py = y + i * step
+            if py > y + h:
+                break
+            draw.ellipse([x, py, x + w, py + max(3, w)], fill=perf_color)
+
 
 def _apply_photocopy_effect(image: Image.Image, strength: float) -> Image.Image:
     """Apply overall photocopy effect."""
@@ -883,14 +922,20 @@ def render_flyer(
         message="Rendering background...",
         option=option,
     )
+    render_seed = layout.render_seed or 42
     canvas = _render_background(
         Image.new("RGBA", canvas_size, (255, 255, 255, 255)),
         layout.background,
         photo_bbox=photo_bbox,
+        seed=render_seed,
     )
     
+    under_photo_types = (
+        "box", "line", "divider", "starburst", "ticket_stub",
+        "corner_strip", "diagonal_band", "perforated_margin",
+    )
     for element in layout.graphic_elements:
-        if element.element_type in ("box", "line", "divider", "starburst", "ticket_stub", "corner_strip"):
+        if element.element_type in under_photo_types:
             draw = ImageDraw.Draw(canvas)
             _render_graphic(canvas, draw, element, canvas_size)
     
@@ -903,7 +948,7 @@ def render_flyer(
     )
     if photo_path.is_file():
         photo_layer, photo_pos = _render_photo(
-            photo_path, layout.photo_frame, canvas_size, tier=tier
+            photo_path, layout.photo_frame, canvas_size, tier=tier, render_seed=render_seed,
         )
         canvas.paste(photo_layer, photo_pos, photo_layer)
     

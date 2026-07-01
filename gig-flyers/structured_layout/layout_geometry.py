@@ -174,7 +174,12 @@ def enforce_no_text_on_photo(layout: LayoutSpec) -> LayoutSpec:
     """Move any text overlapping the photo frame to a safe zone."""
     from structured_layout.layout_spec import TextElement, TextAlignment
 
-    photo_left, photo_top, _photo_right, photo_bottom = photo_frame_rect_pct(layout)
+    notes = (layout.style_notes or "").lower()
+    if "procedural creative" in notes and "column_split" in notes:
+        layout.text_elements = [clamp_text_element(t, layout) for t in layout.text_elements]
+        return layout
+
+    photo_left, photo_top, photo_right, photo_bottom = photo_frame_rect_pct(layout)
     gap = VERTICAL_GAP_PCT
 
     header_stack_y = 48 / layout.canvas_height * 100
@@ -279,10 +284,18 @@ def enforce_no_text_on_photo(layout: LayoutSpec) -> LayoutSpec:
 
 def validate_layout_bounds(layout: LayoutSpec) -> list[str]:
     """Return issues for text on photo or out-of-canvas bounds."""
+    notes = (layout.style_notes or "").lower()
+    split_layout = "procedural creative" in notes and "column_split" in notes
+    photo_right = photo_frame_rect_pct(layout)[2] if split_layout else None
+
     issues: list[str] = []
     for text in layout.text_elements:
         clamped = clamp_text_element(text, layout)
-        if text_overlaps_photo(clamped, layout):
+        if split_layout and photo_right is not None and clamped.x >= photo_right - 0.5:
+            overlap = False
+        else:
+            overlap = text_overlaps_photo(clamped, layout)
+        if overlap:
             issues.append(f"Text overlaps photo frame: '{clamped.content[:40]}'")
         if text_exceeds_canvas(clamped, layout):
             issues.append(f"Text exceeds canvas bounds: '{clamped.content[:40]}'")

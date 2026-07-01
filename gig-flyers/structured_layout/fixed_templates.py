@@ -1714,28 +1714,15 @@ def create_collage_layout(
     archetype: Optional[TierArchetype] = None,
     rng: Optional[random.Random] = None,
 ) -> LayoutSpec:
-    """Option C — wildly creative: named layout variants via seeded hash."""
+    """Option C — procedural composer: unique layout per gig/round from recipe axes."""
+    from structured_layout.creative_composer import compose_creative_layout
+
     r = rng or _make_rng()
     arch = archetype or load_tier_archetype("creative", event=event)
-    variant = _select_creative_variant(r)
-    kwargs = {
-        "venue": venue,
-        "band": band,
-        "date": date,
-        "time": time,
-        "address": address,
-        "event": event,
-        "archetype": arch,
-        "rng": r,
-    }
-    builders = {
-        "dark_field": _create_collage_dark_field,
-        "light_collage": _create_collage_light_collage,
-        "troubadour_inverted": _create_collage_troubadour_inverted,
-        "roxy_corners": _create_collage_roxy_corners,
-        "torn_reveal": _create_collage_torn_reveal,
-    }
-    return builders[variant](**kwargs)
+    return compose_creative_layout(
+        venue, band, date, time,
+        address=address, event=event, archetype=arch, rng=r,
+    )
 
 
 def layout_for_option(
