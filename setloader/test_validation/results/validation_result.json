@@ -1,0 +1,125 @@
+{
+  "sets": [
+    {
+      "name": "Set 1",
+      "time_window": "7-8:30",
+      "break_minutes": 20,
+      "songs": [
+        {
+          "order": 1,
+          "title": "Hurt So Good",
+          "validated": true,
+          "status": "Found in backup",
+          "song_id": 1,
+          "validated_title": "Hurt So Good",
+          "key": "A"
+        },
+        {
+          "order": 2,
+          "title": "Pontoon",
+          "validated": true,
+          "status": "Found in backup",
+          "song_id": 2,
+          "validated_title": "Pontoon",
+          "key": "A"
+        },
+        {
+          "order": 3,
+          "title": "Hot Blooded",
+          "validated": true,
+          "status": "Found in backup",
+          "song_id": 3,
+          "validated_title": "Hot Blooded",
+          "key": "G"
+        },
+        {
+          "order": 4,
+          "title": "Nonexistent Song",
+          "validated": true,
+          "status": "Found through mapping",
+          "song_id": 1,
+          "validated_title": "Hurt So Good",
+          "key": "C"
+        }
+      ],
+      "validated_count": 4,
+      "missing_count": 0
+    },
+    {
+      "name": "Set 2",
+      "time_window": "8:50-10",
+      "break_minutes": 15,
+      "songs": [
+        {
+          "order": 1,
+          "title": "Free Fallin",
+          "validated": true,
+          "status": "Found in backup",
+          "song_id": 4,
+          "validated_title": "Free Fallin",
+          "key": "F"
+        },
+        {
+          "order": 2,
+          "title": "Another Missing Song",
+          "validated": true,
+          "status": "Found through mapping",
+          "song_id": 2,
+          "validated_title": "Pontoon",
+          "key": "Dm"
+        }
+      ],
+      "validated_count": 2,
+      "missing_count": 0
+    }
+  ],
+  "extras": [
+    {
+      "order": 1,
+      "title": "TNT",
+      "validated": true,
+      "status": "Found in backup",
+      "song_id": 5,
+      "validated_title": "TNT"
+    },
+    {
+      "order": 2,
+      "title": "Unknown Extra Song",
+      "validated": true,
+      "status": "Found through mapping",
+      "song_id": 5,
+      "validated_title": "TNT"
+    }
+  ],
+  "counts": {
+    "per_set": {
+      "Set 1": {
+        "total": 4,
+        "validated": 4,
+        "missing": 0
+      },
+      "Set 2": {
+        "total": 2,
+        "validated": 2,
+        "missing": 0
+      }
+    },
+    "extras": {
+      "total": 2,
+      "validated": 2,
+      "missing": 0
+    },
+    "total": 8,
+    "validated_total": 8,
+    "missing_total": 0
+  },
+  "errors": [],
+  "validation_info": {
+    "user_id": "test@example.com",
+    "backup_path": "/usr/local/src/setloader/test_validation/test_backup.sbpbackup",
+    "mappings_path": "/usr/local/src/setloader/test_validation/sample_mappings.json",
+    "validated_at": "2025-10-16T23:42:00.990463",
+    "total_songs_in_backup": 5,
+    "total_mappings": 3
+  }
+}

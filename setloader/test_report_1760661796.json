@@ -1,0 +1,308 @@
+{
+  "summary": {
+    "total_tests": 40,
+    "passed": 36,
+    "failed": 3,
+    "warnings": 1,
+    "success_rate": 90.0
+  },
+  "results": [
+    {
+      "test": "Server Connectivity",
+      "status": "PASS",
+      "message": "Server is responding",
+      "timestamp": 1760661762.617087,
+      "details": {}
+    },
+    {
+      "test": "Frontend Connectivity",
+      "status": "FAIL",
+      "message": "Cannot connect to frontend: HTTPConnectionPool(host='localhost', port=3001): Max retries exceeded with url: / (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x10b2e7910>: Failed to establish a new connection: [Errno 61] Connection refused'))",
+      "timestamp": 1760661762.618952,
+      "details": {}
+    },
+    {
+      "test": "PDF Discovery",
+      "status": "PASS",
+      "message": "Found 13 valid PDF files: ['TKs.pdf', 'party.pdf', 'rr.pdf', 'leitchfield_derby.pdf', 'rough_river_july.pdf', 'TKs-1.pdf', 'hs.pdf', 'bs.pdf', 'party.pdf', 'rr.pdf', 'rough%20river%20july.pdf', 'hs.pdf', 'bs.pdf']",
+      "timestamp": 1760661770.896176,
+      "details": {}
+    },
+    {
+      "test": "Backup Discovery",
+      "status": "PASS",
+      "message": "Found 4 backup files: ['SongbookPro Backup.sbpbackup', 'test_backup.sbpbackup', 'SongbookPro Backup.sbpbackup', 'test_backup.sbpbackup']",
+      "timestamp": 1760661770.896838,
+      "details": {}
+    },
+    {
+      "test": "Backup Upload (SongbookPro Backup.sbpbackup)",
+      "status": "PASS",
+      "message": "Uploaded successfully, 0 songs found",
+      "timestamp": 1760661771.190376,
+      "details": {}
+    },
+    {
+      "test": "Backup Verification",
+      "status": "PASS",
+      "message": "Backup verified, 379 songs",
+      "timestamp": 1760661771.1932669,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (TKs.pdf)",
+      "status": "PASS",
+      "message": "Processed successfully, 59 songs found",
+      "timestamp": 1760661773.543447,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (party.pdf)",
+      "status": "PASS",
+      "message": "Processed successfully, 59 songs found",
+      "timestamp": 1760661775.201136,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rr.pdf)",
+      "status": "PASS",
+      "message": "Processed successfully, 59 songs found",
+      "timestamp": 1760661776.868298,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (leitchfield_derby.pdf)",
+      "status": "PASS",
+      "message": "Processed successfully, 59 songs found",
+      "timestamp": 1760661778.8395882,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rough_river_july.pdf)",
+      "status": "PASS",
+      "message": "Processed successfully, 59 songs found",
+      "timestamp": 1760661780.458934,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (TKs-1.pdf)",
+      "status": "PASS",
+      "message": "Processed successfully, 59 songs found",
+      "timestamp": 1760661782.4763489,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (hs.pdf)",
+      "status": "PASS",
+      "message": "Processed successfully, 59 songs found",
+      "timestamp": 1760661784.4495308,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (bs.pdf)",
+      "status": "PASS",
+      "message": "Processed successfully, 59 songs found",
+      "timestamp": 1760661786.335664,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (party.pdf)",
+      "status": "PASS",
+      "message": "Processed successfully, 59 songs found",
+      "timestamp": 1760661788.023603,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rr.pdf)",
+      "status": "PASS",
+      "message": "Processed successfully, 59 songs found",
+      "timestamp": 1760661789.6891918,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rough%20river%20july.pdf)",
+      "status": "PASS",
+      "message": "Processed successfully, 59 songs found",
+      "timestamp": 1760661791.316183,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (hs.pdf)",
+      "status": "PASS",
+      "message": "Processed successfully, 59 songs found",
+      "timestamp": 1760661793.3121002,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (bs.pdf)",
+      "status": "PASS",
+      "message": "Processed successfully, 59 songs found",
+      "timestamp": 1760661795.111084,
+      "details": {}
+    },
+    {
+      "test": "Song Mapping",
+      "status": "PASS",
+      "message": "Processed 0 title mappings",
+      "timestamp": 1760661795.138846,
+      "details": {}
+    },
+    {
+      "test": "Song Mapping",
+      "status": "PASS",
+      "message": "Processed 0 title mappings",
+      "timestamp": 1760661795.161613,
+      "details": {}
+    },
+    {
+      "test": "Song Mapping",
+      "status": "PASS",
+      "message": "Processed 0 title mappings",
+      "timestamp": 1760661795.192863,
+      "details": {}
+    },
+    {
+      "test": "Song Mapping",
+      "status": "PASS",
+      "message": "Processed 0 title mappings",
+      "timestamp": 1760661795.217655,
+      "details": {}
+    },
+    {
+      "test": "Song Mapping",
+      "status": "PASS",
+      "message": "Processed 0 title mappings",
+      "timestamp": 1760661795.2461681,
+      "details": {}
+    },
+    {
+      "test": "Song Mapping",
+      "status": "PASS",
+      "message": "Processed 0 title mappings",
+      "timestamp": 1760661795.269557,
+      "details": {}
+    },
+    {
+      "test": "Song Mapping",
+      "status": "PASS",
+      "message": "Processed 0 title mappings",
+      "timestamp": 1760661795.296833,
+      "details": {}
+    },
+    {
+      "test": "Song Mapping",
+      "status": "PASS",
+      "message": "Processed 0 title mappings",
+      "timestamp": 1760661795.3202171,
+      "details": {}
+    },
+    {
+      "test": "Song Mapping",
+      "status": "PASS",
+      "message": "Processed 0 title mappings",
+      "timestamp": 1760661795.3435872,
+      "details": {}
+    },
+    {
+      "test": "Song Mapping",
+      "status": "PASS",
+      "message": "Processed 0 title mappings",
+      "timestamp": 1760661795.367587,
+      "details": {}
+    },
+    {
+      "test": "Song Mapping",
+      "status": "PASS",
+      "message": "Processed 0 title mappings",
+      "timestamp": 1760661795.391809,
+      "details": {}
+    },
+    {
+      "test": "Song Mapping",
+      "status": "PASS",
+      "message": "Processed 0 title mappings",
+      "timestamp": 1760661795.414248,
+      "details": {}
+    },
+    {
+      "test": "Song Mapping",
+      "status": "PASS",
+      "message": "Processed 0 title mappings",
+      "timestamp": 1760661795.437113,
+      "details": {}
+    },
+    {
+      "test": "Archive - Get Data",
+      "status": "PASS",
+      "message": "Archive has 1 backups, 13 setlists, 13 downloads",
+      "timestamp": 1760661795.4425988,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (tmp7wnwwvpl.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/pdf_to_sections.py\\\", line 154, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/pdf_to_sections.py\\\", line 124, in main\",\"    text = extract_text_from_pdf(getattr(args, 'in'))\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/pdf_to_sections.py\\\", line 16, in extract_text_from_pdf\",\"    raise Exception(f\\\"pdftotext failed: {result.stderr}\\\")\",\"Exception: pdftotext failed: Syntax Warning: May not be a PDF file (continuing anyway)\",\"Syntax Error: Couldn't find trailer dictionary\",\"Syntax Error: Couldn't find trailer dictionary\",\"Syntax Error: Couldn't read xref table\",\"\"]}",
+      "timestamp": 1760661795.577871,
+      "details": {}
+    },
+    {
+      "test": "Error Handling - Invalid PDF",
+      "status": "PASS",
+      "message": "Correctly rejected invalid PDF",
+      "timestamp": 1760661795.577921,
+      "details": {}
+    },
+    {
+      "test": "Backup Upload (tmp8oex5ynr.sbpbackup)",
+      "status": "PASS",
+      "message": "Uploaded successfully, 0 songs found",
+      "timestamp": 1760661795.5830479,
+      "details": {}
+    },
+    {
+      "test": "Error Handling - Invalid Backup",
+      "status": "WARN",
+      "message": "Invalid backup accepted but with 0 songs (may be expected)",
+      "timestamp": 1760661795.583086,
+      "details": {}
+    },
+    {
+      "test": "Error Handling - Missing Headers",
+      "status": "PASS",
+      "message": "Correctly rejected request without headers",
+      "timestamp": 1760661795.585474,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (tmprxeqft64.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/pdf_to_sections.py\\\", line 154, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/pdf_to_sections.py\\\", line 124, in main\",\"    text = extract_text_from_pdf(getattr(args, 'in'))\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/pdf_to_sections.py\\\", line 16, in extract_text_from_pdf\",\"    raise Exception(f\\\"pdftotext failed: {result.stderr}\\\")\",\"Exception: pdftotext failed: Syntax Warning: May not be a PDF file (continuing anyway)\",\"Syntax Error: Couldn't find trailer dictionary\",\"Syntax Error: Couldn't find trailer dictionary\",\"Syntax Error: Couldn't read xref table\",\"\"]}",
+      "timestamp": 1760661796.285776,
+      "details": {}
+    },
+    {
+      "test": "Error Handling - Large File",
+      "status": "PASS",
+      "message": "Correctly handled large file",
+      "timestamp": 1760661796.285832,
+      "details": {}
+    }
+  ],
+  "defects": [
+    {
+      "test": "Frontend Connectivity",
+      "message": "Cannot connect to frontend: HTTPConnectionPool(host='localhost', port=3001): Max retries exceeded with url: / (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x10b2e7910>: Failed to establish a new connection: [Errno 61] Connection refused'))",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (tmp7wnwwvpl.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/pdf_to_sections.py\\\", line 154, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/pdf_to_sections.py\\\", line 124, in main\",\"    text = extract_text_from_pdf(getattr(args, 'in'))\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/pdf_to_sections.py\\\", line 16, in extract_text_from_pdf\",\"    raise Exception(f\\\"pdftotext failed: {result.stderr}\\\")\",\"Exception: pdftotext failed: Syntax Warning: May not be a PDF file (continuing anyway)\",\"Syntax Error: Couldn't find trailer dictionary\",\"Syntax Error: Couldn't find trailer dictionary\",\"Syntax Error: Couldn't read xref table\",\"\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (tmprxeqft64.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/pdf_to_sections.py\\\", line 154, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/pdf_to_sections.py\\\", line 124, in main\",\"    text = extract_text_from_pdf(getattr(args, 'in'))\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/pdf_to_sections.py\\\", line 16, in extract_text_from_pdf\",\"    raise Exception(f\\\"pdftotext failed: {result.stderr}\\\")\",\"Exception: pdftotext failed: Syntax Warning: May not be a PDF file (continuing anyway)\",\"Syntax Error: Couldn't find trailer dictionary\",\"Syntax Error: Couldn't find trailer dictionary\",\"Syntax Error: Couldn't read xref table\",\"\"]}",
+      "details": {}
+    }
+  ]
+}

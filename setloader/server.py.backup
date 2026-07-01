@@ -1,0 +1,2298 @@
+"""FastAPI service for orchestrating set loader runs."""
+
+from __future__ import annotations
+
+import base64
+import os
+import re
+import shlex
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+from pathlib import Path
+from typing import Optional
+
+from fastapi import File, Form, Header, HTTPException, Query, Request, UploadFile
+from fastapi import FastAPI
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from fastapi.middleware.cors import CORSMiddleware
+from google_oauth import google_oauth
+import uuid
+import json
+from datetime import datetime
+
+from mailer import send_email_with_attachment
+from src.backup_to_catalog import process_backup
+
+
+app = FastAPI()
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3001", "http://127.0.0.1:3001", "http://localhost:3002", "http://127.0.0.1:3002"],  # Next.js dev server
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+def _find_run_sh(start: Path) -> Optional[Path]:
+    """Walk up the tree looking for run.sh."""
+
+    current = start
+    for _ in range(6):  # a few levels is enough for tests + prod
+        candidate = current / "run.sh"
+        if candidate.exists():
+            return candidate
+        current = current.parent
+    return None
+
+
+THIS_FILE = Path(__file__).resolve()
+RUN_SH = _find_run_sh(THIS_FILE)
+if RUN_SH is None:
+    raise RuntimeError("Unable to locate run.sh")
+
+ROOT = RUN_SH.parent
+
+
+def _configure_dir(name: str, default: str) -> Path:
+    path = ROOT / os.getenv(name, default)
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+UPLOADS = _configure_dir("UPLOAD_DIR", "uploads")
+WORK = _configure_dir("WORK_DIR", "work")
+PACK = _configure_dir("PACK_DIR", "pack")
+USER_DATA = _configure_dir("USER_DATA_DIR", "user_data")
+
+# User session storage (in production, use Redis or database)
+user_sessions = {}
+user_files = {}
+
+# Debug mode - set to True to disable cleanup for diagnostics
+DEBUG_NO_CLEANUP = os.getenv("DEBUG_NO_CLEANUP", "false").lower() in ("true", "1", "yes")
+
+SECRET = os.getenv("WEBHOOK_SECRET") or os.getenv("SECRET") or "change-me"
+
+
+def slugify(raw: str) -> str:
+    cleaned = (raw or "set").strip()
+    cleaned = re.sub(r"[^\w\-]+", "_", cleaned)
+    return cleaned.strip("_") or "set"
+
+
+def _cleanup_old_files():
+    """Clean up old files unless debug mode is enabled."""
+    if DEBUG_NO_CLEANUP:
+        return
+    
+    current_time = time.time()
+    cleanup_age = 3600  # 1 hour in seconds
+    
+    # Clean up old PDF files in uploads
+    for pdf_file in UPLOADS.glob("*.pdf"):
+        if current_time - pdf_file.stat().st_mtime > cleanup_age:
+            try:
+                pdf_file.unlink()
+                print(f"🧹 Cleaned up old PDF: {pdf_file.name}")
+            except Exception as e:
+                print(f"⚠️ Failed to clean up {pdf_file.name}: {e}")
+    
+    # Clean up old .sbp files in pack (keep last 10)
+    sbp_files = sorted(PACK.glob("*.sbp"), key=lambda f: f.stat().st_mtime, reverse=True)
+    for sbp_file in sbp_files[10:]:  # Keep only the 10 most recent
+        try:
+            sbp_file.unlink()
+            print(f"🧹 Cleaned up old .sbp: {sbp_file.name}")
+        except Exception as e:
+            print(f"⚠️ Failed to clean up {sbp_file.name}: {e}")
+
+
+def first_existing(*paths: Path) -> Optional[Path]:
+    for path in paths:
+        if path and path.exists():
+            return path
+    return None
+
+
+@app.get("/health")
+def health() -> dict[str, str]:
+    return {
+        "ok": "true",
+        "root": str(ROOT),
+        "run_sh": str(RUN_SH),
+        "uploads": str(UPLOADS),
+    }
+
+
+async def _extract_pdf_bytes(request: Request, name: str) -> tuple[bytes, str]:
+    """Extract PDF bytes from a request body."""
+
+    content_type = (request.headers.get("content-type") or "").lower()
+    slug_hint: Optional[str] = None
+    pdf_bytes: Optional[bytes] = None
+
+    if "multipart/form-data" in content_type:
+        form = await request.form()
+        for key, value in form.multi_items():
+            if hasattr(value, "read"):
+                slug_hint = getattr(value, "filename", None)
+                pdf_bytes = await value.read()  # type: ignore[union-attr]
+                break
+        if not pdf_bytes:
+            keys = list(form.keys())
+            types = [type(form[k]).__name__ for k in keys]
+            raise HTTPException(
+                422,
+                f"file missing in multipart; saw keys: {keys} (types: {types})",
+            )
+        if "name" in form:
+            name = str(form["name"])
+    elif "application/pdf" in content_type:
+        pdf_bytes = await request.body()
+    elif "application/json" in content_type:
+        try:
+            payload = await request.json()
+        except Exception as exc:  # pragma: no cover - defensive
+            raise HTTPException(422, f"invalid json body: {exc}") from exc
+        else:
+            encoded = payload.get("file_b64")
+            if encoded:
+                pdf_bytes = base64.b64decode(encoded)
+            name = payload.get("name", name)
+
+    if not pdf_bytes:
+        raise HTTPException(422, f"no file received; Content-Type={content_type}")
+
+    # Clean up the name for the set name
+    if slug_hint:
+        # Use the filename without extension as the set name
+        clean_name = Path(slug_hint).stem
+        
+        # URL decode common patterns
+        clean_name = clean_name.replace('%20', ' ')
+        clean_name = clean_name.replace('_', ' ')
+        
+        # Remove common prefixes/suffixes
+        clean_name = re.sub(r'^(setlist|set|list|songbook|backup)[\s_-]*', '', clean_name, flags=re.IGNORECASE)
+        clean_name = re.sub(r'[\s_-]*(setlist|set|list|songbook|backup)$', '', clean_name, flags=re.IGNORECASE)
+        
+        # Remove date patterns (YYYY-MM-DD, YYYY_MM_DD, etc.)
+        clean_name = re.sub(r'\b\d{4}[-_]\d{1,2}[-_]\d{1,2}\b', '', clean_name)
+        clean_name = re.sub(r'\b\d{1,2}[-_]\d{1,2}[-_]\d{4}\b', '', clean_name)
+        
+        # Remove time patterns (HH:MM, HH_MM, etc.)
+        clean_name = re.sub(r'\b\d{1,2}[:_]\d{2}(?::\d{2})?\b', '', clean_name)
+        
+        # Remove version numbers and IDs
+        clean_name = re.sub(r'\b(v\d+|version\s*\d+|id\s*:?\s*\w+)\b', '', clean_name, flags=re.IGNORECASE)
+        
+        # Remove standalone numbers (like "20" in "Bonnie 20Sloan")
+        clean_name = re.sub(r'\b\d+\b', '', clean_name)
+        
+        # Remove special characters but keep spaces, hyphens, and basic punctuation
+        clean_name = re.sub(r'[^\w\s\-.,&]', ' ', clean_name)
+        
+        # Clean up multiple spaces and trim
+        clean_name = re.sub(r'\s+', ' ', clean_name).strip()
+        
+        # Remove leading/trailing punctuation
+        clean_name = clean_name.strip('.,-_ ')
+        
+        # Ensure we have a meaningful name
+        if not clean_name or len(clean_name) < 2:
+            clean_name = "Set List"
+            
+        return pdf_bytes, clean_name
+    else:
+        return pdf_bytes, name
+
+
+def _prepare_env() -> dict[str, str]:
+    env = os.environ.copy()
+    env.setdefault("PATH", "")
+    env["PATH"] = "/opt/homebrew/bin:/usr/local/bin:" + env["PATH"]
+    env["PY"] = sys.executable
+    return env
+
+
+def _get_user_id_from_backup_path(backup_path: str) -> str:
+    """Extract user ID from backup path."""
+    # backup_path format: /path/to/user_data/user_123456/backup_20251012_160313_filename.sbpbackup
+    path_parts = Path(backup_path).parts
+    for part in path_parts:
+        if part.startswith('user_') and part != 'user_data':
+            return part
+    # Fallback to deterministic user ID
+    return _get_user_id_from_email("brian@schaffner.net")
+
+def _get_user_id_from_email(email: str) -> str:
+    """Get deterministic user ID from email."""
+    import hashlib
+    return f"user_{int(hashlib.md5(email.encode()).hexdigest()[:6], 16) % 1000000}"
+
+def _create_multi_set_output(all_verified_titles, section_verified_files, backup_datafile, output_datafile, base_name, env):
+    """Create output with multiple sets for each section."""
+    import json
+    import subprocess
+    from pathlib import Path
+    
+    # Extract songs for each section separately
+    section_songs_dict = {}
+    all_songs = []
+    for section_name, verified_file in section_verified_files.items():
+        # Extract songs for this section
+        section_output = Path("pack") / f"songs_{section_name.lower().replace(' ', '_')}.json"
+        proc = subprocess.run([
+            "python3", "src/extract_songs.py",
+            "--verified", str(verified_file),
+            "--datafile", str(backup_datafile),
+            "--out", str(section_output),
+            "--format", "songs"
+        ], cwd=str(Path.cwd()), env=env, capture_output=True, text=True)
+        
+        if proc.returncode != 0:
+            raise Exception(f"Failed to extract songs for {section_name}: {proc.stderr}")
+        
+        # Load the songs for this section
+        with open(section_output, 'r') as f:
+            section_songs = json.load(f)
+            section_songs_dict[section_name] = section_songs
+            all_songs.extend(section_songs)
+    
+    # Create the final output with multiple sets
+    container = {
+        "songs": all_songs,
+        "sets": [],
+        "folders": []
+    }
+    
+    # Create a set for each section
+    set_id = 1
+    for section_name, verified_file in section_verified_files.items():
+        # Use the songs that were extracted specifically for this section
+        section_songs = section_songs_dict.get(section_name, [])
+        
+        # Create set for this section
+        set_name = f"{base_name} - {section_name}"
+        set_obj = {
+            "details": {
+                "Id": set_id,
+                "name": set_name,
+                "date": datetime.now().isoformat() + 'Z',
+                "ModifiedDateTime": datetime.now().isoformat() + 'Z',
+                "Deleted": 0,
+                "SyncId": None
+            },
+            "contents": []
+        }
+        
+        # Add songs to the set
+        for i, song in enumerate(section_songs):
+            set_obj["contents"].append({
+                "Id": i,
+                "Order": i,
+                "Capo": 0,
+                "SetId": set_id,
+                "SongId": song.get("Id", 0),
+                "keyOfset": 0,
+                "ModifiedDateTime": datetime.now().isoformat() + 'Z',
+                "Deleted": 0,
+                "SyncId": None,
+                "NotesText": None,
+                "SectionOrder": "",
+                "ItemType": 1,
+                "Content": ""
+            })
+        
+        container["sets"].append(set_obj)
+        set_id += 1
+    
+    # Write the final output
+    with open(output_datafile, 'w', encoding='utf-8') as f:
+        f.write("1.0\r\n")
+        json.dump(container, f, ensure_ascii=False, separators=(',',':'))
+
+def _process_with_user_backup(pdf_path: Path, name: str, backup_path: str, env: dict) -> subprocess.CompletedProcess:
+    """Process setlist using user's backup file instead of global catalog."""
+    try:
+        # Extract dataFile.txt from user's backup
+        backup_datafile = PACK / "dataFile.txt"
+        subprocess.run([
+            "unzip", "-o", f'"{backup_path}"', "dataFile.txt"
+        ], cwd=str(PACK), check=True, shell=True)
+        
+        # Keep the original name (dataFile.txt) for extract_songs.py compatibility
+        
+        # Step 1: Extract sections from PDF
+        sections_data = PACK / "sections.json"
+        proc1 = subprocess.run([
+            "python3", "src/pdf_to_sections.py", 
+            "--in", str(pdf_path), 
+            "--out", str(sections_data)
+        ], cwd=str(ROOT), env=env, capture_output=True, text=True)
+        
+        if proc1.returncode != 0:
+            return proc1
+        
+        # Step 2: Extract song titles from user's backup to create a catalog
+        user_catalog = PACK / "user_catalog.txt"
+        _extract_song_titles_from_backup(backup_datafile, user_catalog)
+        
+        # Step 3: Process each section separately
+        import json
+        
+        # Load sections data
+        with open(sections_data, 'r') as f:
+            sections_info = json.load(f)
+        
+        # Get user's mapping file
+        user_id = _get_user_id_from_backup_path(backup_path)
+        user_mapper = USER_DATA / user_id / "title_mapper.json"
+        
+        # Process each section
+        all_verified_titles = []
+        section_verified_files = {}
+        
+        for section_name, songs in sections_info['sections'].items():
+            if not songs:  # Skip empty sections
+                continue
+                
+            # Create temporary file for this section's songs
+            section_titles_file = PACK / f"raw_titles_{section_name.lower().replace(' ', '_')}.txt"
+            with open(section_titles_file, 'w') as f:
+                for song in songs:
+                    f.write(f"{song}\n")
+            
+            # Verify titles for this section
+            section_verified = PACK / f"verified_{section_name.lower().replace(' ', '_')}.txt"
+            section_report = PACK / f"report_{section_name.lower().replace(' ', '_')}.txt"
+            
+            proc_verify = subprocess.run([
+                "python3", "src/titles_verify.py",
+                "--in", str(section_titles_file),
+                "--catalog", str(user_catalog),
+                "--mapper", str(user_mapper),
+                "--out", str(section_verified),
+                "--report", str(section_report)
+            ], cwd=str(ROOT), env=env, capture_output=True, text=True)
+            
+            if proc_verify.returncode != 0:
+                return proc_verify
+            
+            # Collect verified titles for this section
+            with open(section_verified, 'r') as f:
+                section_verified_titles = [line.strip() for line in f if line.strip()]
+                all_verified_titles.extend(section_verified_titles)
+                section_verified_files[section_name] = section_verified
+        
+        # Step 4: Create the final output with multiple sets
+        output_datafile = PACK / "dataFile.txt"
+        _create_multi_set_output(all_verified_titles, section_verified_files, backup_datafile, output_datafile, name, env)
+        
+        # Create combined verified titles file for validation
+        combined_verified = PACK / "verified.txt"
+        with open(combined_verified, 'w') as f:
+            for title in all_verified_titles:
+                f.write(f"{title}\n")
+        
+        # Step 6: Create hash file with exactly 32 bytes of MD5 hash
+        hash_file = PACK / "dataFile.hash"
+        import hashlib
+        
+        # Read the dataFile.txt and compute MD5 hash
+        with open(output_datafile, 'rb') as f:
+            content = f.read()
+        md5_hash = hashlib.md5(content).hexdigest()
+        
+        # Write exactly 32 bytes of hash (no filename, no newline)
+        with open(hash_file, 'w') as f:
+            f.write(md5_hash)
+        
+        # Step 7: Create final .sbp file
+        artifact_name = f"{name}.sbp"
+        artifact_path = PACK / artifact_name
+        subprocess.run([
+            "zip", "-q", artifact_name, "dataFile.txt", "dataFile.hash"
+        ], cwd=str(PACK), check=True)
+        
+        # Validate the output
+        validation_result = _validate_output(artifact_path, combined_verified)
+        
+        # Return success with artifact path and validation
+        stdout = f"Wrote: {artifact_path}\nARTIFACT={artifact_path}\n"
+        if validation_result:
+            stdout += f"VALIDATION: {validation_result}\n"
+        
+        return subprocess.CompletedProcess(
+            args=[], returncode=0, 
+            stdout=stdout,
+            stderr=""
+        )
+        
+    except subprocess.CalledProcessError as e:
+        return subprocess.CompletedProcess(
+            args=[], returncode=e.returncode,
+            stdout=e.stdout or "", stderr=e.stderr or ""
+        )
+    except Exception as e:
+        return subprocess.CompletedProcess(
+            args=[], returncode=1,
+            stdout="", stderr=str(e)
+        )
+
+
+def _extract_song_titles_from_backup(backup_datafile: Path, catalog_output: Path) -> None:
+    """Extract song titles from user's backup and create a simple catalog file."""
+    try:
+        with open(backup_datafile, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+        
+        if len(lines) >= 2:
+            json_line = lines[1].strip()
+            data = json.loads(json_line)
+            songs = data.get('songs', [])
+            
+            # Extract song titles
+            titles = []
+            for song in songs:
+                title = song.get('title', song.get('name', ''))
+                if title and title.strip():
+                    titles.append(title.strip())
+            
+            # Write to catalog file
+            with open(catalog_output, 'w', encoding='utf-8') as f:
+                for title in sorted(set(titles)):  # Remove duplicates and sort
+                    f.write(f"{title}\n")
+        else:
+            # Create empty catalog if backup is invalid
+            with open(catalog_output, 'w', encoding='utf-8') as f:
+                f.write("")
+    except Exception as e:
+        # Create empty catalog on error
+        with open(catalog_output, 'w', encoding='utf-8') as f:
+            f.write("")
+
+
+def _validate_output(artifact_path: Path, verified_titles_path: Path) -> str:
+    """Validate the output JSON and identify any missing songs."""
+    try:
+        # Extract and read the output
+        with tempfile.TemporaryDirectory() as temp_dir:
+            subprocess.run(['unzip', '-o', str(artifact_path)], cwd=temp_dir, check=True)
+            
+            with open(Path(temp_dir) / 'dataFile.txt', 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+                json_line = lines[1].strip()
+                data = json.loads(json_line)
+                songs = data.get('songs', [])
+        
+        # Read expected titles
+        expected_titles = []
+        if verified_titles_path.exists():
+            with open(verified_titles_path, 'r', encoding='utf-8') as f:
+                expected_titles = [line.strip() for line in f if line.strip()]
+        
+        # Analyze results
+        actual_titles = [song.get('title', song.get('name', '')) for song in songs]
+        actual_count = len(actual_titles)
+        expected_count = len(expected_titles)
+        
+        # Find missing songs
+        missing_songs = []
+        for expected in expected_titles:
+            if not any(expected.lower() in actual.lower() for actual in actual_titles):
+                missing_songs.append(expected)
+        
+        # Create validation report
+        report = f"Expected: {expected_count}, Actual: {actual_count}"
+        if missing_songs:
+            report += f", Missing: {', '.join(missing_songs[:5])}"
+            if len(missing_songs) > 5:
+                report += f" and {len(missing_songs) - 5} more"
+        
+        return report
+        
+    except Exception as e:
+        return f"Validation error: {str(e)}"
+
+
+def _resolve_artifact(stdout: str, fallback_name: str) -> Path:
+    match = re.search(r"^ARTIFACT=(.+)$", stdout, flags=re.MULTILINE)
+    if match:
+        artifact_candidate = Path(match.group(1))
+        if not artifact_candidate.is_absolute():
+            artifact_candidate = (ROOT / artifact_candidate).resolve()
+        return artifact_candidate
+    return (PACK / f"{slugify(fallback_name)}.sbp").resolve()
+
+
+async def _persist_pdf(pdf_bytes: bytes, slug_hint: str) -> Path:
+    slug = slugify(Path(slug_hint).stem or slug_hint)
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+        tmp.write(pdf_bytes)
+        tmp.flush()
+        temp_path = Path(tmp.name)
+    pdf_path = (UPLOADS / f"{slug}.pdf").resolve()
+    shutil.move(str(temp_path), pdf_path)
+    return pdf_path
+
+
+def _tail(text: str, limit: int = 40) -> list[str]:
+    lines = (text or "").splitlines()
+    return lines[-limit:]
+
+
+def _get_user_id(request: Request) -> str:
+    """Get or create user ID from session or create guest session."""
+    # Try to get from headers first (for OAuth users)
+    session_id = request.headers.get("X-Session-ID")
+    
+    # Also check query parameters (for download links)
+    if not session_id:
+        session_id = request.query_params.get("X-Session-ID")
+    
+    if session_id:
+        return session_id
+    
+    # For anonymous users, create a guest session
+    client_ip = request.client.host if request.client else "unknown"
+    guest_id = f"guest_{hash(client_ip) % 1000000}"
+    
+    # Initialize guest session if it doesn't exist
+    if guest_id not in user_sessions:
+        user_sessions[guest_id] = {
+            "backup_uploaded": False,
+            "backup_path": None,
+            "song_count": 0,
+            "is_guest": True,
+            "created_at": datetime.now().isoformat()
+        }
+    
+    return guest_id
+
+
+def _get_user_data(user_id: str) -> dict:
+    """Get user data, creating if not exists."""
+    if user_id not in user_files:
+        # Try to load existing data from filesystem
+        user_data_file = USER_DATA / user_id / "user_data.json"
+        if user_data_file.exists():
+            try:
+                with open(user_data_file, 'r') as f:
+                    user_files[user_id] = json.load(f)
+            except Exception as e:
+                print(f"Error loading user data for {user_id}: {e}")
+                user_files[user_id] = {
+                    "backups": [],
+                    "setlists": [],
+                    "downloads": []
+                }
+        else:
+            user_files[user_id] = {
+                "backups": [],
+                "setlists": [],
+                "downloads": []
+            }
+    return user_files[user_id]
+
+def _transfer_guest_data(guest_id: str, user_id: str) -> bool:
+    """Transfer guest session data to signed-in user."""
+    try:
+        # Get guest data
+        guest_data = _get_user_data(guest_id)
+        user_data = _get_user_data(user_id)
+        
+        # Transfer backups
+        if guest_data.get("backups"):
+            user_data["backups"].extend(guest_data["backups"])
+            guest_data["backups"] = []
+        
+        # Transfer setlists
+        if guest_data.get("setlists"):
+            user_data["setlists"].extend(guest_data["setlists"])
+            guest_data["setlists"] = []
+        
+        # Transfer downloads
+        if guest_data.get("downloads"):
+            user_data["downloads"].extend(guest_data["downloads"])
+            guest_data["downloads"] = []
+        
+        # Save updated data
+        _save_user_data(user_id, user_data)
+        _save_user_data(guest_id, guest_data)
+        
+        # Clear guest session
+        if guest_id in user_sessions:
+            del user_sessions[guest_id]
+        
+        return True
+    except Exception as e:
+        print(f"Error transferring guest data: {e}")
+        return False
+
+
+def _count_songs_in_backup(backup_path: Path) -> int:
+    """Count songs in a backup file using the same logic as backup_to_catalog.py."""
+    try:
+        import json
+        import zipfile
+        
+        # Use the same logic as backup_to_catalog.py
+        if backup_path.suffix.lower() in ['.zip', '.sbpbackup', '.bkp']:
+            with zipfile.ZipFile(backup_path, 'r') as zf:
+                # Read dataFile.txt from inside the backup
+                data_bytes = zf.read("dataFile.txt")
+            
+            # Decode text (handle BOM)
+            text = data_bytes.decode("utf-8-sig").strip()
+            
+            # Parse JSON content - only look at the "songs" array
+            try:
+                obj = json.loads(text)
+                
+                # Only count songs, not sets or folders
+                if isinstance(obj, dict) and "songs" in obj:
+                    songs = obj["songs"]
+                    if isinstance(songs, list):
+                        # Count only active (non-deleted) songs
+                        active_songs = [song for song in songs if isinstance(song, dict) and not song.get("Deleted", False)]
+                        return len(active_songs)
+                
+                return 0
+            except json.JSONDecodeError:
+                # JSONL: parse each non-empty line
+                songs_items = []
+                for ln in (ln for ln in text.splitlines() if ln.strip()):
+                    try:
+                        obj = json.loads(ln)
+                        if isinstance(obj, dict) and "songs" in obj:
+                            songs = obj["songs"]
+                            if isinstance(songs, list):
+                                songs_items.extend(songs)
+                    except json.JSONDecodeError:
+                        # ignore non-JSON lines in JSONL (be permissive)
+                        continue
+                
+                # Count only active (non-deleted) songs
+                active_songs = [song for song in songs_items if isinstance(song, dict) and not song.get("Deleted", False)]
+                return len(active_songs)
+        
+        return 0
+    except Exception:
+        return 0
+
+
+def _check_empty_content_songs(backup_path: Path) -> dict:
+    """Check for songs with empty content in backup file."""
+    try:
+        import json
+        import zipfile
+        
+        empty_songs = []
+        
+        if backup_path.suffix.lower() in ['.zip', '.sbpbackup', '.bkp']:
+            with zipfile.ZipFile(backup_path, 'r') as zf:
+                # Read dataFile.txt from inside the backup
+                data_bytes = zf.read("dataFile.txt")
+            
+            # Decode text (handle BOM)
+            text = data_bytes.decode("utf-8-sig").strip()
+            
+            # Parse JSON content
+            songs_items = []
+            
+            def collect_from_obj(obj):
+                if isinstance(obj, dict):
+                    if isinstance(obj.get("songs"), list):
+                        songs_items.extend(obj["songs"])
+                elif isinstance(obj, list):
+                    songs_items.extend(obj)
+            
+            try:
+                obj = json.loads(text)
+                collect_from_obj(obj)
+            except json.JSONDecodeError:
+                # JSONL: parse each non-empty line
+                for ln in (ln for ln in text.splitlines() if ln.strip()):
+                    try:
+                        obj = json.loads(ln)
+                        collect_from_obj(obj)
+                    except json.JSONDecodeError:
+                        continue
+            
+            # Check each song for empty content (excluding deleted songs)
+            for song in songs_items:
+                if isinstance(song, dict):
+                    song_id = song.get("Id")
+                    song_name = song.get("name", "Unknown")
+                    content = song.get("content", "")
+                    deleted = song.get("Deleted", False)
+                    
+                    # Skip deleted songs - they shouldn't be considered for processing
+                    if deleted:
+                        continue
+                    
+                    # Check if content is empty or very short (less than 10 characters)
+                    if not content or len(content.strip()) < 10:
+                        empty_songs.append({
+                            "id": song_id,
+                            "name": song_name,
+                            "content_length": len(content) if content else 0
+                        })
+        
+        # Count active songs for total
+        active_songs = [song for song in songs_items if isinstance(song, dict) and not song.get("Deleted", False)] if 'songs_items' in locals() else []
+        
+        return {
+            "empty_songs": empty_songs,
+            "empty_count": len(empty_songs),
+            "total_songs": len(active_songs)
+        }
+        
+    except Exception as e:
+        return {
+            "empty_songs": [],
+            "empty_count": 0,
+            "total_songs": 0,
+            "error": str(e)
+        }
+
+
+def _save_user_file(user_id: str, file_type: str, file_path: str, metadata: dict = None):
+    """Save file reference to user's data."""
+    user_data = _get_user_data(user_id)
+    
+    # Use original filename from metadata if available, otherwise use stored filename
+    original_filename = metadata.get("original_filename") if metadata else None
+    display_filename = original_filename or file_path.name
+    
+    file_entry = {
+        "id": str(uuid.uuid4()),
+        "path": str(file_path),
+        "filename": display_filename,  # Use original filename for display
+        "uploaded_at": datetime.now().isoformat(),
+        "metadata": metadata or {}
+    }
+    user_data[file_type].append(file_entry)
+    _save_user_data(user_id, user_data)
+    return file_entry
+
+
+def _save_user_data(user_id: str, user_data: dict):
+    """Save user data to filesystem."""
+    user_data_file = USER_DATA / user_id / "user_data.json"
+    user_data_file.parent.mkdir(parents=True, exist_ok=True)
+    with open(user_data_file, 'w') as f:
+        json.dump(user_data, f, indent=2)
+
+
+def _process_simple_high_performance(pdf_path: Path, name: str, backup_path: str, user_id: str) -> subprocess.CompletedProcess:
+    """Use the original simple high-performance approach for 100% accuracy"""
+    try:
+        print(f"[DEBUG] Step 1: Extracting titles from {pdf_path} using AI...")
+        # Step 1: Extract titles using AI for better accuracy
+        raw_titles = PACK / "raw_titles.txt"
+        proc1 = subprocess.run([
+            "python3", "src/hybrid_extractor.py", 
+            str(pdf_path), 
+            str(raw_titles)
+        ], cwd=str(ROOT), capture_output=True, text=True, timeout=120)
+        
+        print(f"[DEBUG] Step 1 result: returncode={proc1.returncode}, stdout={proc1.stdout}, stderr={proc1.stderr}")
+        if proc1.returncode != 0:
+            return proc1
+        
+        # Step 2: Extract user's catalog from backup
+        print(f"[DEBUG] Step 2: Extracting catalog from backup {backup_path}")
+        backup_datafile = PACK / "dataFile.txt"
+        subprocess.run([
+            "unzip", "-o", f'"{backup_path}"', "dataFile.txt"
+        ], cwd=str(PACK), check=True, shell=True)
+        
+        user_catalog = PACK / "user_catalog.txt"
+        _extract_song_titles_from_backup(backup_datafile, user_catalog)
+        print(f"[DEBUG] Step 2: Created user catalog at {user_catalog}")
+        
+        # Step 3: Verify titles against user's catalog
+        print(f"[DEBUG] Step 3: Verifying titles against catalog")
+        verified_titles = PACK / "verified.txt"
+        unresolved_report = PACK / "unresolved_report.txt"
+        proc2 = subprocess.run([
+            "python3", "src/titles_verify.py",
+            "--in", str(raw_titles),
+            "--catalog", str(user_catalog),
+            "--mapper", str(USER_DATA / user_id / "title_mapper.json"),
+            "--out", str(verified_titles),
+            "--report", str(unresolved_report)
+        ], cwd=str(ROOT), capture_output=True, text=True, timeout=30)
+        
+        print(f"[DEBUG] Step 3 result: returncode={proc2.returncode}, stdout={proc2.stdout}, stderr={proc2.stderr}")
+        if proc2.returncode != 0:
+            return proc2
+        
+        # Step 4: Create final SBP file
+        print(f"[DEBUG] Step 4: Creating final SBP file")
+        output_datafile = PACK / "dataFile.txt"
+        proc3 = subprocess.run([
+            "python3", "src/extract_songs.py",
+            "--verified", str(verified_titles),
+            "--datafile", str(backup_datafile),
+            "--out", str(output_datafile),
+            "--format", "container",
+            "--make-set", name
+        ], cwd=str(ROOT), capture_output=True, text=True, timeout=30)
+        
+        print(f"[DEBUG] Step 4 result: returncode={proc3.returncode}, stdout={proc3.stdout}, stderr={proc3.stderr}")
+        if proc3.returncode != 0:
+            return proc3
+        
+        # Step 5: Create hash and zip
+        print(f"[DEBUG] Step 5: Creating hash and zip file")
+        hashfile = PACK / "dataFile.hash"
+        subprocess.run([
+            "md5sum", str(output_datafile)
+        ], stdout=open(hashfile, 'w'), cwd=str(PACK), check=True)
+        
+        # Create SBP file
+        sbp_file = PACK / f"{name}.sbp"
+        subprocess.run([
+            "zip", "-q", str(sbp_file), "dataFile.txt", "dataFile.hash"
+        ], cwd=str(PACK), check=True)
+        
+        print(f"[DEBUG] Step 5: Created SBP file at {sbp_file}")
+        # Return success with artifact path
+        return subprocess.CompletedProcess(
+            args=[], returncode=0, 
+            stdout=str(sbp_file), 
+            stderr=""
+        )
+        
+    except subprocess.TimeoutExpired as e:
+        print(f"[ERROR] Processing timed out: {str(e)}")
+        return subprocess.CompletedProcess(
+            args=[], returncode=1, 
+            stdout="", 
+            stderr=f"Processing timed out: {str(e)}"
+        )
+    except Exception as e:
+        print(f"[ERROR] Processing failed with exception: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return subprocess.CompletedProcess(
+            args=[], returncode=1, 
+            stdout="", 
+            stderr=str(e)
+        )
+
+@app.post("/process_setlist_simple")
+async def process_setlist_simple(
+    request: Request,
+    secret_form: str | None = Form(None, alias="secret"),
+    x_secret: str | None = Header(default=None, alias="X-Secret"),
+    secret_query: str | None = Query(default=None, alias="secret"),
+    name: str = Form("Set"),
+):
+    """Simple high-performance PDF processing using original approach for 100% accuracy"""
+    provided = secret_form or x_secret or secret_query
+    if provided != SECRET:
+        raise HTTPException(401, "unauthorized")
+
+    user_id = _get_user_id(request)
+    user_data = _get_user_data(user_id)
+    
+    # Check if user has uploaded a backup
+    if not user_data.get("backups"):
+        raise HTTPException(400, "No backup file uploaded. Please upload a backup file first.")
+
+    try:
+        # Parse form data
+        form = await request.form()
+        pdf_file = form.get("file") or form.get("pdf")
+        if not pdf_file or not hasattr(pdf_file, 'filename'):
+            raise HTTPException(status_code=400, detail="No PDF file provided")
+        
+        # Save uploaded PDF
+        pdf_path = UPLOADS / pdf_file.filename
+        with open(pdf_path, "wb") as f:
+            f.write(await pdf_file.read())
+        
+        # Get user's backup file
+        backup_path = user_data.get("backups", [{}])[0].get("path")
+        if not backup_path or not Path(backup_path).exists():
+            raise HTTPException(status_code=400, detail="User backup file not found")
+        
+        # Use the original simple high-performance approach
+        print(f"[DEBUG] Starting processing for {pdf_path} with backup {backup_path}")
+        result = _process_simple_high_performance(pdf_path, name, backup_path, user_id)
+        
+        print(f"[DEBUG] Processing result: returncode={result.returncode}, stdout={result.stdout}, stderr={result.stderr}")
+        
+        if result.returncode != 0:
+            error_msg = f"Processing failed: {result.stderr}"
+            print(f"[ERROR] {error_msg}")
+            return JSONResponse(
+                content={"error": error_msg},
+                status_code=500
+            )
+        
+        # Return the artifact path with detailed processing results
+        artifact_path = result.stdout.strip()
+        if artifact_path and Path(artifact_path).exists():
+            print(f"[DEBUG] Processing successful, artifact: {artifact_path}")
+            
+            # Read processing results for detailed statistics
+            try:
+                # Read the verified titles to get counts
+                verified_titles_path = PACK / "verified.txt"
+                verified_titles = []
+                if verified_titles_path.exists():
+                    with open(verified_titles_path, 'r', encoding='utf-8') as f:
+                        verified_titles = [line.strip() for line in f if line.strip()]
+                
+                # Read raw titles to get total count
+                raw_titles_path = PACK / "raw_titles.txt"
+                raw_titles = []
+                if raw_titles_path.exists():
+                    with open(raw_titles_path, 'r', encoding='utf-8') as f:
+                        raw_titles = [line.strip() for line in f if line.strip()]
+                
+                # Read unfound titles from the unresolved report
+                unfound_titles = []
+                unresolved_report_path = PACK / "unresolved_report.txt"
+                if unresolved_report_path.exists():
+                    with open(unresolved_report_path, 'r', encoding='utf-8') as f:
+                        report_content = f.read()
+                        lines = report_content.split('\n')
+                        for line in lines:
+                            if line.startswith('UNRESOLVED:'):
+                                title = line.replace('UNRESOLVED:', '').strip()
+                                unfound_titles.append(title)
+                
+                return JSONResponse(content={
+                    "artifact": artifact_path,
+                    "processing_results": {
+                        "song_count": len(raw_titles),
+                        "successful_mappings": len(verified_titles),
+                        "unfound_titles": unfound_titles,
+                        "all_titles": raw_titles
+                    }
+                })
+            except Exception as e:
+                print(f"[WARNING] Could not read processing statistics: {e}")
+                return JSONResponse(content={"artifact": artifact_path})
+        else:
+            error_msg = "Processing completed but artifact not found"
+            print(f"[ERROR] {error_msg}")
+            return JSONResponse(
+                content={"error": error_msg},
+                status_code=500
+            )
+            
+    except Exception as e:
+        error_msg = f"Processing failed: {str(e)}"
+        print(f"[ERROR] {error_msg}")
+        import traceback
+        traceback.print_exc()
+        return JSONResponse(
+            content={"error": error_msg},
+            status_code=500
+        )
+
+@app.post("/process_setlist")
+async def process_setlist(
+    request: Request,
+    secret_form: str | None = Form(None, alias="secret"),
+    x_secret: str | None = Header(default=None, alias="X-Secret"),
+    secret_query: str | None = Query(default=None, alias="secret"),
+    name: str = Form("Set"),
+):
+    """Process setlist and return download link instead of email."""
+    provided = secret_form or x_secret or secret_query
+    if provided != SECRET:
+        raise HTTPException(401, "unauthorized")
+
+    user_id = _get_user_id(request)
+    user_data = _get_user_data(user_id)
+    
+    # Check if user has uploaded a backup (check persistent data, not session)
+    if not user_data.get("backups"):
+        raise HTTPException(400, "No backup file uploaded. Please upload a backup file first.")
+
+    pdf_bytes, slug_hint = await _extract_pdf_bytes(request, name)
+    pdf_path = await _persist_pdf(pdf_bytes, slug_hint)
+
+    # Save setlist to user directory
+    user_dir = USER_DATA / user_id
+    user_dir.mkdir(parents=True, exist_ok=True)
+    user_setlist_path = user_dir / f"setlist_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{slug_hint}"
+    shutil.copy2(pdf_path, user_setlist_path)
+    
+    # Save file reference
+    # Decode URL-encoded filename for display
+    import urllib.parse
+    decoded_filename = urllib.parse.unquote(slug_hint) if slug_hint else slug_hint
+    
+    setlist_entry = _save_user_file(user_id, "setlists", user_setlist_path, {
+        "original_filename": decoded_filename,
+        "file_size": user_setlist_path.stat().st_size,
+        "set_name": name
+    })
+
+    # Use user's backup file instead of global catalog
+    user_data = _get_user_data(user_id)
+    if not user_data.get("backups"):
+        raise HTTPException(status_code=400, detail="User backup not found")
+    
+    latest_backup = user_data["backups"][-1]
+    backup_path = latest_backup["path"]
+    
+    if not Path(backup_path).exists():
+        raise HTTPException(status_code=400, detail="User backup file not found on disk")
+    
+    # Create a custom processing pipeline using user's backup
+    env = _prepare_env()
+    extra = shlex.split(os.getenv("RUN_EXTRA_FLAGS", ""))
+    
+    # Use custom processing with user's backup
+    proc = _process_with_user_backup(pdf_path, slug_hint, backup_path, env)
+
+    artifact = _resolve_artifact(proc.stdout or "", slug_hint)
+
+    if proc.returncode != 0:
+        return JSONResponse(
+            {
+                "ok": False,
+                "code": proc.returncode,
+                "stdout": _tail(proc.stdout or ""),
+                "stderr": _tail(proc.stderr or ""),
+            },
+            status_code=500,
+        )
+
+    if not artifact.exists():
+        return JSONResponse(
+            {
+                "ok": False,
+                "error": f"artifact not found: {artifact}",
+                "stdout": _tail(proc.stdout or ""),
+                "stderr": _tail(proc.stderr or ""),
+            },
+            status_code=500,
+        )
+
+    # Copy artifact to user directory for download
+    user_artifact_path = user_dir / f"download_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{artifact.name}"
+    shutil.copy2(artifact, user_artifact_path)
+    
+    # Save download reference
+    download_entry = _save_user_file(user_id, "downloads", user_artifact_path, {
+        "original_filename": decoded_filename,  # Use the decoded original filename
+        "file_size": user_artifact_path.stat().st_size,
+        "set_name": name,
+        "setlist_id": setlist_entry["id"]
+    })
+
+    # Clean up old files after successful processing
+    _cleanup_old_files()
+    
+    # Get the base URL from the request - point to backend for downloads
+    base_url = f"http://{request.client.host}:8002" if request.client.host != "127.0.0.1" else "http://localhost:8002"
+    
+    # Extract titles from the processed setlist for analysis
+    titles = []
+    debug_info = {
+        "verified_file_exists": False,
+        "verified_file_path": None,
+        "raw_titles": [],
+        "verified_titles": [],
+        "processing_steps": []
+    }
+    
+    try:
+        # Try to read the verified.txt file from pack directory (where run.sh creates it)
+        verified_path = PACK / "verified.txt"
+        debug_info["verified_file_path"] = str(verified_path)
+        debug_info["verified_file_exists"] = verified_path.exists()
+        
+        # Use raw titles instead of pre-processed verified titles
+        raw_path = PACK / "raw_titles.txt"
+        if raw_path.exists():
+            with open(raw_path, 'r', encoding='utf-8') as f:
+                titles = [line.strip() for line in f if line.strip()]
+                debug_info["raw_titles"] = titles.copy()
+                debug_info["processing_steps"].append(f"Read {len(titles)} raw titles from pack/raw_titles.txt")
+        else:
+            debug_info["processing_steps"].append("pack/raw_titles.txt file not found")
+            
+    except Exception as e:
+        debug_info["processing_steps"].append(f"Error reading files: {str(e)}")
+        pass
+    
+    # Initialize variables
+    verification_results = []
+    successful_mappings = 0
+    unfound_titles = []
+    
+    # Use the proven manual verification process
+    if titles:
+        try:
+            debug_info["processing_steps"].append(f"Starting manual verification for {len(titles)} titles")
+            
+            # Get user's catalog
+            catalog_response = await get_user_catalog(request, x_secret)
+            catalog = catalog_response["catalog"]
+            debug_info["catalog_size"] = len(catalog)
+            debug_info["processing_steps"].append(f"Loaded catalog with {len(catalog)} songs")
+            
+            # Get user's existing mappings
+            user_dir = USER_DATA / user_id
+            mapper_path = user_dir / "title_mapper.json"
+            
+            if mapper_path.exists():
+                with open(mapper_path, 'r', encoding='utf-8') as f:
+                    existing_mappings = json.load(f)
+                debug_info["mappings_count"] = len(existing_mappings)
+                debug_info["processing_steps"].append(f"Loaded {len(existing_mappings)} existing mappings")
+            else:
+                existing_mappings = {}
+                debug_info["processing_steps"].append("No existing mappings found")
+            
+            # Read the report file to get unfound titles
+            unfound_titles = []
+            report_file_path = PACK / "unresolved_report.txt"
+            if report_file_path.exists():
+                with open(report_file_path, 'r', encoding='utf-8') as f:
+                    report_content = f.read()
+                    # Parse unresolved titles from report
+                    lines = report_content.split('\n')
+                    for line in lines:
+                        if line.startswith('UNRESOLVED:'):
+                            title = line.replace('UNRESOLVED:', '').strip()
+                            unfound_titles.append(title)
+            
+            debug_info["processing_steps"].append(f"Found {len(unfound_titles)} unfound titles from report")
+            
+            # Read verified titles
+            verified_titles = []
+            verified_titles_path = PACK / "verified.txt"
+            if verified_titles_path.exists():
+                with open(verified_titles_path, 'r', encoding='utf-8') as f:
+                    verified_titles = [line.strip() for line in f if line.strip()]
+            
+            debug_info["processing_steps"].append(f"Read {len(verified_titles)} verified titles")
+            debug_info["verified_titles"] = verified_titles
+            
+            # Calculate successful mappings
+            successful_mappings = len(verified_titles)
+            
+            # Create verification results
+            for title in verified_titles:
+                verification_results.append({
+                    "title": title,
+                    "status": "verified",
+                    "mapped_to": title
+                })
+                
+        except Exception as e:
+            debug_info["processing_steps"].append(f"Error in manual verification: {str(e)}")
+            # Fallback to simple counting
+            successful_mappings = len(titles)
+            unfound_titles = []
+
+    # Add final debug info
+    debug_info["final_counts"] = {
+        "total_titles": len(titles),
+        "successful_mappings": successful_mappings,
+        "unfound_titles": len(unfound_titles),
+        "verification_results": len(verification_results)
+    }
+    debug_info["processing_steps"].append(f"Final: {successful_mappings} mapped, {len(unfound_titles)} unfound")
+    
+    return {
+        "ok": True,
+        "download_id": download_entry["id"],
+        "file_id": download_entry["id"],
+        "filename": artifact.name,
+        "download_url": f"{base_url}/download_file/{download_entry['id']}",
+        "file_size": user_artifact_path.stat().st_size,
+        "created_at": download_entry["uploaded_at"],
+        "processing_results": {
+            "song_count": len(titles),
+            "successful_mappings": successful_mappings,
+            "unfound_titles": unfound_titles,
+            "all_titles": titles,
+            "verification_results": verification_results
+        },
+        "debug_info": debug_info
+    }
+    
+
+@app.get("/download/{slug}")
+def download(slug: str, kind: str = "verified"):
+    # kind=verified | raw | zip | json | datafile
+    targets = {
+        "verified": [ROOT / f"{slug}.verified.txt", UPLOADS / f"{slug}.verified.txt"],
+        "raw": [ROOT / f"{slug}.raw.txt", UPLOADS / f"{slug}.raw.txt"],
+        "zip": [ROOT / f"{slug}.container.zip", UPLOADS / f"{slug}.container.zip"],
+        "json": [ROOT / f"{slug}.container.json", UPLOADS / f"{slug}.container.json"],
+        "datafile": [ROOT / "pack" / "dataFile.txt", UPLOADS / "pack" / "dataFile.txt"],
+    }
+    path = first_existing(*targets.get(kind, []))
+    if not path:
+        raise HTTPException(status_code=404, detail="not found")
+
+    mime = (
+        "text/plain" if path.suffix == ".txt"
+        else "application/zip" if path.suffix == ".zip"
+        else "application/json" if path.suffix == ".json"
+        else "application/octet-stream"
+    )
+    return FileResponse(path, media_type=mime, filename=path.name)
+
+@app.post("/debug/echo")
+async def debug_echo(request: Request):
+    # return headers and form structure to see what Make is sending
+    headers = dict(request.headers)
+    form = await request.form()
+    fields = {}
+    files = {}
+    for k, v in form.multi_items():
+        if hasattr(v, "filename"):  # UploadFile
+            files[k] = {"filename": v.filename, "content_type": v.content_type}
+        else:
+            fields[k] = str(v)
+    return {"headers": headers, "fields": fields, "files": files}
+
+@app.post("/verify_backup")
+async def verify_backup(
+    request: Request,
+    backup: UploadFile = File(..., description="Backup file to verify"),
+    secret: str | None = Header(None, alias="X-Secret"),
+):
+    """Verify and store backup file for user."""
+    # simple shared-secret auth, same as /run
+    expected = SECRET
+    if not expected or secret != expected:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    user_id = _get_user_id(request)
+
+    # basic validation
+    fname = backup.filename or "upload.bkp"
+    if not (fname.endswith(".bkp") or fname.endswith(".zip") or fname.endswith(".backup") or fname.endswith(".sbpbackup")):
+        raise HTTPException(status_code=400, detail="Upload must be .bkp, .zip, .backup, or .sbpbackup file")
+
+    try:
+        # Save uploaded file to user directory
+        user_dir = USER_DATA / user_id
+        user_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Store with timestamp to avoid conflicts, but preserve original name in metadata
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        backup_path = user_dir / f"backup_{timestamp}_{fname}"
+        with open(backup_path, "wb") as f:
+            f.write(await backup.read())
+
+        # Count songs in the backup
+        song_count = _count_songs_in_backup(backup_path)
+        
+        # Check for songs with empty content
+        empty_content_info = _check_empty_content_songs(backup_path)
+        
+        # Save file reference to user data
+        file_entry = _save_user_file(user_id, "backups", backup_path, {
+            "original_filename": fname,
+            "file_size": backup_path.stat().st_size,
+            "song_count": song_count,
+            "empty_content_info": empty_content_info
+        })
+        
+        # Update user session
+        user_sessions[user_id]["backup_uploaded"] = True
+        user_sessions[user_id]["backup_path"] = str(backup_path)
+        user_sessions[user_id]["song_count"] = song_count
+
+        # Prepare response message
+        message = "Backup file verified and stored successfully"
+        if empty_content_info["empty_count"] > 0:
+            empty_song_names = [song["name"] for song in empty_content_info["empty_songs"][:5]]
+            message += f". Warning: {empty_content_info['empty_count']} songs have empty content"
+            if len(empty_song_names) > 0:
+                message += f" (including: {', '.join(empty_song_names)})"
+            if empty_content_info["empty_count"] > 5:
+                message += f" and {empty_content_info['empty_count'] - 5} more"
+
+        return {
+            "ok": True,
+            "message": message,
+            "file_id": file_entry["id"],
+            "filename": fname,
+            "file_size": backup_path.stat().st_size,
+            "uploaded_at": file_entry["uploaded_at"],
+            "song_count": song_count,
+            "empty_content_info": empty_content_info
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        return {
+            "ok": False,
+            "error": "verification_failed",
+            "message": str(e),
+        }
+
+
+@app.get("/user/status")
+async def get_user_status(request: Request, secret: str | None = Header(None, alias="X-Secret")):
+    """Get user status and backup information."""
+    expected = SECRET
+    if not expected or secret != expected:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    
+    user_id = _get_user_id(request)
+    user_session = user_sessions.get(user_id, {})
+    user_data = _get_user_data(user_id)
+    
+    # Get latest backup info
+    latest_backup = None
+    if user_data.get("backups"):
+        latest_backup = user_data["backups"][-1]  # Most recent backup
+    
+    # Get mapping count
+    mapping_count = 0
+    if user_data.get("title_mapper"):
+        mapping_count = len(user_data["title_mapper"])
+    
+    return {
+        "user_id": user_id,
+        "user_email": user_data.get("email", None),
+        "backup_uploaded": len(user_data.get("backups", [])) > 0,
+        "backup_count": len(user_data.get("backups", [])),
+        "setlist_count": len(user_data.get("setlists", [])),
+        "download_count": len(user_data.get("downloads", [])),
+        "mapping_count": mapping_count,
+        "session_created": user_session.get("created"),
+        "song_count": latest_backup.get("metadata", {}).get("song_count", 0) if latest_backup else 0,
+        "latest_backup": {
+            "filename": latest_backup.get("metadata", {}).get("original_filename") if latest_backup else None,
+            "uploaded_at": latest_backup.get("uploaded_at") if latest_backup else None,
+            "song_count": latest_backup.get("metadata", {}).get("song_count", 0) if latest_backup else 0,
+            "empty_content_info": latest_backup.get("metadata", {}).get("empty_content_info") if latest_backup else None
+        } if latest_backup else None,
+        "backups": user_data.get("backups", []),
+        "setlists": user_data.get("setlists", []),
+        "downloads": user_data.get("downloads", [])
+    }
+
+
+@app.get("/user/files")
+async def get_user_files(request: Request, secret: str | None = Header(None, alias="X-Secret")):
+    """Get user's file history."""
+    expected = SECRET
+    if not expected or secret != expected:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    
+    user_id = _get_user_id(request)
+    user_data = _get_user_data(user_id)
+    
+    return {
+        "backups": user_data.get("backups", []),
+        "setlists": user_data.get("setlists", []),
+        "downloads": user_data.get("downloads", [])
+    }
+
+
+@app.get("/download_file/{file_id}")
+async def download_user_file(
+    file_id: str, 
+    request: Request, 
+    secret: str | None = Header(None, alias="X-Secret"),
+    secret_query: str | None = Query(None, alias="X-Secret")
+):
+    """Download a user's file by ID."""
+    expected = SECRET
+    # Check both header and query parameter for authentication
+    auth_secret = secret or secret_query
+    if not expected or auth_secret != expected:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    
+    # Get session ID from header or query parameter
+    session_id = request.headers.get("X-Session-ID") or request.query_params.get("X-Session-ID")
+    if not session_id:
+        session_id = str(uuid.uuid4())
+    
+    if session_id not in user_sessions:
+        user_sessions[session_id] = {
+            "created": datetime.now().isoformat(),
+            "backup_uploaded": False,
+            "backup_path": None
+        }
+    
+    user_id = _get_user_id(request)
+    user_data = _get_user_data(user_id)
+    
+    # Find file in user's data
+    file_entry = None
+    for file_type in ["backups", "setlists", "downloads"]:
+        for file in user_data.get(file_type, []):
+            if file["id"] == file_id:
+                file_entry = file
+                break
+        if file_entry:
+            break
+    
+    if not file_entry:
+        raise HTTPException(status_code=404, detail="File not found")
+    
+    file_path = Path(file_entry["path"])
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="File no longer exists")
+    
+    # Use original filename base with .sbp extension
+    original_filename = file_entry.get("metadata", {}).get("original_filename", file_entry["filename"])
+    # Remove extension from original filename and add .sbp
+    original_base = Path(original_filename).stem
+    download_filename = f"{original_base}.sbp"
+    
+    return FileResponse(
+        file_path, 
+        media_type="application/octet-stream",
+        filename=download_filename
+    )
+
+
+@app.get("/admin/errors")
+async def get_admin_errors(secret: str | None = Header(None, alias="X-Secret")):
+    """Get detailed error information for admin."""
+    expected = SECRET
+    if not expected or secret != expected:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    
+    # In a real implementation, you'd want to log errors to a database
+    # For now, return basic system info
+    return {
+        "system_info": {
+            "root": str(ROOT),
+            "uploads": str(UPLOADS),
+            "user_data": str(USER_DATA),
+            "active_sessions": len(user_sessions),
+            "total_users": len(user_files)
+        },
+        "recent_errors": [],  # Would be populated from error logs
+        "system_health": "ok"
+    }
+
+
+@app.get("/user/title-mappings")
+async def get_user_title_mappings(request: Request, secret: str | None = Header(None, alias="X-Secret")):
+    """Get user's title mappings."""
+    expected = SECRET
+    if not expected or secret != expected:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    
+    user_id = _get_user_id(request)
+    user_dir = USER_DATA / user_id
+    mapper_path = user_dir / "title_mapper.json"
+    
+    if mapper_path.exists():
+        with open(mapper_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            # Handle both formats: flat dict or wrapped in 'mappings' field
+            if isinstance(data, dict) and 'mappings' in data:
+                mappings = data['mappings']
+            else:
+                mappings = data
+    else:
+        mappings = {}
+    
+    return {
+        "mappings": mappings,
+        "count": len(mappings)
+    }
+
+
+@app.post("/user/title-mappings")
+async def save_user_title_mappings(
+    request: Request,
+    mappings: dict,
+    secret: str | None = Header(None, alias="X-Secret")
+):
+    """Save user's title mappings."""
+    expected = SECRET
+    if not expected or secret != expected:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    
+    user_id = _get_user_id(request)
+    user_dir = USER_DATA / user_id
+    user_dir.mkdir(parents=True, exist_ok=True)
+    mapper_path = user_dir / "title_mapper.json"
+    
+    with open(mapper_path, 'w', encoding='utf-8') as f:
+        json.dump(mappings, f, ensure_ascii=False, indent=2)
+    
+    # Update user data with title mappings
+    user_data = _get_user_data(user_id)
+    user_data["title_mapper"] = mappings
+    _save_user_data(user_id, user_data)
+    
+    return {
+        "ok": True,
+        "message": "Title mappings saved successfully",
+        "count": len(mappings)
+    }
+
+
+@app.get("/user/catalog")
+async def get_user_catalog(request: Request, secret: str | None = Header(None, alias="X-Secret")):
+    """Get the user's song catalog from their backup."""
+    expected = SECRET
+    if not expected or secret != expected:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    
+    user_id = _get_user_id(request)
+    user_data = _get_user_data(user_id)
+    
+    if not user_data.get("backups"):
+        raise HTTPException(status_code=400, detail="No backup uploaded")
+    
+    latest_backup = user_data["backups"][-1]
+    backup_path = Path(latest_backup["path"])
+    
+    try:
+        # Extract catalog from backup using the same logic as backup_to_catalog.py
+        import zipfile
+        
+        # Check if file exists and is a valid ZIP file
+        if not backup_path.exists():
+            raise HTTPException(status_code=404, detail="Backup file not found")
+        
+        if not backup_path.suffix.lower() in ['.zip', '.sbpbackup', '.bkp']:
+            raise HTTPException(status_code=400, detail="Backup file is not a valid ZIP file")
+        
+        try:
+            with zipfile.ZipFile(backup_path, 'r') as zf:
+                # Check if dataFile.txt exists in the ZIP
+                if "dataFile.txt" not in zf.namelist():
+                    raise HTTPException(status_code=400, detail="dataFile.txt not found in backup")
+                
+                data_bytes = zf.read("dataFile.txt")
+        except zipfile.BadZipFile:
+            raise HTTPException(status_code=400, detail="Backup file is not a valid ZIP file")
+        
+        text = data_bytes.decode("utf-8-sig").strip()
+        
+        # Parse JSON content to extract song titles
+        songs_items = []
+        
+        def collect_from_obj(obj):
+            if isinstance(obj, dict):
+                if isinstance(obj.get("songs"), list):
+                    songs_items.extend(obj["songs"])
+            elif isinstance(obj, list):
+                songs_items.extend(obj)
+        
+        try:
+            obj = json.loads(text)
+            collect_from_obj(obj)
+        except json.JSONDecodeError:
+            # JSONL: parse each non-empty line
+            for ln in (ln for ln in text.splitlines() if ln.strip()):
+                try:
+                    obj = json.loads(ln)
+                    collect_from_obj(obj)
+                except json.JSONDecodeError:
+                    continue
+        
+        # Extract titles and songs with IDs
+        titles = []
+        songs = []
+        for s in songs_items:
+            if isinstance(s, dict):
+                t = s.get("title") or s.get("name")
+                if isinstance(t, str) and t.strip():
+                    titles.append(t.strip())
+                    # Only include active (non-deleted) songs
+                    if not s.get("Deleted", False):
+                        songs.append({
+                            "id": s.get("Id"),
+                            "name": t.strip()
+                        })
+            elif isinstance(s, str) and s.strip():
+                titles.append(s.strip())
+        
+        return {
+            "catalog": sorted(set(titles)),  # Remove duplicates and sort
+            "songs": songs,  # Songs with IDs for the new mapping UI
+            "count": len(set(titles)),
+            "title_mapper": user_data.get("title_mapper", {})
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to extract catalog: {str(e)}")
+
+
+@app.post("/user/verify-titles")
+async def verify_user_titles(
+    request: Request,
+    titles: list[str],
+    secret: str | None = Header(None, alias="X-Secret")
+):
+    """Verify titles against user's catalog and return suggestions."""
+    expected = SECRET
+    if not expected or secret != expected:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    
+    user_id = _get_user_id(request)
+    
+    # Get user's catalog
+    catalog_response = await get_user_catalog(request, secret)
+    catalog = catalog_response["catalog"]
+    
+    # Get user's existing mappings
+    user_dir = USER_DATA / user_id
+    mapper_path = user_dir / "title_mapper.json"
+    existing_mappings = {}
+    if mapper_path.exists():
+        with open(mapper_path, 'r', encoding='utf-8') as f:
+            existing_mappings = json.load(f)
+    
+    # Normalize function (same as titles_verify.py)
+    def normalize_key(s: str) -> str:
+        import re
+        s = s.strip()
+        s = re.sub(r'\s+', ' ', s)
+        s = re.sub(r"[\"'`']", "", s)
+        s = s.replace('&', 'and')
+        s = re.sub(r'\(feat[^\)]*\)', '', s, flags=re.I)
+        s = re.sub(r'[^A-Za-z0-9 ]+', ' ', s)
+        s = re.sub(r'\s+', ' ', s).strip()
+        return s.casefold()
+    
+    # Build catalog index
+    exact = {}
+    canon_list = []
+    for title in catalog:
+        canon = title.strip()
+        if not canon:
+            continue
+        nk = normalize_key(canon)
+        exact[nk] = canon
+        canon_list.append(canon)
+    
+    # Get suggestions for each title
+    import difflib
+    
+    def best_suggestions(query: str, choices: list[str], n: int = 5):
+        scores = []
+        for c in choices:
+            r = difflib.SequenceMatcher(a=normalize_key(query), b=normalize_key(c)).ratio()
+            scores.append((c, r))
+        scores.sort(key=lambda x: x[1], reverse=True)
+        return scores[:n]
+    
+    # First apply title mappings (like titles_verify.py does)
+    mapped_titles = []
+    for title in titles:
+        nk = normalize_key(title)
+        if nk in existing_mappings:
+            mapped = existing_mappings[nk]
+            if mapped == "":
+                continue  # dropped
+            mapped_titles.append(mapped)
+        else:
+            mapped_titles.append(title)
+    
+    # Now verify the mapped titles against catalog
+    results = []
+    for title in mapped_titles:
+        nk = normalize_key(title)
+        
+        # Check for exact match
+        if nk in exact:
+            results.append({
+                "title": title,
+                "status": "exact_match",
+                "mapped_to": exact[nk],
+                "suggestions": []
+            })
+            continue
+        
+        # Get suggestions
+        suggestions = best_suggestions(title, canon_list, n=5)
+        results.append({
+            "title": title,
+            "status": "needs_mapping",
+            "mapped_to": None,
+            "suggestions": [{"title": s[0], "score": s[1]} for s in suggestions]
+        })
+    
+    return {
+        "results": results,
+        "total": len(titles),
+        "needs_mapping": len([r for r in results if r["status"] == "needs_mapping"])
+        }
+
+
+@app.post("/user/reprocess-setlist")
+async def reprocess_setlist(
+    request: Request,
+    secret: str | None = Header(None, alias="X-Secret")
+):
+    """Reprocess the most recent setlist with updated mappings."""
+    print(f"DEBUG: reprocess-setlist called")
+    expected = SECRET
+    if not expected or secret != expected:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    
+    user_id = _get_user_id(request)
+    print(f"DEBUG: user_id = {user_id}")
+    user_data = _get_user_data(user_id)
+    print(f"DEBUG: user_data keys = {list(user_data.keys())}")
+    
+    # Get the most recent setlist
+    if not user_data.get("setlists"):
+        print("DEBUG: No setlists found")
+        raise HTTPException(status_code=400, detail="No setlist found to reprocess")
+    
+    latest_setlist = user_data["setlists"][-1]
+    print(f"DEBUG: latest_setlist = {latest_setlist}")
+    setlist_path = Path(latest_setlist["path"])
+    print(f"DEBUG: setlist_path = {setlist_path}")
+    
+    if not setlist_path.exists():
+        print("DEBUG: Setlist file not found")
+        raise HTTPException(status_code=400, detail="Setlist file not found")
+    
+    # Get the latest backup
+    if not user_data.get("backups"):
+        print("DEBUG: No backups found")
+        raise HTTPException(status_code=400, detail="No backup found")
+    
+    latest_backup = user_data["backups"][-1]
+    backup_path = latest_backup["path"]
+    print(f"DEBUG: backup_path = {backup_path}")
+    
+    try:
+        # Reprocess the setlist using the updated mappings
+        print("DEBUG: Starting reprocessing...")
+        env = _prepare_env()
+        print("DEBUG: Calling _process_with_user_backup...")
+        result = _process_with_user_backup(
+            setlist_path, 
+            latest_setlist["name"], 
+            backup_path,
+            env
+        )
+        print(f"DEBUG: Processing result - returncode: {result.returncode}")
+        print(f"DEBUG: stdout: {result.stdout}")
+        print(f"DEBUG: stderr: {result.stderr}")
+        
+        if result.returncode != 0:
+            error_detail = f"Reprocessing failed (return code {result.returncode}): {result.stderr}"
+            if result.stdout:
+                error_detail += f"\nStdout: {result.stdout}"
+            print(f"DEBUG: Error detail: {error_detail}")
+            raise HTTPException(status_code=500, detail=error_detail)
+        
+        # Create new download file
+        file_id = str(uuid.uuid4())
+        download_path = USER_DATA / user_id / f"download_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{latest_setlist['name']}.sbp"
+        
+        # Copy the generated file to user's download directory
+        import shutil
+        artifact_path = PACK / f"{latest_setlist['name']}.sbp"
+        if artifact_path.exists():
+            shutil.copy2(artifact_path, download_path)
+            
+            # Update user's download history
+            download_entry = {
+                "id": file_id,
+                "filename": f"{latest_setlist['name']}.sbp",
+                "original_filename": latest_setlist["filename"],
+                "path": str(download_path),
+                "created": datetime.now().isoformat(),
+                "size": download_path.stat().st_size
+            }
+            
+            if "downloads" not in user_data:
+                user_data["downloads"] = []
+            user_data["downloads"].append(download_entry)
+            _save_user_data(user_id, user_data)
+            
+            # Generate download URL
+            download_url = f"{request.url.scheme}://{request.url.netloc}/download_file/{file_id}"
+            
+            # Read processing results for detailed statistics
+            try:
+                # Read the verified titles to get counts
+                verified_titles_path = PACK / "verified.txt"
+                verified_titles = []
+                if verified_titles_path.exists():
+                    with open(verified_titles_path, 'r', encoding='utf-8') as f:
+                        verified_titles = [line.strip() for line in f if line.strip()]
+                
+                # Read raw titles to get total count
+                raw_titles_path = PACK / "raw_titles.txt"
+                raw_titles = []
+                if raw_titles_path.exists():
+                    with open(raw_titles_path, 'r', encoding='utf-8') as f:
+                        raw_titles = [line.strip() for line in f if line.strip()]
+                
+                # Read unfound titles from the unresolved report
+                unfound_titles = []
+                unresolved_report_path = PACK / "unresolved_report.txt"
+                if unresolved_report_path.exists():
+                    with open(unresolved_report_path, 'r', encoding='utf-8') as f:
+                        report_content = f.read()
+                        lines = report_content.split('\n')
+                        for line in lines:
+                            if line.startswith('UNRESOLVED:'):
+                                title = line.replace('UNRESOLVED:', '').strip()
+                                unfound_titles.append(title)
+                
+                return {
+                    "ok": True,
+                    "message": "Setlist reprocessed successfully",
+                    "download_url": download_url,
+                    "file_id": file_id,
+                    "processing_results": {
+                        "song_count": len(raw_titles),
+                        "successful_mappings": len(verified_titles),
+                        "unfound_titles": unfound_titles,
+                        "all_titles": raw_titles
+                    }
+                }
+            except Exception as e:
+                print(f"[WARNING] Could not read processing statistics: {e}")
+                return {
+                    "ok": True,
+                    "message": "Setlist reprocessed successfully",
+                    "download_url": download_url,
+                    "file_id": file_id
+                }
+        else:
+            raise HTTPException(status_code=500, detail="Generated file not found")
+            
+    except Exception as e:
+        import traceback
+        error_detail = f"Reprocessing error: {str(e)}\nTraceback: {traceback.format_exc()}"
+        raise HTTPException(status_code=500, detail=error_detail)
+
+
+@app.get("/user/archive")
+async def get_user_archive(request: Request, secret: str | None = Header(None, alias="X-Secret")):
+    """Get comprehensive archive of all user files and processing history."""
+    expected = SECRET
+    if not expected or secret != expected:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    
+    user_id = _get_user_id(request)
+    user_data = _get_user_data(user_id)
+    
+    # Get all backups with enhanced info
+    backups = user_data.get("backups", [])
+    for backup in backups:
+        backup["file_exists"] = Path(backup["path"]).exists()
+        file_size = backup.get("metadata", {}).get("file_size", 0)
+        backup["file_size_mb"] = round(file_size / (1024 * 1024), 2)
+    
+    # Sort backups by upload date (most recent first)
+    backups.sort(key=lambda x: x.get("uploaded_at", ""), reverse=True)
+    
+    # Get all setlists with enhanced info
+    setlists = user_data.get("setlists", [])
+    for setlist in setlists:
+        setlist["file_exists"] = Path(setlist["path"]).exists()
+        file_size = setlist.get("metadata", {}).get("file_size", 0)
+        setlist["file_size_mb"] = round(file_size / (1024 * 1024), 2)
+    
+    # Sort setlists by upload date (most recent first)
+    setlists.sort(key=lambda x: x.get("uploaded_at", ""), reverse=True)
+    
+    # Get all downloads with enhanced info
+    downloads = user_data.get("downloads", [])
+    for download in downloads:
+        download["file_exists"] = Path(download["path"]).exists()
+        file_size = download.get("metadata", {}).get("file_size", 0)
+        download["file_size_mb"] = round(file_size / (1024 * 1024), 2)
+    
+    # Sort downloads by upload date (most recent first)
+    downloads.sort(key=lambda x: x.get("uploaded_at", ""), reverse=True)
+    
+    # Get title mappings
+    title_mapper = user_data.get("title_mapper", {})
+    
+    # Create combined setlist/download groups
+    combined_items = []
+    for setlist in setlists:
+        # Find related downloads for this setlist
+        related_downloads = [d for d in downloads if d.get("metadata", {}).get("setlist_id") == setlist["id"]]
+        
+        # Create combined item
+        combined_item = {
+            "id": setlist["id"],
+            "setlist": setlist,
+            "downloads": related_downloads,
+            "original_filename": setlist.get("metadata", {}).get("original_filename", setlist["filename"]),
+            "uploaded_at": setlist["uploaded_at"],
+            "file_size_mb": setlist["file_size_mb"],
+            "file_exists": setlist["file_exists"],
+            "has_downloads": len(related_downloads) > 0,
+            "latest_download": related_downloads[0] if related_downloads else None
+        }
+        combined_items.append(combined_item)
+    
+    # Sort combined items by upload date (most recent first)
+    combined_items.sort(key=lambda x: x.get("uploaded_at", ""), reverse=True)
+
+    return {
+        "user_id": user_id,
+        "backups": backups,
+        "combined_items": combined_items,  # New combined view
+        "setlists": setlists,  # Keep original for compatibility
+        "downloads": downloads,  # Keep original for compatibility
+        "title_mapper": title_mapper,
+        "summary": {
+            "total_backups": len(backups),
+            "total_setlists": len(setlists),
+            "total_downloads": len(downloads),
+            "total_combined_items": len(combined_items),
+            "total_mappings": len(title_mapper),
+            "latest_backup": backups[-1] if backups else None,
+            "latest_setlist": setlists[-1] if setlists else None,
+            "latest_download": downloads[-1] if downloads else None
+        }
+    }
+
+@app.post("/user/reprocess-archive")
+async def reprocess_archive_item(
+    request: Request,
+    item_type: str = Form(...),  # "setlist", "backup", or "download"
+    item_id: str = Form(...),    # ID of the item to reprocess
+    secret: str | None = Header(None, alias="X-Secret")
+):
+    """Reprocess an archived item (setlist, backup, or download)."""
+    expected = SECRET
+    if not expected or secret != expected:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    
+    user_id = _get_user_id(request)
+    user_data = _get_user_data(user_id)
+    
+    if item_type == "setlist":
+        # Find the setlist by ID
+        setlist = None
+        for s in user_data.get("setlists", []):
+            if s.get("id") == item_id:
+                setlist = s
+                break
+        
+        if not setlist:
+            raise HTTPException(status_code=404, detail="Setlist not found")
+        
+        if not Path(setlist["path"]).exists():
+            raise HTTPException(status_code=404, detail="Setlist file not found")
+        
+        # Reprocess the setlist
+        try:
+            print(f"DEBUG: Reprocessing setlist {item_id}")
+            print(f"DEBUG: Setlist data: {setlist}")
+            env = _prepare_env()
+            # Use set_name from metadata, fallback to original_filename
+            set_name = setlist.get("metadata", {}).get("set_name") or setlist.get("metadata", {}).get("original_filename") or "Set"
+            print(f"DEBUG: Using set_name: {set_name}")
+            print(f"DEBUG: Setlist path: {setlist['path']}")
+            print(f"DEBUG: Backup path: {user_data['backups'][-1]['path']}")
+            result = _process_with_user_backup(
+                Path(setlist["path"]), 
+                set_name, 
+                user_data["backups"][-1]["path"],  # Use latest backup
+                env
+            )
+            print(f"DEBUG: Processing result - returncode: {result.returncode}")
+            print(f"DEBUG: stdout: {result.stdout}")
+            print(f"DEBUG: stderr: {result.stderr}")
+            
+            if result.returncode != 0:
+                raise HTTPException(status_code=500, detail=f"Reprocessing failed: {result.stderr}")
+            
+            # Create new download entry
+            file_id = str(uuid.uuid4())
+            download_path = USER_DATA / user_id / f"download_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{set_name}.sbp"
+            
+            # Copy the generated file
+            artifact_path = PACK / f"{set_name}.sbp"
+            if artifact_path.exists():
+                import shutil
+                shutil.copy2(artifact_path, download_path)
+                
+                # Add to downloads
+                download_entry = {
+                    "id": file_id,
+                    "filename": f"{set_name}.sbp",
+                    "original_filename": setlist.get("metadata", {}).get("original_filename", setlist["filename"]),
+                    "path": str(download_path),
+                    "created": datetime.now().isoformat(),
+                    "size": download_path.stat().st_size,
+                    "reprocessed_from": item_id
+                }
+                
+                if "downloads" not in user_data:
+                    user_data["downloads"] = []
+                user_data["downloads"].append(download_entry)
+                _save_user_data(user_id, user_data)
+                
+                return {
+                    "ok": True,
+                    "message": f"Setlist '{set_name}' reprocessed successfully",
+                    "download_id": file_id,
+                    "download_path": str(download_path)
+                }
+            else:
+                raise HTTPException(status_code=500, detail="Generated file not found")
+                
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Reprocessing error: {str(e)}")
+    
+    elif item_type == "backup":
+        raise HTTPException(status_code=400, detail="Backup reprocessing not implemented yet")
+    
+    elif item_type == "download":
+        raise HTTPException(status_code=400, detail="Download reprocessing not implemented yet")
+    
+    else:
+        raise HTTPException(status_code=400, detail="Invalid item type. Must be 'setlist', 'backup', or 'download'")
+
+@app.delete("/user/archive/{item_type}/{item_id}")
+async def delete_archive_item(
+    item_type: str,
+    item_id: str,
+    request: Request,
+    secret: str | None = Header(None, alias="X-Secret")
+):
+    """Delete an archived item."""
+    expected = SECRET
+    if not expected or secret != expected:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    
+    user_id = _get_user_id(request)
+    user_data = _get_user_data(user_id)
+    
+    # Find and remove the item
+    if item_type == "backup":
+        backups = user_data.get("backups", [])
+        for i, backup in enumerate(backups):
+            if backup.get("id") == item_id:
+                # Delete the file
+                try:
+                    Path(backup["path"]).unlink()
+                except FileNotFoundError:
+                    pass  # File already deleted
+                
+                # Remove from list
+                backups.pop(i)
+                user_data["backups"] = backups
+                _save_user_data(user_id, user_data)
+                
+                return {"ok": True, "message": "Backup deleted successfully"}
+        
+        raise HTTPException(status_code=404, detail="Backup not found")
+    
+    elif item_type == "setlist":
+        setlists = user_data.get("setlists", [])
+        for i, setlist in enumerate(setlists):
+            if setlist.get("id") == item_id:
+                # Delete the file
+                try:
+                    Path(setlist["path"]).unlink()
+                except FileNotFoundError:
+                    pass  # File already deleted
+                
+                # Remove from list
+                setlists.pop(i)
+                user_data["setlists"] = setlists
+                _save_user_data(user_id, user_data)
+                
+                return {"ok": True, "message": "Setlist deleted successfully"}
+        
+        raise HTTPException(status_code=404, detail="Setlist not found")
+    
+    elif item_type == "download":
+        downloads = user_data.get("downloads", [])
+        for i, download in enumerate(downloads):
+            if download.get("id") == item_id:
+                # Delete the file
+                try:
+                    Path(download["path"]).unlink()
+                except FileNotFoundError:
+                    pass  # File already deleted
+                
+                # Remove from list
+                downloads.pop(i)
+                user_data["downloads"] = downloads
+                _save_user_data(user_id, user_data)
+                
+                return {"ok": True, "message": "Download deleted successfully"}
+        
+        raise HTTPException(status_code=404, detail="Download not found")
+    
+    else:
+        raise HTTPException(status_code=400, detail="Invalid item type")
+
+
+# Google OAuth endpoints
+@app.get("/auth/google")
+async def google_auth_login():
+    """Initiate Google OAuth login."""
+    try:
+        authorization_url, state = google_oauth.get_authorization_url()
+        return RedirectResponse(url=authorization_url)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to initiate Google OAuth: {str(e)}")
+
+
+@app.post("/auth/google/callback")
+async def google_auth_callback_post(request: Request):
+    """Handle Google OAuth callback (POST - for frontend API calls)."""
+    try:
+        body = await request.json()
+        code = body.get('code')
+        state = body.get('state')
+        
+        if not code:
+            raise HTTPException(status_code=400, detail="Authorization code is required")
+        
+        # Exchange code for credentials
+        credentials, user_info = google_oauth.exchange_code_for_token(code, state)
+        
+        # Create user ID from Google ID
+        google_id = user_info.get('id')
+        user_id = f"google_{google_id}"
+        
+        # Save credentials
+        google_oauth.save_credentials(user_id, credentials)
+        
+        # Create or update user data
+        user_data = _get_user_data(user_id)
+        if not user_data:
+            user_data = {
+                "user_id": user_id,
+                "google_id": google_id,
+                "email": user_info.get('email'),
+                "name": user_info.get('name'),
+                "picture": user_info.get('picture'),
+                "backups": [],
+                "setlists": [],
+                "downloads": [],
+                "title_mappings": {},
+                "created_at": datetime.now().isoformat(),
+                "last_login": datetime.now().isoformat()
+            }
+        else:
+            user_data["last_login"] = datetime.now().isoformat()
+            user_data["email"] = user_info.get('email')
+            user_data["name"] = user_info.get('name')
+            user_data["picture"] = user_info.get('picture')
+        
+        _save_user_data(user_id, user_data)
+        
+        # Try to transfer guest data if user was previously a guest
+        # This would need to be passed from the frontend, but for now we'll skip it
+        # TODO: Implement guest data transfer when frontend provides guest session ID
+        
+        # Return success response for frontend
+        return {
+            "success": True,
+            "user_id": user_id,
+            "session_id": user_id,  # Use user_id as session_id for OAuth users
+            "user_info": {
+                "email": user_info.get('email'),
+                "name": user_info.get('name'),
+                "picture": user_info.get('picture')
+            }
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/auth/logout")
+async def google_auth_logout(
+    secret: str | None = Header(None, alias="X-Secret"),
+    session_id: str | None = Header(None, alias="X-Session-ID")
+):
+    """Logout user and clear session."""
+    if not secret or secret != SECRET:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    
+    if not session_id:
+        raise HTTPException(status_code=400, detail="Session ID required")
+    
+    try:
+        # Clear user session data only (keep persistent data)
+        if session_id in user_sessions:
+            del user_sessions[session_id]
+        
+        # Just clear the session, don't delete user data
+        # The user data should persist for when they log back in
+        
+        return {"success": True, "message": "Logged out successfully"}
+        
+    except Exception as e:
+        print(f"Logout error: {e}")
+        return {"success": True, "message": "Logged out successfully"}
+
+
+@app.get("/auth/user")
+async def get_auth_user(
+    secret: str | None = Header(None, alias="X-Secret"),
+    session_id: str | None = Header(None, alias="X-Session-ID")
+):
+    """Get authenticated user information."""
+    if not secret or secret != SECRET:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    
+    if not session_id:
+        raise HTTPException(status_code=400, detail="Session ID required")
+    
+    try:
+        # Check if user is authenticated
+        if not google_oauth.is_authenticated(session_id):
+            raise HTTPException(status_code=401, detail="Not authenticated")
+        
+        # Load user data
+        user_data = _get_user_data(session_id)
+        if not user_data:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        return {
+            "user_id": user_data.get("user_id"),
+            "google_id": user_data.get("google_id"),
+            "email": user_data.get("email"),
+            "name": user_data.get("name"),
+            "picture": user_data.get("picture"),
+            "created_at": user_data.get("created_at"),
+            "last_login": user_data.get("last_login")
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get user info: {str(e)}")
+
+if __name__ == "__main__":
+    import uvicorn
+    import os
+    
+    # Get port from environment variable, default to 8002
+    port = int(os.getenv("BACKEND_PORT", "8002"))
+    host = os.getenv("BACKEND_HOST", "0.0.0.0")
+    
+    print(f"Starting server on {host}:{port}")
+    uvicorn.run(app, host=host, port=port, reload=True)

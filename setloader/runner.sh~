@@ -1,0 +1,45 @@
+#!/bin/sh
+set -eu
+
+./check-docker.sh
+
+. ./vars.sh
+
+IMG=${IMG:-my-uvicorn-app}
+APPDIR=${APPDIR:-/usr/local/src/setloader}
+
+# build image if missing
+if ! docker image inspect "$IMG" >/dev/null 2>&1; then
+#  echo "Building $IMG…"
+  docker build -t "$IMG" .
+fi
+
+#docker run --rm \
+#  -p 8000:8000 \
+#  -v "$PWD:$APPDIR" \
+#  -w "$APPDIR" \
+#  -e SECRET='change-me' \
+#  -e SMTP_USER='you@example.com' \
+#  -e SMTP_PASS='your_app_password' \
+#  -e FROM_NAME='Set Loader' \
+#  -e EMAIL_FALLBACK_TO='you@example.com' \
+#  "$IMG" \
+#  python3 -m uvicorn server:app --app-dir "$APPDIR" --host 0.0.0.0 --port 8000
+  
+  
+  
+  
+# from your repo root on the host (where bs.pdf and run.sh live)
+docker run --rm -it \
+  -p 8000:8000 \
+  -v "$(pwd):/usr/local/src/setloader" \
+  -w /usr/local/src/setloader \
+  -e SECRET \
+  -e SMTP_USER \
+  -e SMTP_PASS \
+  -e FROM_NAME \
+  -e EMAIL_FALLBACK_TO \
+  -e OPENAI_API_KEY \
+  -e RUN_EXTRA_FLAGS \
+  setloader:latest \
+  python3 -m uvicorn server:app --host 0.0.0.0 --port 8000

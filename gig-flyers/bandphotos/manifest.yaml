@@ -1,0 +1,26 @@
+# Band publicity photos for flyer generation.
+# Add entries here when adding new files to bandphotos/
+
+photos:
+  - id: instruments
+    filename: 679394308_1366641221939459_1410337987474015419_n.jpg
+    type: instrument
+    member_count: 4
+    description: >
+      Four-piece band with instruments on white studio background: white bass,
+      keytar, snare drum with sticks, butterscotch Telecaster-style guitar.
+      Professional smart-casual attire.
+  - id: group_standing
+    filename: 595023002_1261617739108475_4864313333830117636_n.jpg
+    type: group_standing
+    member_count: 4
+    description: >
+      Full band standing together on white background, smart-casual black
+      outfits, approachable professional group portrait.
+  - id: group_energetic
+    filename: 475779793_1030489528887965_3935557413007700748_n.jpg
+    type: group_energetic
+    member_count: 4
+    description: >
+      Energetic full-band pose with hands raised, sparkly top, upbeat party
+      energy on white studio background.

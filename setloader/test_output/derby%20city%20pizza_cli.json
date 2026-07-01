@@ -1,0 +1,324 @@
+{
+  "sets": [
+    {
+      "name": "Set 1",
+      "time_window": "7-8:30",
+      "break_minutes": 15,
+      "songs": [
+        {
+          "order": 1,
+          "title": "Hurt So Good",
+          "key": "A"
+        },
+        {
+          "order": 2,
+          "title": "Pontoon",
+          "key": "A"
+        },
+        {
+          "order": 3,
+          "title": "Hot Blooded",
+          "key": "G"
+        },
+        {
+          "order": 4,
+          "title": "No One Else Earth",
+          "key": "G"
+        },
+        {
+          "order": 5,
+          "title": "Real World",
+          "key": "Bb"
+        },
+        {
+          "order": 6,
+          "title": "Believe",
+          "key": "F"
+        },
+        {
+          "order": 7,
+          "title": "1999",
+          "key": "F"
+        },
+        {
+          "order": 8,
+          "title": "Talking Sleep",
+          "key": "Dm"
+        },
+        {
+          "order": 9,
+          "title": "Dreams",
+          "key": "F"
+        },
+        {
+          "order": 10,
+          "title": "Wake Up Sep",
+          "key": "G"
+        },
+        {
+          "order": 11,
+          "title": "Get Down Tonight",
+          "key": "G"
+        },
+        {
+          "order": 12,
+          "title": "Free Fallin",
+          "key": "F"
+        },
+        {
+          "order": 13,
+          "title": "Not in 4 Love",
+          "key": "C"
+        },
+        {
+          "order": 14,
+          "title": "Roll Changes",
+          "key": "C"
+        },
+        {
+          "order": 15,
+          "title": "Roll Deep",
+          "key": "Cm"
+        },
+        {
+          "order": 16,
+          "title": "Cake Ocean",
+          "key": "Em"
+        },
+        {
+          "order": 17,
+          "title": "Collide",
+          "key": "B"
+        },
+        {
+          "order": 18,
+          "title": "Hands 2 Urslf",
+          "key": "A"
+        },
+        {
+          "order": 19,
+          "title": "Man I Feel",
+          "key": "A"
+        },
+        {
+          "order": 20,
+          "title": "Knock Wood",
+          "key": "E"
+        },
+        {
+          "order": 21,
+          "title": "Swingin",
+          "key": "E"
+        },
+        {
+          "order": 22,
+          "title": "Black Velvet",
+          "key": "Em"
+        },
+        {
+          "order": 23,
+          "title": "Green River",
+          "key": "E"
+        }
+      ]
+    },
+    {
+      "name": "Set 2",
+      "time_window": "8:45-10",
+      "break_minutes": 15,
+      "songs": [
+        {
+          "order": 1,
+          "title": "I Will Survive",
+          "key": "Gm"
+        },
+        {
+          "order": 2,
+          "title": "Hot Stuff",
+          "key": "Gm"
+        },
+        {
+          "order": 3,
+          "title": "You Win Love",
+          "key": "G/A"
+        },
+        {
+          "order": 4,
+          "title": "Shut Up Dance",
+          "key": "C#"
+        },
+        {
+          "order": 5,
+          "title": "Crazy Train",
+          "key": "F#m"
+        },
+        {
+          "order": 6,
+          "title": "What About Love",
+          "key": "Dm"
+        },
+        {
+          "order": 7,
+          "title": "I Love R&R",
+          "key": "E"
+        },
+        {
+          "order": 8,
+          "title": "Best Shot",
+          "key": "E"
+        },
+        {
+          "order": 9,
+          "title": "TNT",
+          "key": "E"
+        },
+        {
+          "order": 10,
+          "title": "When’er U Come Arnd",
+          "key": "G"
+        },
+        {
+          "order": 11,
+          "title": "Heaven",
+          "key": "Bm"
+        },
+        {
+          "order": 12,
+          "title": "Miss You",
+          "key": "Am"
+        },
+        {
+          "order": 13,
+          "title": "Str8 On",
+          "key": "Am"
+        },
+        {
+          "order": 14,
+          "title": "Blvd Brkn Drms",
+          "key": "Am"
+        },
+        {
+          "order": 15,
+          "title": "Honey I’m Home",
+          "key": "E"
+        },
+        {
+          "order": 16,
+          "title": "Running Empty",
+          "key": "A"
+        },
+        {
+          "order": 17,
+          "title": "Liza Jane",
+          "key": "A"
+        },
+        {
+          "order": 18,
+          "title": "Alone",
+          "key": "Am"
+        },
+        {
+          "order": 19,
+          "title": "Stuck",
+          "key": "D"
+        },
+        {
+          "order": 20,
+          "title": "One Headlt",
+          "key": "G"
+        }
+      ]
+    },
+    {
+      "name": "Set 3",
+      "time_window": "10:15-11",
+      "break_minutes": 0,
+      "songs": [
+        {
+          "order": 1,
+          "title": "Shook Me",
+          "key": "G"
+        },
+        {
+          "order": 2,
+          "title": "Liv Prayer",
+          "key": "Em"
+        },
+        {
+          "order": 3,
+          "title": "Liv After Mid",
+          "key": "E"
+        },
+        {
+          "order": 4,
+          "title": "Hate Myself",
+          "key": "E"
+        },
+        {
+          "order": 5,
+          "title": "3 Marlenas",
+          "key": "D"
+        },
+        {
+          "order": 6,
+          "title": "3 Steps",
+          "key": "D"
+        },
+        {
+          "order": 7,
+          "title": "Ex’s Ohs",
+          "key": "Dm"
+        },
+        {
+          "order": 8,
+          "title": "Spirit",
+          "key": "A"
+        },
+        {
+          "order": 9,
+          "title": "Gold Dust Woman",
+          "key": "D"
+        },
+        {
+          "order": 10,
+          "title": "Hold Loosely",
+          "key": "E"
+        },
+        {
+          "order": 11,
+          "title": "Hot Child",
+          "key": "E"
+        },
+        {
+          "order": 12,
+          "title": "Barracuda",
+          "key": "E"
+        }
+      ]
+    }
+  ],
+  "extras": [
+    {
+      "title": "Save Me"
+    },
+    {
+      "title": "Oh Baby Baby"
+    },
+    {
+      "title": "Fire"
+    },
+    {
+      "title": "Brown Eyed"
+    }
+  ],
+  "counts": {
+    "per_set": {
+      "Set 1": 23,
+      "Set 2": 20,
+      "Set 3": 12
+    },
+    "extras": 4,
+    "total": 59
+  },
+  "errors": []
+}

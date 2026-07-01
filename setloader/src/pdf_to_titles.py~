@@ -1,0 +1,133 @@
+#!/usr/bin/env python3
+# pdf_to_titles.py
+# Read a TXT (preferred) or PDF, sanitize lines into likely song titles, write one-per-line.
+
+from __future__ import annotations
+import argparse
+from pathlib import Path
+import re
+import unicodedata
+import sys
+import subprocess
+
+# ---------- Args ----------
+parser = argparse.ArgumentParser(
+    description="Extract clean song titles from a text file (or PDF)."
+)
+parser.add_argument("--in", dest="input_file", required=True,
+                    help="Input path: plain text (preferred). If PDF, requires pdftotext.")
+parser.add_argument("--out", dest="output_file", required=True,
+                    help="Where to write titles (one per line).")
+parser.add_argument("--psm", type=int, default=6,
+                    help="Tesseract page segmentation mode (only used if we ever OCR).")
+parser.add_argument("--lang", default="eng",
+                    help="OCR language if needed (default: eng).")
+parser.add_argument("--debug", action="store_true",
+                    help="Print extra info while parsing.")
+args = parser.parse_args()
+
+IN  = Path(args.input_file)
+OUT = Path(args.output_file)
+
+# ---------- Helpers ----------
+BUL_LEAD = re.compile(r"^\s*([:;,_|.•·»«\-–—]+|\bi[.\)]|\bu[.\)]|\)\.|[0-9]+\.)\s*")
+KEY_TAIL = re.compile(r"\s*[~\-–—]?\s*[A-G](?:#|b)?m?(?:\s*(?:maj|min|dim|aug|sus|add)?\d{0,2})?\s*(?:snap|capo\s*\d+)?\s*$",
+                      re.IGNORECASE)
+HEADER   = re.compile(r"\b(set|mins?|minutes?|break|start|end|time|min\s*break)\b", re.IGNORECASE)
+ALL_CHORDS = re.compile(r"(?:\b[A-G](?:#|b)?m?\b[\s/|]*){3,}")  # 3+ chord tokens likely a chord line
+
+def normalize_nfkc(s: str) -> str:
+    return unicodedata.normalize("NFKC", s).replace("\u00A0"," ")
+
+def looks_like_title(line: str) -> str | None:
+    s = normalize_nfkc(line).strip()
+    if not s:
+        return None
+    # obvious headers/timing junk
+    if HEADER.search(s):
+        return None
+    # strip leading bullets/markers
+    s = BUL_LEAD.sub("", s)
+    # discard pure chord lines
+    if ALL_CHORDS.search(s):
+        return None
+    # remove trailing key/chord annotations
+    s = KEY_TAIL.sub("", s)
+    s = s.strip(" -–—~|•·.,_")
+    # filter short/noisy lines
+    letters = sum(c.isalpha() for c in s)
+    if letters < 3 or letters / max(1, len(s)) < 0.6:
+        return None
+    return s
+
+def read_text_from_file(path: Path) -> str:
+    """
+    Preferred path: text file produced by your run.sh pipeline.
+    If a PDF is supplied, we fall back to pdftotext if available.
+    """
+    suffix = path.suffix.lower()
+    if suffix in (".txt", ".text", ".log"):
+        return path.read_text(encoding="utf-8", errors="replace")
+    if suffix == ".pdf":
+        # best-effort: use pdftotext if present
+        if not shutil.which("pdftotext"):
+            raise RuntimeError("Input is PDF but pdftotext is not installed.")
+        tmp_txt = path.with_suffix(".tmp.txt")
+        cmd = ["pdftotext", "-layout", "-nopgbrk", "-q", str(path), str(tmp_txt)]
+        subprocess.run(cmd, check=True)
+        try:
+            return tmp_txt.read_text(encoding="utf-8", errors="replace")
+        finally:
+            try:
+                tmp_txt.unlink()
+            except Exception:
+                pass
+    # fallback: try to read as text anyway
+    try:
+        return path.read_text(encoding="utf-8", errors="replace")
+    except Exception:
+        # last resort: decode bytes
+        return path.read_bytes().decode("utf-8", errors="replace")
+
+# ---------- Main ----------
+def main() -> int:
+    if not IN.exists():
+        print(f"Failed to extract any text: input not found: {IN}", file=sys.stderr)
+        return 1
+
+    try:
+        text = read_text_from_file(IN)
+    except Exception as e:
+        print(f"Failed to extract any text: {e}", file=sys.stderr)
+        return 1
+
+    titles: list[str] = []
+    seen: set[str] = set()
+
+    for raw in text.splitlines():
+        t = looks_like_title(raw)
+        if not t:
+            continue
+        # de-dupe on punctuation-insensitive key
+        k = re.sub(r"\W+", " ", t).strip().casefold()
+        if k in seen:
+            continue
+        seen.add(k)
+        titles.append(t)
+
+    OUT.parent.mkdir(parents=True, exist_ok=True)
+    with OUT.open("w", encoding="utf-8") as f:
+        for t in titles:
+            f.write(t + "\n")
+
+    if args.debug:
+        print(f"[pdf_to_titles] input={IN}  -> wrote {len(titles)} titles to {OUT}")
+
+    # mimic your previous success/exit semantics
+    if len(titles) == 0:
+        print("Failed to extract any text.", file=sys.stderr)
+        return 1
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main())

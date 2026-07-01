@@ -1,0 +1,65 @@
+{
+  "sets": [
+    {
+      "name": "Set 1",
+      "time_window": "7-8:30",
+      "break_minutes": 20,
+      "songs": [
+        {
+          "order": 1,
+          "title": "Hurt So Good",
+          "key": "A"
+        },
+        {
+          "order": 2,
+          "title": "Pontoon",
+          "key": "A"
+        },
+        {
+          "order": 3,
+          "title": "Hot Blooded",
+          "key": "G"
+        },
+        {
+          "order": 4,
+          "title": "Nonexistent Song",
+          "key": "C"
+        }
+      ]
+    },
+    {
+      "name": "Set 2",
+      "time_window": "8:50-10",
+      "break_minutes": 15,
+      "songs": [
+        {
+          "order": 1,
+          "title": "Free Fallin",
+          "key": "F"
+        },
+        {
+          "order": 2,
+          "title": "Another Missing Song",
+          "key": "Dm"
+        }
+      ]
+    }
+  ],
+  "extras": [
+    {
+      "title": "TNT"
+    },
+    {
+      "title": "Unknown Extra Song"
+    }
+  ],
+  "counts": {
+    "per_set": {
+      "Set 1": 4,
+      "Set 2": 2
+    },
+    "extras": 2,
+    "total": 8
+  },
+  "errors": []
+}

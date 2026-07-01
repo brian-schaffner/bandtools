@@ -1,0 +1,282 @@
+{
+  "summary": {
+    "total_tests": 27,
+    "passed": 10,
+    "failed": 16,
+    "warnings": 1,
+    "success_rate": 37.03703703703704
+  },
+  "results": [
+    {
+      "test": "Server Connectivity",
+      "status": "PASS",
+      "message": "Server is responding",
+      "timestamp": 1760662698.935495,
+      "details": {}
+    },
+    {
+      "test": "Frontend Connectivity",
+      "status": "FAIL",
+      "message": "Cannot connect to frontend: HTTPConnectionPool(host='localhost', port=3001): Max retries exceeded with url: / (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x10b743950>: Failed to establish a new connection: [Errno 61] Connection refused'))",
+      "timestamp": 1760662698.937784,
+      "details": {}
+    },
+    {
+      "test": "PDF Discovery",
+      "status": "PASS",
+      "message": "Found 13 valid PDF files: ['TKs.pdf', 'party.pdf', 'rr.pdf', 'leitchfield_derby.pdf', 'rough_river_july.pdf', 'TKs-1.pdf', 'hs.pdf', 'bs.pdf', 'party.pdf', 'rr.pdf', 'rough%20river%20july.pdf', 'hs.pdf', 'bs.pdf']",
+      "timestamp": 1760662705.781097,
+      "details": {}
+    },
+    {
+      "test": "Backup Discovery",
+      "status": "PASS",
+      "message": "Found 4 backup files: ['SongbookPro Backup.sbpbackup', 'test_backup.sbpbackup', 'SongbookPro Backup.sbpbackup', 'test_backup.sbpbackup']",
+      "timestamp": 1760662705.7818198,
+      "details": {}
+    },
+    {
+      "test": "Backup Upload (SongbookPro Backup.sbpbackup)",
+      "status": "PASS",
+      "message": "Uploaded successfully, 379 songs found",
+      "timestamp": 1760662706.0911849,
+      "details": {}
+    },
+    {
+      "test": "Backup Verification",
+      "status": "PASS",
+      "message": "Backup verified, 379 songs",
+      "timestamp": 1760662706.093606,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (TKs.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: Internal Server Error",
+      "timestamp": 1760662706.117313,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (party.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: Internal Server Error",
+      "timestamp": 1760662706.140057,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rr.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: Internal Server Error",
+      "timestamp": 1760662706.199866,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (leitchfield_derby.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: Internal Server Error",
+      "timestamp": 1760662706.277395,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rough_river_july.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: Internal Server Error",
+      "timestamp": 1760662706.357367,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (TKs-1.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: Internal Server Error",
+      "timestamp": 1760662706.4021492,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (hs.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: Internal Server Error",
+      "timestamp": 1760662706.461791,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (bs.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: Internal Server Error",
+      "timestamp": 1760662706.4987369,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (party.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: Internal Server Error",
+      "timestamp": 1760662706.5338361,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rr.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: Internal Server Error",
+      "timestamp": 1760662706.610613,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rough%20river%20july.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: Internal Server Error",
+      "timestamp": 1760662706.6375139,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (hs.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: Internal Server Error",
+      "timestamp": 1760662706.676223,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (bs.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: Internal Server Error",
+      "timestamp": 1760662706.728962,
+      "details": {}
+    },
+    {
+      "test": "Archive - Get Data",
+      "status": "PASS",
+      "message": "Archive has 1 backups, 13 setlists, 0 downloads",
+      "timestamp": 1760662706.7335,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (tmpfks9hqky.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: Internal Server Error",
+      "timestamp": 1760662706.738393,
+      "details": {}
+    },
+    {
+      "test": "Error Handling - Invalid PDF",
+      "status": "PASS",
+      "message": "Correctly rejected invalid PDF",
+      "timestamp": 1760662706.7384279,
+      "details": {}
+    },
+    {
+      "test": "Backup Upload (tmp_jruk2cy.sbpbackup)",
+      "status": "PASS",
+      "message": "Uploaded successfully, 0 songs found",
+      "timestamp": 1760662706.741487,
+      "details": {}
+    },
+    {
+      "test": "Error Handling - Invalid Backup",
+      "status": "WARN",
+      "message": "Invalid backup accepted but with 0 songs (may be expected)",
+      "timestamp": 1760662706.741521,
+      "details": {}
+    },
+    {
+      "test": "Error Handling - Missing Headers",
+      "status": "PASS",
+      "message": "Correctly rejected request without headers",
+      "timestamp": 1760662706.7433002,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (tmpsa7oet3c.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: Internal Server Error",
+      "timestamp": 1760662706.956307,
+      "details": {}
+    },
+    {
+      "test": "Error Handling - Large File",
+      "status": "PASS",
+      "message": "Correctly handled large file",
+      "timestamp": 1760662706.956356,
+      "details": {}
+    }
+  ],
+  "defects": [
+    {
+      "test": "Frontend Connectivity",
+      "message": "Cannot connect to frontend: HTTPConnectionPool(host='localhost', port=3001): Max retries exceeded with url: / (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x10b743950>: Failed to establish a new connection: [Errno 61] Connection refused'))",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (TKs.pdf)",
+      "message": "Processing failed with status 500: Internal Server Error",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (party.pdf)",
+      "message": "Processing failed with status 500: Internal Server Error",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rr.pdf)",
+      "message": "Processing failed with status 500: Internal Server Error",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (leitchfield_derby.pdf)",
+      "message": "Processing failed with status 500: Internal Server Error",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rough_river_july.pdf)",
+      "message": "Processing failed with status 500: Internal Server Error",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (TKs-1.pdf)",
+      "message": "Processing failed with status 500: Internal Server Error",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (hs.pdf)",
+      "message": "Processing failed with status 500: Internal Server Error",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (bs.pdf)",
+      "message": "Processing failed with status 500: Internal Server Error",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (party.pdf)",
+      "message": "Processing failed with status 500: Internal Server Error",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rr.pdf)",
+      "message": "Processing failed with status 500: Internal Server Error",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rough%20river%20july.pdf)",
+      "message": "Processing failed with status 500: Internal Server Error",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (hs.pdf)",
+      "message": "Processing failed with status 500: Internal Server Error",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (bs.pdf)",
+      "message": "Processing failed with status 500: Internal Server Error",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (tmpfks9hqky.pdf)",
+      "message": "Processing failed with status 500: Internal Server Error",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (tmpsa7oet3c.pdf)",
+      "message": "Processing failed with status 500: Internal Server Error",
+      "details": {}
+    }
+  ]
+}

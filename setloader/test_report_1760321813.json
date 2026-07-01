@@ -1,0 +1,287 @@
+{
+  "summary": {
+    "total_tests": 27,
+    "passed": 10,
+    "failed": 17,
+    "warnings": 0,
+    "success_rate": 37.03703703703704
+  },
+  "results": [
+    {
+      "test": "Server Connectivity",
+      "status": "PASS",
+      "message": "Server is responding",
+      "timestamp": 1760321808.1002371,
+      "details": {}
+    },
+    {
+      "test": "Frontend Connectivity",
+      "status": "PASS",
+      "message": "Frontend is responding",
+      "timestamp": 1760321809.100383,
+      "details": {}
+    },
+    {
+      "test": "PDF Discovery",
+      "status": "PASS",
+      "message": "Found 13 valid PDF files: ['TKs.pdf', 'rose_s.pdf', 'party.pdf', 'rr.pdf', 'stevie_rays_sep.pdf', 'rough_river_july.pdf', 'hs.pdf', 'bs.pdf', 'party.pdf', 'rr.pdf', 'rough%20river%20july.pdf', 'hs.pdf', 'bs.pdf']",
+      "timestamp": 1760321811.943232,
+      "details": {}
+    },
+    {
+      "test": "Backup Discovery",
+      "status": "PASS",
+      "message": "Found 2 backup files: ['SongbookPro Backup.sbpbackup', 'SongbookPro Backup.sbpbackup']",
+      "timestamp": 1760321811.943867,
+      "details": {}
+    },
+    {
+      "test": "Backup Upload (SongbookPro Backup.sbpbackup)",
+      "status": "PASS",
+      "message": "Uploaded successfully, 377 songs found",
+      "timestamp": 1760321812.0614028,
+      "details": {}
+    },
+    {
+      "test": "Backup Verification",
+      "status": "FAIL",
+      "message": "Verification failed: 405",
+      "timestamp": 1760321812.064393,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (TKs.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"[Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt' -> '/usr/local/src/setloader/pack/user_dataFile.txt'\"]}",
+      "timestamp": 1760321812.144475,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rose_s.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"[Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt' -> '/usr/local/src/setloader/pack/user_dataFile.txt'\"]}",
+      "timestamp": 1760321812.228516,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (party.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"[Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt' -> '/usr/local/src/setloader/pack/user_dataFile.txt'\"]}",
+      "timestamp": 1760321812.28655,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rr.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"[Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt' -> '/usr/local/src/setloader/pack/user_dataFile.txt'\"]}",
+      "timestamp": 1760321812.38191,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (stevie_rays_sep.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"[Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt' -> '/usr/local/src/setloader/pack/user_dataFile.txt'\"]}",
+      "timestamp": 1760321812.450291,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rough_river_july.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"[Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt' -> '/usr/local/src/setloader/pack/user_dataFile.txt'\"]}",
+      "timestamp": 1760321812.543204,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (hs.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"[Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt' -> '/usr/local/src/setloader/pack/user_dataFile.txt'\"]}",
+      "timestamp": 1760321812.651382,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (bs.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"[Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt' -> '/usr/local/src/setloader/pack/user_dataFile.txt'\"]}",
+      "timestamp": 1760321812.7207801,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (party.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"[Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt' -> '/usr/local/src/setloader/pack/user_dataFile.txt'\"]}",
+      "timestamp": 1760321812.7785358,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rr.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"[Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt' -> '/usr/local/src/setloader/pack/user_dataFile.txt'\"]}",
+      "timestamp": 1760321812.842622,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rough%20river%20july.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"[Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt' -> '/usr/local/src/setloader/pack/user_dataFile.txt'\"]}",
+      "timestamp": 1760321812.915349,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (hs.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"[Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt' -> '/usr/local/src/setloader/pack/user_dataFile.txt'\"]}",
+      "timestamp": 1760321812.978687,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (bs.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"[Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt' -> '/usr/local/src/setloader/pack/user_dataFile.txt'\"]}",
+      "timestamp": 1760321813.0433002,
+      "details": {}
+    },
+    {
+      "test": "Archive - Get Data",
+      "status": "PASS",
+      "message": "Archive has 55 backups, 121 setlists, 98 downloads",
+      "timestamp": 1760321813.071481,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (tmpf7txlbzx.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 400: {\"detail\":\"User backup file not found on disk\"}",
+      "timestamp": 1760321813.081674,
+      "details": {}
+    },
+    {
+      "test": "Error Handling - Invalid PDF",
+      "status": "PASS",
+      "message": "Correctly rejected invalid PDF",
+      "timestamp": 1760321813.081739,
+      "details": {}
+    },
+    {
+      "test": "Backup Upload (tmpn6dav83e.sbpbackup)",
+      "status": "PASS",
+      "message": "Uploaded successfully, 0 songs found",
+      "timestamp": 1760321813.090049,
+      "details": {}
+    },
+    {
+      "test": "Error Handling - Invalid Backup",
+      "status": "FAIL",
+      "message": "Should have rejected invalid backup",
+      "timestamp": 1760321813.090092,
+      "details": {}
+    },
+    {
+      "test": "Error Handling - Missing Headers",
+      "status": "PASS",
+      "message": "Correctly rejected request without headers",
+      "timestamp": 1760321813.092396,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (tmpt9nlmtgy.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"[Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt' -> '/usr/local/src/setloader/pack/user_dataFile.txt'\"]}",
+      "timestamp": 1760321813.241584,
+      "details": {}
+    },
+    {
+      "test": "Error Handling - Large File",
+      "status": "PASS",
+      "message": "Correctly handled large file",
+      "timestamp": 1760321813.241664,
+      "details": {}
+    }
+  ],
+  "defects": [
+    {
+      "test": "Backup Verification",
+      "message": "Verification failed: 405",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (TKs.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"[Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt' -> '/usr/local/src/setloader/pack/user_dataFile.txt'\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rose_s.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"[Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt' -> '/usr/local/src/setloader/pack/user_dataFile.txt'\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (party.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"[Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt' -> '/usr/local/src/setloader/pack/user_dataFile.txt'\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rr.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"[Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt' -> '/usr/local/src/setloader/pack/user_dataFile.txt'\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (stevie_rays_sep.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"[Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt' -> '/usr/local/src/setloader/pack/user_dataFile.txt'\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rough_river_july.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"[Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt' -> '/usr/local/src/setloader/pack/user_dataFile.txt'\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (hs.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"[Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt' -> '/usr/local/src/setloader/pack/user_dataFile.txt'\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (bs.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"[Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt' -> '/usr/local/src/setloader/pack/user_dataFile.txt'\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (party.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"[Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt' -> '/usr/local/src/setloader/pack/user_dataFile.txt'\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rr.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"[Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt' -> '/usr/local/src/setloader/pack/user_dataFile.txt'\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rough%20river%20july.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"[Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt' -> '/usr/local/src/setloader/pack/user_dataFile.txt'\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (hs.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"[Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt' -> '/usr/local/src/setloader/pack/user_dataFile.txt'\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (bs.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"[Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt' -> '/usr/local/src/setloader/pack/user_dataFile.txt'\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (tmpf7txlbzx.pdf)",
+      "message": "Processing failed with status 400: {\"detail\":\"User backup file not found on disk\"}",
+      "details": {}
+    },
+    {
+      "test": "Error Handling - Invalid Backup",
+      "message": "Should have rejected invalid backup",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (tmpt9nlmtgy.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"[Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt' -> '/usr/local/src/setloader/pack/user_dataFile.txt'\"]}",
+      "details": {}
+    }
+  ]
+}

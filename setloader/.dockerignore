@@ -1,0 +1,42 @@
+# Git / local dev
+.git
+.gitignore
+.env
+.env.*
+*.md
+
+# Python
+__pycache__
+*.pyc
+.venv
+venv
+
+# Node
+setlist-helper/node_modules
+setlist-helper/.next
+setlist-helper/.env.local
+
+# Large / ephemeral runtime data (persisted on Fly volume instead)
+work/
+uploads/
+forensic/
+logs/
+user_data/
+oauth_credentials/
+downloads/
+pack/
+user_data/**
+forensic/**
+*.sbp
+*.sbpbackup
+*.zip
+*.pdf
+*.jpeg
+*.jpg
+*.png
+
+# Local DB — seeded on volume at first boot
+setloader.db
+
+# OS
+.DS_Store

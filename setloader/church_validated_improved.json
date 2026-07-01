@@ -1,0 +1,580 @@
+{
+  "sets": [
+    {
+      "name": "Set 1",
+      "time_window": "7-8:30",
+      "break_minutes": 20,
+      "songs": [
+        {
+          "order": 1,
+          "title": "Hurt So Good",
+          "validated": true,
+          "status": "Found through mapping",
+          "song_id": 5,
+          "validated_title": "Hurts So Good",
+          "key": "A"
+        },
+        {
+          "order": 2,
+          "title": "U’re No Good",
+          "validated": true,
+          "status": "Found through mapping",
+          "song_id": 56,
+          "validated_title": "Youre No Good",
+          "key": "Am"
+        },
+        {
+          "order": 3,
+          "title": "Pontoon",
+          "validated": true,
+          "status": "Found in backup",
+          "song_id": 147,
+          "validated_title": "Pontoon",
+          "key": "A"
+        },
+        {
+          "order": 4,
+          "title": "Hot Blooded",
+          "validated": true,
+          "status": "Found in backup",
+          "song_id": 134,
+          "validated_title": "Hot Blooded",
+          "key": "G"
+        },
+        {
+          "order": 5,
+          "title": "No One Else Earth",
+          "validated": true,
+          "status": "Found through mapping",
+          "song_id": 135,
+          "validated_title": "No One Else On Earth",
+          "key": "G"
+        },
+        {
+          "order": 6,
+          "title": "Real World",
+          "validated": true,
+          "status": "Found in backup",
+          "song_id": 260,
+          "validated_title": "Real World",
+          "key": "Bb"
+        },
+        {
+          "order": 7,
+          "title": "Believe",
+          "validated": true,
+          "status": "Found in backup",
+          "song_id": 264,
+          "validated_title": "Believe",
+          "key": "F"
+        },
+        {
+          "order": 8,
+          "title": "Free Fallin",
+          "validated": true,
+          "status": "Found in backup",
+          "song_id": 4,
+          "validated_title": "Free Fallin",
+          "key": "F"
+        },
+        {
+          "order": 9,
+          "title": "Dreams",
+          "validated": true,
+          "status": "Found in backup",
+          "song_id": 427,
+          "validated_title": "Dreams",
+          "key": "F"
+        },
+        {
+          "order": 10,
+          "title": "Ex’s Ohs",
+          "validated": true,
+          "status": "Found through mapping",
+          "song_id": 59,
+          "validated_title": "Exs And Ohs",
+          "key": "Dm"
+        },
+        {
+          "order": 11,
+          "title": "I Wish",
+          "validated": true,
+          "status": "Found in backup",
+          "song_id": 181,
+          "validated_title": "I Wish",
+          "key": "Dm"
+        },
+        {
+          "order": 12,
+          "title": "What About Love",
+          "validated": true,
+          "status": "Found in backup",
+          "song_id": 347,
+          "validated_title": "What About Love",
+          "key": "Dm"
+        },
+        {
+          "order": 13,
+          "title": "Stuck",
+          "validated": true,
+          "status": "Found through mapping",
+          "song_id": 138,
+          "validated_title": "Stuck In The Middle With You",
+          "key": "D"
+        },
+        {
+          "order": 14,
+          "title": "Proud Mary",
+          "validated": true,
+          "status": "Found in backup",
+          "song_id": 139,
+          "validated_title": "Proud Mary",
+          "key": "D"
+        },
+        {
+          "order": 15,
+          "title": "Workin’ Man",
+          "validated": true,
+          "status": "Found through mapping",
+          "song_id": 140,
+          "validated_title": "Workin Man Blues",
+          "key": "D"
+        },
+        {
+          "order": 16,
+          "title": "Can’t You See",
+          "validated": true,
+          "status": "Found in backup",
+          "song_id": 66,
+          "validated_title": "Cant You See",
+          "key": "D"
+        },
+        {
+          "order": 17,
+          "title": "One Headlt",
+          "validated": true,
+          "status": "Found through mapping",
+          "song_id": 196,
+          "validated_title": "One Headlight",
+          "key": "G"
+        },
+        {
+          "order": 18,
+          "title": "Save Me",
+          "validated": true,
+          "status": "Found in backup",
+          "song_id": 413,
+          "validated_title": "Save Me",
+          "key": "C"
+        },
+        {
+          "order": 19,
+          "title": "Green River",
+          "validated": true,
+          "status": "Found in backup",
+          "song_id": 75,
+          "validated_title": "Green River",
+          "key": "E"
+        },
+        {
+          "order": 20,
+          "title": "When B Loved",
+          "validated": true,
+          "status": "Found through mapping",
+          "song_id": 143,
+          "validated_title": "When Will I Be Loved",
+          "key": "E"
+        },
+        {
+          "order": 21,
+          "title": "Knock Wood",
+          "validated": true,
+          "status": "Found through mapping",
+          "song_id": 144,
+          "validated_title": "Knock On Wood",
+          "key": "E"
+        },
+        {
+          "order": 22,
+          "title": "Swingin",
+          "validated": true,
+          "status": "Found in backup",
+          "song_id": 145,
+          "validated_title": "Swingin",
+          "key": "E"
+        },
+        {
+          "order": 23,
+          "title": "Bye Bye",
+          "validated": true,
+          "status": "Found in backup",
+          "song_id": 242,
+          "validated_title": "Bye Bye",
+          "key": "A"
+        },
+        {
+          "order": 24,
+          "title": "Running Empty",
+          "validated": true,
+          "status": "Found through mapping",
+          "song_id": 262,
+          "validated_title": "Running On Empty",
+          "key": "A"
+        },
+        {
+          "order": 25,
+          "title": "Boogie Oogie",
+          "validated": true,
+          "status": "Found through mapping",
+          "song_id": 206,
+          "validated_title": "Boogie Oogie Oogie",
+          "key": "Dm"
+        },
+        {
+          "order": 26,
+          "title": "Get Down2nite",
+          "validated": true,
+          "status": "Found through mapping",
+          "song_id": 207,
+          "validated_title": "Get Down Tonight",
+          "key": "G"
+        }
+      ],
+      "validated_count": 26,
+      "missing_count": 0
+    },
+    {
+      "name": "Set 2",
+      "time_window": "8:40-9:40",
+      "break_minutes": 20,
+      "songs": [
+        {
+          "order": 1,
+          "title": "I Will Survive",
+          "validated": true,
+          "status": "Found in backup",
+          "song_id": 164,
+          "validated_title": "I Will Survive",
+          "key": "Gm"
+        },
+        {
+          "order": 2,
+          "title": "Hot Stuff",
+          "validated": true,
+          "status": "Found in backup",
+          "song_id": 208,
+          "validated_title": "Hot Stuff",
+          "key": "Gm"
+        },
+        {
+          "order": 3,
+          "title": "You Win Love",
+          "validated": true,
+          "status": "Found through mapping",
+          "song_id": 226,
+          "validated_title": "You Win My Love",
+          "key": "G/A"
+        },
+        {
+          "order": 4,
+          "title": "Liza Jane",
+          "validated": true,
+          "status": "Found in backup",
+          "song_id": 272,
+          "validated_title": "Liza Jane",
+          "key": "A"
+        },
+        {
+          "order": 5,
+          "title": "Collide",
+          "validated": true,
+          "status": "Found in backup",
+          "song_id": 362,
+          "validated_title": "Collide",
+          "key": "B"
+        },
+        {
+          "order": 6,
+          "title": "Superstition",
+          "validated": true,
+          "status": "Found in backup",
+          "song_id": 161,
+          "validated_title": "Superstition",
+          "key": "E"
+        },
+        {
+          "order": 7,
+          "title": "Heaven",
+          "validated": true,
+          "status": "Found through mapping",
+          "song_id": 296,
+          "validated_title": "Locked Out Of Heaven",
+          "key": "Bm"
+        },
+        {
+          "order": 8,
+          "title": "Miss You",
+          "validated": true,
+          "status": "Found in backup",
+          "song_id": 150,
+          "validated_title": "Miss You",
+          "key": "Am"
+        },
+        {
+          "order": 9,
+          "title": "Str8 On",
+          "validated": true,
+          "status": "Found through mapping",
+          "song_id": 180,
+          "validated_title": "Straight On",
+          "key": "Am"
+        },
+        {
+          "order": 10,
+          "title": "Poker",
+          "validated": true,
+          "status": "Found through mapping",
+          "song_id": 205,
+          "validated_title": "Poker Face",
+          "key": "Am"
+        },
+        {
+          "order": 11,
+          "title": "Blvd Brkn Drms",
+          "validated": true,
+          "status": "Found through mapping",
+          "song_id": 179,
+          "validated_title": "Boulevard Of Broken Dreams",
+          "key": "Am"
+        },
+        {
+          "order": 12,
+          "title": "Talkin Sleep",
+          "validated": true,
+          "status": "Found through mapping",
+          "song_id": 364,
+          "validated_title": "Talking In Your Sleep",
+          "key": "Dm"
+        },
+        {
+          "order": 13,
+          "title": "Jealous Bone",
+          "validated": true,
+          "status": "Found in backup",
+          "song_id": 341,
+          "validated_title": "Jealous Bone",
+          "key": "Bm"
+        },
+        {
+          "order": 14,
+          "title": "Honey I’m Home",
+          "validated": true,
+          "status": "Found in backup",
+          "song_id": 223,
+          "validated_title": "Honey Im Home",
+          "key": "E"
+        },
+        {
+          "order": 15,
+          "title": "All About Bass",
+          "validated": true,
+          "status": "Found through mapping",
+          "song_id": 377,
+          "validated_title": "All About That Bass",
+          "key": "A"
+        }
+      ],
+      "validated_count": 15,
+      "missing_count": 0
+    },
+    {
+      "name": "Set 3",
+      "time_window": "10-11",
+      "break_minutes": 0,
+      "songs": [
+        {
+          "order": 1,
+          "title": "Not in 4 Love",
+          "validated": true,
+          "status": "Found through mapping",
+          "song_id": 221,
+          "validated_title": "If Youre Not In It For Love Im Outta Here",
+          "key": "C"
+        },
+        {
+          "order": 2,
+          "title": "Fire",
+          "validated": true,
+          "status": "Found in backup",
+          "song_id": 153,
+          "validated_title": "Fire",
+          "key": "C"
+        },
+        {
+          "order": 3,
+          "title": "Elec Slide",
+          "validated": true,
+          "status": "Found through mapping",
+          "song_id": 154,
+          "validated_title": "Electric Boogie",
+          "key": "C"
+        },
+        {
+          "order": 4,
+          "title": "Three Marlenas",
+          "validated": true,
+          "status": "Found in backup",
+          "song_id": 339,
+          "validated_title": "Three Marlenas",
+          "key": "D"
+        },
+        {
+          "order": 5,
+          "title": "Roll Changes",
+          "validated": true,
+          "status": "Found through mapping",
+          "song_id": 344,
+          "validated_title": "Roll With The Changes",
+          "key": "C"
+        },
+        {
+          "order": 6,
+          "title": "Roll Deep",
+          "validated": true,
+          "status": "Found through mapping",
+          "song_id": 354,
+          "validated_title": "Rolling In The Deep",
+          "key": "Cm"
+        },
+        {
+          "order": 7,
+          "title": "Oh Baby Baby",
+          "validated": true,
+          "status": "Found through mapping",
+          "song_id": 412,
+          "validated_title": "Baby One More Time",
+          "key": "Cm"
+        },
+        {
+          "order": 8,
+          "title": "Alone",
+          "validated": true,
+          "status": "Found in backup",
+          "song_id": 305,
+          "validated_title": "Alone",
+          "key": "Am"
+        },
+        {
+          "order": 9,
+          "title": "Man I Feel",
+          "validated": true,
+          "status": "Found through mapping",
+          "song_id": 151,
+          "validated_title": "Man I Feel Like A Woman",
+          "key": "A"
+        },
+        {
+          "order": 10,
+          "title": "Lights",
+          "validated": true,
+          "status": "Found in backup",
+          "song_id": 160,
+          "validated_title": "Lights",
+          "key": "D"
+        },
+        {
+          "order": 11,
+          "title": "Crzy Trn",
+          "validated": false,
+          "status": "Not found in backup or mappings",
+          "song_id": null,
+          "validated_title": "Crzy Trn",
+          "key": ""
+        },
+        {
+          "order": 12,
+          "title": "Barracuda",
+          "validated": true,
+          "status": "Found in backup",
+          "song_id": 355,
+          "validated_title": "Barracuda",
+          "key": "E"
+        },
+        {
+          "order": 13,
+          "title": "Cake",
+          "validated": true,
+          "status": "Found through mapping",
+          "song_id": 297,
+          "validated_title": "Cake By The Ocean",
+          "key": "Em"
+        },
+        {
+          "order": 14,
+          "title": "Liv Prayer",
+          "validated": true,
+          "status": "Found through mapping",
+          "song_id": 176,
+          "validated_title": "Livin On A Prayer",
+          "key": "Em"
+        }
+      ],
+      "validated_count": 13,
+      "missing_count": 1
+    }
+  ],
+  "extras": [
+    {
+      "order": 1,
+      "title": "Shut Up & Dance",
+      "validated": true,
+      "status": "Found through mapping",
+      "song_id": 363,
+      "validated_title": "Shut Up And Dance"
+    },
+    {
+      "order": 2,
+      "title": "TNT",
+      "validated": true,
+      "status": "Found in backup",
+      "song_id": 174,
+      "validated_title": "Tnt"
+    }
+  ],
+  "counts": {
+    "per_set": {
+      "Set 1": {
+        "total": 26,
+        "validated": 26,
+        "missing": 0
+      },
+      "Set 2": {
+        "total": 15,
+        "validated": 15,
+        "missing": 0
+      },
+      "Set 3": {
+        "total": 14,
+        "validated": 13,
+        "missing": 1
+      }
+    },
+    "extras": {
+      "total": 2,
+      "validated": 2,
+      "missing": 0
+    },
+    "total": 57,
+    "validated_total": 56,
+    "missing_total": 1
+  },
+  "errors": [],
+  "validation_info": {
+    "user_id": "brian@schaffner.net",
+    "backup_path": "uploads/SongbookPro Backup.sbpbackup",
+    "mappings_path": "user_data/google_105182799521486192946/title_mapper.json",
+    "validated_at": "2025-10-16T23:43:56.011499",
+    "total_songs_in_backup": 397,
+    "total_mappings": 305
+  }
+}

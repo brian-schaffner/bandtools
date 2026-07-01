@@ -1,0 +1,19 @@
+:8080 {
+	# SetLoader API (Tailscale /api prefix stripped, same as configure-tailscale.sh)
+	handle /api/* {
+		uri strip_prefix /api
+		reverse_proxy 127.0.0.1:8002
+	}
+
+	# Gig Flyers (existing Fly app)
+	handle /flyers/* {
+		uri strip_prefix /flyers
+		reverse_proxy https://gig-flyers.fly.dev {
+			header_up Host gig-flyers.fly.dev
+		}
+	}
+
+	handle {
+		reverse_proxy 127.0.0.1:3000
+	}
+}

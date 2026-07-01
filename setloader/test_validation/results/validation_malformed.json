@@ -1,0 +1,24 @@
+{
+  "sets": [],
+  "extras": [],
+  "counts": {
+    "per_set": {},
+    "extras": {
+      "total": 0,
+      "validated": 0,
+      "missing": 0
+    },
+    "total": 0,
+    "validated_total": 0,
+    "missing_total": 0
+  },
+  "errors": [],
+  "validation_info": {
+    "user_id": "test@example.com",
+    "backup_path": "test_validation/test_backup.sbpbackup",
+    "mappings_path": null,
+    "validated_at": "2025-10-16T23:41:52.900458",
+    "total_songs_in_backup": 5,
+    "total_mappings": 0
+  }
+}

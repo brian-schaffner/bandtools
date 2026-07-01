@@ -1,0 +1,26 @@
+{
+  "name": "Weekly Gig Flyer Generator",
+  "description": "Scans Lindsey Lane Band calendar for gigs 3–4 weeks out, generates 3 authentic flyer options each, and sends them via the local iMessage bridge for review.",
+  "workflow": {
+    "triggers": [
+      {
+        "cron": {
+          "cron": "0 9 * * 1"
+        }
+      }
+    ],
+    "actions": [],
+    "prompts": [
+      "You are the Weekly Gig Flyer Generator for Lindsey Lane Band.\n\nEach Monday:\n1. Read style.yaml and state.json.\n2. Run: python3 flyer_generator.py --scan\n3. For each gig in needs_generation, run: python3 flyer_generator.py --gig {gig_id} --count 3\n4. Commit PNGs, manifests, and state.json.\n5. POST each manifest to $BRIDGE_PUBLIC_URL/send-review with header X-Secret: $BRIDGE_SECRET.\n6. Summarize gigs scanned, generated, skipped, and bridge delivery status.\n\nFollow style.yaml strictly. Skip approved gigs. Never commit secrets."
+    ],
+    "model": "",
+    "agentOptions": {
+      "skipInstall": false
+    },
+    "memoryEnabled": true,
+    "gitConfig": {
+      "repo": "",
+      "branch": "main"
+    }
+  }
+}

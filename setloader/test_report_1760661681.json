@@ -1,0 +1,282 @@
+{
+  "summary": {
+    "total_tests": 27,
+    "passed": 10,
+    "failed": 16,
+    "warnings": 1,
+    "success_rate": 37.03703703703704
+  },
+  "results": [
+    {
+      "test": "Server Connectivity",
+      "status": "PASS",
+      "message": "Server is responding",
+      "timestamp": 1760661658.631238,
+      "details": {}
+    },
+    {
+      "test": "Frontend Connectivity",
+      "status": "FAIL",
+      "message": "Cannot connect to frontend: HTTPConnectionPool(host='localhost', port=3001): Max retries exceeded with url: / (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x10eccf8d0>: Failed to establish a new connection: [Errno 61] Connection refused'))",
+      "timestamp": 1760661658.633059,
+      "details": {}
+    },
+    {
+      "test": "PDF Discovery",
+      "status": "PASS",
+      "message": "Found 13 valid PDF files: ['TKs.pdf', 'party.pdf', 'rr.pdf', 'leitchfield_derby.pdf', 'rough_river_july.pdf', 'TKs-1.pdf', 'hs.pdf', 'bs.pdf', 'party.pdf', 'rr.pdf', 'rough%20river%20july.pdf', 'hs.pdf', 'bs.pdf']",
+      "timestamp": 1760661662.438858,
+      "details": {}
+    },
+    {
+      "test": "Backup Discovery",
+      "status": "PASS",
+      "message": "Found 4 backup files: ['SongbookPro Backup.sbpbackup', 'test_backup.sbpbackup', 'SongbookPro Backup.sbpbackup', 'test_backup.sbpbackup']",
+      "timestamp": 1760661662.43953,
+      "details": {}
+    },
+    {
+      "test": "Backup Upload (SongbookPro Backup.sbpbackup)",
+      "status": "PASS",
+      "message": "Uploaded successfully, 0 songs found",
+      "timestamp": 1760661662.709756,
+      "details": {}
+    },
+    {
+      "test": "Backup Verification",
+      "status": "PASS",
+      "message": "Backup verified, 379 songs",
+      "timestamp": 1760661662.714536,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (TKs.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"<frozen codecs>\\\", line 322, in decode\",\"UnicodeDecodeError: 'utf-8' codec can't decode byte 0x8b in position 11: invalid start byte\"]}",
+      "timestamp": 1760661664.2397819,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (party.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"<frozen codecs>\\\", line 322, in decode\",\"UnicodeDecodeError: 'utf-8' codec can't decode byte 0x8b in position 11: invalid start byte\"]}",
+      "timestamp": 1760661665.494764,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rr.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"<frozen codecs>\\\", line 322, in decode\",\"UnicodeDecodeError: 'utf-8' codec can't decode byte 0x8b in position 11: invalid start byte\"]}",
+      "timestamp": 1760661666.7357912,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (leitchfield_derby.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"<frozen codecs>\\\", line 322, in decode\",\"UnicodeDecodeError: 'utf-8' codec can't decode byte 0x8b in position 11: invalid start byte\"]}",
+      "timestamp": 1760661668.1825259,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rough_river_july.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"<frozen codecs>\\\", line 322, in decode\",\"UnicodeDecodeError: 'utf-8' codec can't decode byte 0x8b in position 11: invalid start byte\"]}",
+      "timestamp": 1760661669.3654962,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (TKs-1.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"<frozen codecs>\\\", line 322, in decode\",\"UnicodeDecodeError: 'utf-8' codec can't decode byte 0x8b in position 11: invalid start byte\"]}",
+      "timestamp": 1760661670.8430789,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (hs.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"<frozen codecs>\\\", line 322, in decode\",\"UnicodeDecodeError: 'utf-8' codec can't decode byte 0x8b in position 11: invalid start byte\"]}",
+      "timestamp": 1760661672.210598,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (bs.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"<frozen codecs>\\\", line 322, in decode\",\"UnicodeDecodeError: 'utf-8' codec can't decode byte 0x8b in position 11: invalid start byte\"]}",
+      "timestamp": 1760661673.685954,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (party.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"<frozen codecs>\\\", line 322, in decode\",\"UnicodeDecodeError: 'utf-8' codec can't decode byte 0x8b in position 11: invalid start byte\"]}",
+      "timestamp": 1760661674.967932,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rr.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"<frozen codecs>\\\", line 322, in decode\",\"UnicodeDecodeError: 'utf-8' codec can't decode byte 0x8b in position 11: invalid start byte\"]}",
+      "timestamp": 1760661676.165947,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rough%20river%20july.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"<frozen codecs>\\\", line 322, in decode\",\"UnicodeDecodeError: 'utf-8' codec can't decode byte 0x8b in position 11: invalid start byte\"]}",
+      "timestamp": 1760661677.362599,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (hs.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"<frozen codecs>\\\", line 322, in decode\",\"UnicodeDecodeError: 'utf-8' codec can't decode byte 0x8b in position 11: invalid start byte\"]}",
+      "timestamp": 1760661678.816108,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (bs.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"<frozen codecs>\\\", line 322, in decode\",\"UnicodeDecodeError: 'utf-8' codec can't decode byte 0x8b in position 11: invalid start byte\"]}",
+      "timestamp": 1760661680.228253,
+      "details": {}
+    },
+    {
+      "test": "Archive - Get Data",
+      "status": "PASS",
+      "message": "Archive has 1 backups, 13 setlists, 0 downloads",
+      "timestamp": 1760661680.237833,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (tmpimspmo1w.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/pdf_to_sections.py\\\", line 154, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/pdf_to_sections.py\\\", line 124, in main\",\"    text = extract_text_from_pdf(getattr(args, 'in'))\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/pdf_to_sections.py\\\", line 16, in extract_text_from_pdf\",\"    raise Exception(f\\\"pdftotext failed: {result.stderr}\\\")\",\"Exception: pdftotext failed: Syntax Warning: May not be a PDF file (continuing anyway)\",\"Syntax Error: Couldn't find trailer dictionary\",\"Syntax Error: Couldn't find trailer dictionary\",\"Syntax Error: Couldn't read xref table\",\"\"]}",
+      "timestamp": 1760661680.388466,
+      "details": {}
+    },
+    {
+      "test": "Error Handling - Invalid PDF",
+      "status": "PASS",
+      "message": "Correctly rejected invalid PDF",
+      "timestamp": 1760661680.3885179,
+      "details": {}
+    },
+    {
+      "test": "Backup Upload (tmpi20chz_g.sbpbackup)",
+      "status": "PASS",
+      "message": "Uploaded successfully, 0 songs found",
+      "timestamp": 1760661680.393281,
+      "details": {}
+    },
+    {
+      "test": "Error Handling - Invalid Backup",
+      "status": "WARN",
+      "message": "Invalid backup accepted but with 0 songs (may be expected)",
+      "timestamp": 1760661680.393323,
+      "details": {}
+    },
+    {
+      "test": "Error Handling - Missing Headers",
+      "status": "PASS",
+      "message": "Correctly rejected request without headers",
+      "timestamp": 1760661680.39554,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (tmpu_mj8k9i.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/pdf_to_sections.py\\\", line 154, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/pdf_to_sections.py\\\", line 124, in main\",\"    text = extract_text_from_pdf(getattr(args, 'in'))\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/pdf_to_sections.py\\\", line 16, in extract_text_from_pdf\",\"    raise Exception(f\\\"pdftotext failed: {result.stderr}\\\")\",\"Exception: pdftotext failed: Syntax Warning: May not be a PDF file (continuing anyway)\",\"Syntax Error: Couldn't find trailer dictionary\",\"Syntax Error: Couldn't find trailer dictionary\",\"Syntax Error: Couldn't read xref table\",\"\"]}",
+      "timestamp": 1760661681.1189241,
+      "details": {}
+    },
+    {
+      "test": "Error Handling - Large File",
+      "status": "PASS",
+      "message": "Correctly handled large file",
+      "timestamp": 1760661681.118986,
+      "details": {}
+    }
+  ],
+  "defects": [
+    {
+      "test": "Frontend Connectivity",
+      "message": "Cannot connect to frontend: HTTPConnectionPool(host='localhost', port=3001): Max retries exceeded with url: / (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x10eccf8d0>: Failed to establish a new connection: [Errno 61] Connection refused'))",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (TKs.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"<frozen codecs>\\\", line 322, in decode\",\"UnicodeDecodeError: 'utf-8' codec can't decode byte 0x8b in position 11: invalid start byte\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (party.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"<frozen codecs>\\\", line 322, in decode\",\"UnicodeDecodeError: 'utf-8' codec can't decode byte 0x8b in position 11: invalid start byte\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rr.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"<frozen codecs>\\\", line 322, in decode\",\"UnicodeDecodeError: 'utf-8' codec can't decode byte 0x8b in position 11: invalid start byte\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (leitchfield_derby.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"<frozen codecs>\\\", line 322, in decode\",\"UnicodeDecodeError: 'utf-8' codec can't decode byte 0x8b in position 11: invalid start byte\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rough_river_july.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"<frozen codecs>\\\", line 322, in decode\",\"UnicodeDecodeError: 'utf-8' codec can't decode byte 0x8b in position 11: invalid start byte\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (TKs-1.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"<frozen codecs>\\\", line 322, in decode\",\"UnicodeDecodeError: 'utf-8' codec can't decode byte 0x8b in position 11: invalid start byte\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (hs.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"<frozen codecs>\\\", line 322, in decode\",\"UnicodeDecodeError: 'utf-8' codec can't decode byte 0x8b in position 11: invalid start byte\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (bs.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"<frozen codecs>\\\", line 322, in decode\",\"UnicodeDecodeError: 'utf-8' codec can't decode byte 0x8b in position 11: invalid start byte\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (party.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"<frozen codecs>\\\", line 322, in decode\",\"UnicodeDecodeError: 'utf-8' codec can't decode byte 0x8b in position 11: invalid start byte\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rr.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"<frozen codecs>\\\", line 322, in decode\",\"UnicodeDecodeError: 'utf-8' codec can't decode byte 0x8b in position 11: invalid start byte\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rough%20river%20july.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"<frozen codecs>\\\", line 322, in decode\",\"UnicodeDecodeError: 'utf-8' codec can't decode byte 0x8b in position 11: invalid start byte\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (hs.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"<frozen codecs>\\\", line 322, in decode\",\"UnicodeDecodeError: 'utf-8' codec can't decode byte 0x8b in position 11: invalid start byte\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (bs.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"<frozen codecs>\\\", line 322, in decode\",\"UnicodeDecodeError: 'utf-8' codec can't decode byte 0x8b in position 11: invalid start byte\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (tmpimspmo1w.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/pdf_to_sections.py\\\", line 154, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/pdf_to_sections.py\\\", line 124, in main\",\"    text = extract_text_from_pdf(getattr(args, 'in'))\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/pdf_to_sections.py\\\", line 16, in extract_text_from_pdf\",\"    raise Exception(f\\\"pdftotext failed: {result.stderr}\\\")\",\"Exception: pdftotext failed: Syntax Warning: May not be a PDF file (continuing anyway)\",\"Syntax Error: Couldn't find trailer dictionary\",\"Syntax Error: Couldn't find trailer dictionary\",\"Syntax Error: Couldn't read xref table\",\"\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (tmpu_mj8k9i.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/pdf_to_sections.py\\\", line 154, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/pdf_to_sections.py\\\", line 124, in main\",\"    text = extract_text_from_pdf(getattr(args, 'in'))\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/pdf_to_sections.py\\\", line 16, in extract_text_from_pdf\",\"    raise Exception(f\\\"pdftotext failed: {result.stderr}\\\")\",\"Exception: pdftotext failed: Syntax Warning: May not be a PDF file (continuing anyway)\",\"Syntax Error: Couldn't find trailer dictionary\",\"Syntax Error: Couldn't find trailer dictionary\",\"Syntax Error: Couldn't read xref table\",\"\"]}",
+      "details": {}
+    }
+  ]
+}

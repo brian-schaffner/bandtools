@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.setloader.app</string>
+    
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/bin/python3</string>
+        <string>-m</string>
+        <string>uvicorn</string>
+        <string>server:app</string>
+        <string>--host</string>
+        <string>0.0.0.0</string>
+        <string>--port</string>
+        <string>8000</string>
+        <string>--timeout-keep-alive</string>
+        <string>300</string>
+        <string>--timeout-graceful-shutdown</string>
+        <string>30</string>
+    </array>
+    
+    <key>WorkingDirectory</key>
+    <string>/usr/local/src/setloader</string>
+    
+    <key>RunAtLoad</key>
+    <true/>
+    
+    <key>KeepAlive</key>
+    <true/>
+    
+    <key>StandardOutPath</key>
+    <string>/usr/local/src/setloader/logs/setloader.log</string>
+    
+    <key>StandardErrorPath</key>
+    <string>/usr/local/src/setloader/logs/setloader-error.log</string>
+    
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>SECRET</key>
+        <string>change-me</string>
+        <key>SMTP_USER</key>
+        <string>brian@schaffner.net</string>
+        <key>SMTP_PASS</key>
+        <string>your_app_password</string>
+        <key>FROM_NAME</key>
+        <string>Set Loader</string>
+        <key>EMAIL_FALLBACK_TO</key>
+        <string>brian@schaffner.net</string>
+        <key>OPENAI_API_KEY</key>
+        <string>your_openai_api_key</string>
+        <key>RUN_EXTRA_FLAGS</key>
+        <string>--ai</string>
+    </dict>
+</dict>
+</plist>
+

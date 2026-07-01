@@ -1,0 +1,31 @@
+# src/ai_ocr.py
+from paddleocr import PaddleOCR
+from pathlib import Path
+import fitz  # PyMuPDF: pip install pymupdf
+
+def pdf_to_images(pdf_path, out_dir):
+    Path(out_dir).mkdir(parents=True, exist_ok=True)
+    doc = fitz.open(pdf_path)
+    imgs = []
+    for i, page in enumerate(doc):
+        pix = page.get_pixmap(dpi=300)
+        p = Path(out_dir) / f"page_{i+1}.png"
+        pix.save(p.as_posix())
+        imgs.append(p)
+    return imgs
+
+def ocr_to_lines(img_paths):
+    ocr = PaddleOCR(lang='en')  # fast, reasonably accurate
+    lines = []
+    for p in img_paths:
+        result = ocr.ocr(p.as_posix())
+        for block in result:
+            for (_, txt, _conf) in block:
+                lines.append(txt)
+    return lines
+
+if __name__ == "__main__":
+    imgs = pdf_to_images("work/fixed.pdf", "work/ocr_pages")
+    lines = ocr_to_lines(imgs)
+    Path("pack/raw_titles.txt").write_text("\n".join(lines), encoding="utf-8")
+    print(f"Wrote {len(lines)} lines to pack/raw_titles.txt")

@@ -1,0 +1,43 @@
+# fly.test.toml — Band Tools staging (https://bandtools-test.fly.dev)
+app = 'bandtools-test'
+primary_region = 'ord'
+
+[build]
+  dockerfile = 'Dockerfile'
+
+[env]
+  PORT = '8090'
+  BACKEND_PORT = '8002'
+  FRONTEND_PORT = '3000'
+  FLYERS_PORT = '8080'
+  DATA_DIR = '/data'
+  NODE_ENV = 'production'
+  GIG_FLYERS_ENV = 'test'
+  GIG_FLYERS_TEST_MODE = '1'
+  ROOT_PATH = '/flyers'
+  GIG_OUTPUT_DIR = '/data/flyers-output'
+  GIG_CALENDAR_CACHE_PATH = '/data/cache/calendar.json'
+  SETLOADER_DATA_DIR = '/data/setloader'
+
+[mounts]
+  source = 'bandtools_test_data'
+  destination = '/data'
+
+[http_service]
+  internal_port = 8090
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [[http_service.checks]]
+    interval = '30s'
+    timeout = '10s'
+    grace_period = '30s'
+    method = 'GET'
+    path = '/health'
+
+[[vm]]
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 1

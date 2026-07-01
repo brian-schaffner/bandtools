@@ -1,0 +1,55 @@
+{
+  "reference_today": "2026-06-23",
+  "band": "Lindsey Lane Band",
+  "source": "fixtures/mock_gigs.json",
+  "gigs": [
+    {
+      "date": "2026-06-28",
+      "time": "7:00 pm",
+      "title": "Lindsey Lane Band at Two Lane Tavern",
+      "venue": "Two Lane Tavern"
+    },
+    {
+      "date": "2026-07-04",
+      "time": "6:30 pm",
+      "title": "Lindsey Lane Band at American Legion Post 15",
+      "venue": "American Legion Post 15"
+    },
+    {
+      "date": "2026-07-14",
+      "time": "8:00 pm",
+      "title": "Lindsey Lane Band at Stevie Ray's Blues Bar",
+      "venue": "Stevie Ray's Blues Bar"
+    },
+    {
+      "date": "2026-07-18",
+      "time": "7:30 pm",
+      "title": "Hosting Lindsey Lane Band at VFW Post 1170",
+      "venue": "VFW Post 1170"
+    },
+    {
+      "date": "2026-07-21",
+      "time": "8:00 pm",
+      "title": "Lindsey Lane Band at The Waters Club",
+      "venue": "The Waters Club"
+    },
+    {
+      "date": "2026-07-26",
+      "time": "5:00 pm",
+      "title": "Lindsey Lane Band at Nelson County Fair",
+      "venue": "Nelson County Fair"
+    },
+    {
+      "date": "2026-08-08",
+      "time": "7:00 pm",
+      "title": "Lindsey Lane Band at Stevie Ray's Blues Bar",
+      "venue": "Stevie Ray's Blues Bar"
+    },
+    {
+      "date": "2026-08-15",
+      "time": "6:00 pm",
+      "title": "Lindsey Lane Band at Jeffersontown American Legion",
+      "venue": "Jeffersontown American Legion"
+    }
+  ]
+}

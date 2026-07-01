@@ -1,0 +1,286 @@
+{
+  "summary": {
+    "total_tests": 29,
+    "passed": 14,
+    "failed": 14,
+    "warnings": 1,
+    "success_rate": 48.275862068965516
+  },
+  "results": [
+    {
+      "test": "Server Connectivity",
+      "status": "PASS",
+      "message": "Server is responding",
+      "timestamp": 1760663616.107583,
+      "details": {}
+    },
+    {
+      "test": "Frontend Connectivity",
+      "status": "FAIL",
+      "message": "Cannot connect to frontend: HTTPConnectionPool(host='localhost', port=3001): Max retries exceeded with url: / (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x10f5e0590>: Failed to establish a new connection: [Errno 61] Connection refused'))",
+      "timestamp": 1760663616.1096141,
+      "details": {}
+    },
+    {
+      "test": "PDF Discovery",
+      "status": "PASS",
+      "message": "Found 13 valid PDF files: ['TKs.pdf', 'party.pdf', 'rr.pdf', 'leitchfield_derby.pdf', 'rough_river_july.pdf', 'TKs-1.pdf', 'hs.pdf', 'bs.pdf', 'party.pdf', 'rr.pdf', 'rough%20river%20july.pdf', 'hs.pdf', 'bs.pdf']",
+      "timestamp": 1760663623.819408,
+      "details": {}
+    },
+    {
+      "test": "Backup Discovery",
+      "status": "PASS",
+      "message": "Found 4 backup files: ['SongbookPro Backup.sbpbackup', 'test_backup.sbpbackup', 'SongbookPro Backup.sbpbackup', 'test_backup.sbpbackup']",
+      "timestamp": 1760663623.820148,
+      "details": {}
+    },
+    {
+      "test": "Backup Upload (SongbookPro Backup.sbpbackup)",
+      "status": "PASS",
+      "message": "Uploaded successfully, 379 songs found",
+      "timestamp": 1760663623.982034,
+      "details": {}
+    },
+    {
+      "test": "Backup Verification",
+      "status": "PASS",
+      "message": "Backup verified, 379 songs",
+      "timestamp": 1760663623.984829,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (TKs.pdf)",
+      "status": "PASS",
+      "message": "Processed successfully, 59 songs found",
+      "timestamp": 1760663672.6287181,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (party.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[\"\ud83d\udd0d Starting hybrid extraction for /usr/local/src/setloader/uploads/party.pdf\",\"Expected song count: 59\",\"\ud83e\udd16 Attempting AI extraction...\",\"AI extraction result: 45 songs\",\"\u26a0\ufe0f  AI extraction incomplete (45/59 songs)\",\"\ud83d\udd04 Falling back to traditional extraction...\",\"Traditional extraction result: 45 songs\",\"\ud83d\udcca Using traditional results (45 songs) - better than AI (45)\",\"\ud83c\udfaf Final result: 45 songs extracted\",\"\u274c Extraction incomplete: 45/59 songs\"],\"stderr\":[]}",
+      "timestamp": 1760663707.0354161,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rr.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[\"\ud83d\udd0d Starting hybrid extraction for /usr/local/src/setloader/uploads/rr.pdf\",\"Expected song count: 59\",\"\ud83e\udd16 Attempting AI extraction...\",\"AI extraction result: 45 songs\",\"\u26a0\ufe0f  AI extraction incomplete (45/59 songs)\",\"\ud83d\udd04 Falling back to traditional extraction...\",\"Traditional extraction result: 46 songs\",\"\ud83d\udcca Using traditional results (46 songs) - better than AI (45)\",\"\ud83c\udfaf Final result: 46 songs extracted\",\"\u274c Extraction incomplete: 46/59 songs\"],\"stderr\":[]}",
+      "timestamp": 1760663744.532989,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (leitchfield_derby.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[\"\ud83d\udd0d Starting hybrid extraction for /usr/local/src/setloader/uploads/leitchfield_derby.pdf\",\"Expected song count: 59\",\"\ud83e\udd16 Attempting AI extraction...\",\"AI extraction result: 55 songs\",\"\u26a0\ufe0f  AI extraction incomplete (55/59 songs)\",\"\ud83d\udd04 Falling back to traditional extraction...\",\"Traditional extraction result: 55 songs\",\"\ud83d\udcca Using traditional results (55 songs) - better than AI (55)\",\"\ud83c\udfaf Final result: 55 songs extracted\",\"\u274c Extraction incomplete: 55/59 songs\"],\"stderr\":[]}",
+      "timestamp": 1760663782.4074821,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rough_river_july.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[\"\ud83d\udd0d Starting hybrid extraction for /usr/local/src/setloader/uploads/rough_river_july.pdf\",\"Expected song count: 59\",\"\ud83e\udd16 Attempting AI extraction...\",\"AI extraction result: 45 songs\",\"\u26a0\ufe0f  AI extraction incomplete (45/59 songs)\",\"\ud83d\udd04 Falling back to traditional extraction...\",\"Traditional extraction result: 46 songs\",\"\ud83d\udcca Using traditional results (46 songs) - better than AI (45)\",\"\ud83c\udfaf Final result: 46 songs extracted\",\"\u274c Extraction incomplete: 46/59 songs\"],\"stderr\":[]}",
+      "timestamp": 1760663828.05938,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (TKs-1.pdf)",
+      "status": "PASS",
+      "message": "Processed successfully, 59 songs found",
+      "timestamp": 1760663870.2212732,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (hs.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[\"\ud83d\udd0d Starting hybrid extraction for /usr/local/src/setloader/uploads/hs.pdf\",\"Expected song count: 59\",\"\ud83e\udd16 Attempting AI extraction...\",\"AI extraction result: 52 songs\",\"\u26a0\ufe0f  AI extraction incomplete (52/59 songs)\",\"\ud83d\udd04 Falling back to traditional extraction...\",\"Traditional extraction result: 50 songs\",\"\ud83d\udcca Using AI results (52 songs) - better than traditional (50)\",\"\ud83c\udfaf Final result: 52 songs extracted\",\"\u274c Extraction incomplete: 52/59 songs\"],\"stderr\":[]}",
+      "timestamp": 1760663920.033469,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (bs.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[\"\ud83d\udd0d Starting hybrid extraction for /usr/local/src/setloader/uploads/bs.pdf\",\"Expected song count: 59\",\"\ud83e\udd16 Attempting AI extraction...\",\"AI extraction result: 53 songs\",\"\u26a0\ufe0f  AI extraction incomplete (53/59 songs)\",\"\ud83d\udd04 Falling back to traditional extraction...\",\"Traditional extraction result: 51 songs\",\"\ud83d\udcca Using AI results (53 songs) - better than traditional (51)\",\"\ud83c\udfaf Final result: 53 songs extracted\",\"\u274c Extraction incomplete: 53/59 songs\"],\"stderr\":[]}",
+      "timestamp": 1760663960.4975371,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (party.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[\"\ud83d\udd0d Starting hybrid extraction for /usr/local/src/setloader/uploads/party.pdf\",\"Expected song count: 59\",\"\ud83e\udd16 Attempting AI extraction...\",\"AI extraction result: 44 songs\",\"\u26a0\ufe0f  AI extraction incomplete (44/59 songs)\",\"\ud83d\udd04 Falling back to traditional extraction...\",\"Traditional extraction result: 45 songs\",\"\ud83d\udcca Using traditional results (45 songs) - better than AI (44)\",\"\ud83c\udfaf Final result: 45 songs extracted\",\"\u274c Extraction incomplete: 45/59 songs\"],\"stderr\":[]}",
+      "timestamp": 1760663991.077056,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rr.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[\"\ud83d\udd0d Starting hybrid extraction for /usr/local/src/setloader/uploads/rr.pdf\",\"Expected song count: 59\",\"\ud83e\udd16 Attempting AI extraction...\",\"AI extraction result: 45 songs\",\"\u26a0\ufe0f  AI extraction incomplete (45/59 songs)\",\"\ud83d\udd04 Falling back to traditional extraction...\",\"Traditional extraction result: 46 songs\",\"\ud83d\udcca Using traditional results (46 songs) - better than AI (45)\",\"\ud83c\udfaf Final result: 46 songs extracted\",\"\u274c Extraction incomplete: 46/59 songs\"],\"stderr\":[]}",
+      "timestamp": 1760664021.3974762,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rough%20river%20july.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[\"\ud83d\udd0d Starting hybrid extraction for /usr/local/src/setloader/uploads/rough_river_july.pdf\",\"Expected song count: 59\",\"\ud83e\udd16 Attempting AI extraction...\",\"AI extraction result: 45 songs\",\"\u26a0\ufe0f  AI extraction incomplete (45/59 songs)\",\"\ud83d\udd04 Falling back to traditional extraction...\",\"Traditional extraction result: 46 songs\",\"\ud83d\udcca Using traditional results (46 songs) - better than AI (45)\",\"\ud83c\udfaf Final result: 46 songs extracted\",\"\u274c Extraction incomplete: 46/59 songs\"],\"stderr\":[]}",
+      "timestamp": 1760664049.970349,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (hs.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[\"\ud83d\udd0d Starting hybrid extraction for /usr/local/src/setloader/uploads/hs.pdf\",\"Expected song count: 59\",\"\ud83e\udd16 Attempting AI extraction...\",\"AI extraction result: 52 songs\",\"\u26a0\ufe0f  AI extraction incomplete (52/59 songs)\",\"\ud83d\udd04 Falling back to traditional extraction...\",\"Traditional extraction result: 50 songs\",\"\ud83d\udcca Using AI results (52 songs) - better than traditional (50)\",\"\ud83c\udfaf Final result: 52 songs extracted\",\"\u274c Extraction incomplete: 52/59 songs\"],\"stderr\":[]}",
+      "timestamp": 1760664092.854134,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (bs.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[\"\ud83d\udd0d Starting hybrid extraction for /usr/local/src/setloader/uploads/bs.pdf\",\"Expected song count: 59\",\"\ud83e\udd16 Attempting AI extraction...\",\"AI extraction result: 53 songs\",\"\u26a0\ufe0f  AI extraction incomplete (53/59 songs)\",\"\ud83d\udd04 Falling back to traditional extraction...\",\"Traditional extraction result: 51 songs\",\"\ud83d\udcca Using AI results (53 songs) - better than traditional (51)\",\"\ud83c\udfaf Final result: 53 songs extracted\",\"\u274c Extraction incomplete: 53/59 songs\"],\"stderr\":[]}",
+      "timestamp": 1760664134.7704692,
+      "details": {}
+    },
+    {
+      "test": "Song Mapping",
+      "status": "PASS",
+      "message": "Processed 0 title mappings",
+      "timestamp": 1760664134.800524,
+      "details": {}
+    },
+    {
+      "test": "Song Mapping",
+      "status": "PASS",
+      "message": "Processed 0 title mappings",
+      "timestamp": 1760664134.826859,
+      "details": {}
+    },
+    {
+      "test": "Archive - Get Data",
+      "status": "PASS",
+      "message": "Archive has 1 backups, 13 setlists, 4 downloads",
+      "timestamp": 1760664134.831403,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (tmpts1_exu5.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[\"\ud83d\udd0d Starting hybrid extraction for /usr/local/src/setloader/uploads/tmpts1_exu5.pdf\",\"Expected song count: 59\",\"\ud83e\udd16 Attempting AI extraction...\",\"AI extraction failed: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/ai_reader.py\\\", line 161, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/ai_reader.py\\\", line 79, in main\",\"    resp = client.responses.create(\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/lib/python3.11/site-packages/openai/_utils/_utils.py\\\", line 279, in wrapper\",\"    return func(*args, **kwargs)\",\"           ^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/lib/python3.11/site-packages/openai/resources/responses/responses.py\\\", line 603, in create\",\"    return self._post(\",\"           ^^^^^^^^^^^\",\"  File \\\"/usr/local/lib/python3.11/site-packages/openai/_base_client.py\\\", line 1242, in post\",\"    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))\",\"                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/lib/python3.11/site-packages/openai/_base_client.py\\\", line 919, in request\",\"    return self._request(\",\"           ^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/lib/python3.11/site-packages/openai/_base_client.py\\\", line 1023, in _request\",\"    raise self._make_status_error_from_response(err.response) from None\",\"openai.BadRequestError: Error code: 400 - {'error': {'message': 'The file type you uploaded is not supported. Please try again with a pdf', 'type': 'invalid_request_error', 'param': 'input', 'code': 'unsupported_file'}}\",\"\",\"AI extraction result: 0 songs\",\"\u26a0\ufe0f  AI extraction incomplete (0/59 songs)\",\"\ud83d\udd04 Falling back to traditional extraction...\",\"Traditional extraction failed: Failed to extract any text: Command '['pdftotext', '-layout', '-nopgbrk', '-q', '/usr/local/src/setloader/uploads/tmpts1_exu5.pdf', '/usr/local/src/setloader/uploads/tmpts1_exu5.tmp.txt']' returned non-zero exit status 1.\",\"\",\"Traditional extraction result: 0 songs\",\"\ud83d\udcca Using traditional results (0 songs) - better than AI (0)\",\"\ud83c\udfaf Final result: 0 songs extracted\",\"\u274c Extraction incomplete: 0/59 songs\"],\"stderr\":[]}",
+      "timestamp": 1760664137.2000158,
+      "details": {}
+    },
+    {
+      "test": "Error Handling - Invalid PDF",
+      "status": "PASS",
+      "message": "Correctly rejected invalid PDF",
+      "timestamp": 1760664137.200077,
+      "details": {}
+    },
+    {
+      "test": "Backup Upload (tmp7fpjp0g7.sbpbackup)",
+      "status": "PASS",
+      "message": "Uploaded successfully, 0 songs found",
+      "timestamp": 1760664137.2077491,
+      "details": {}
+    },
+    {
+      "test": "Error Handling - Invalid Backup",
+      "status": "WARN",
+      "message": "Invalid backup accepted but with 0 songs (may be expected)",
+      "timestamp": 1760664137.2078001,
+      "details": {}
+    },
+    {
+      "test": "Error Handling - Missing Headers",
+      "status": "PASS",
+      "message": "Correctly rejected request without headers",
+      "timestamp": 1760664137.2105348,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (tmpjdjng2oy.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[\"\ud83d\udd0d Starting hybrid extraction for /usr/local/src/setloader/uploads/tmpjdjng2oy.pdf\",\"Expected song count: 59\",\"\ud83e\udd16 Attempting AI extraction...\",\"AI extraction failed: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/ai_reader.py\\\", line 161, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/ai_reader.py\\\", line 79, in main\",\"    resp = client.responses.create(\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/lib/python3.11/site-packages/openai/_utils/_utils.py\\\", line 279, in wrapper\",\"    return func(*args, **kwargs)\",\"           ^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/lib/python3.11/site-packages/openai/resources/responses/responses.py\\\", line 603, in create\",\"    return self._post(\",\"           ^^^^^^^^^^^\",\"  File \\\"/usr/local/lib/python3.11/site-packages/openai/_base_client.py\\\", line 1242, in post\",\"    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))\",\"                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/lib/python3.11/site-packages/openai/_base_client.py\\\", line 919, in request\",\"    return self._request(\",\"           ^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/lib/python3.11/site-packages/openai/_base_client.py\\\", line 1023, in _request\",\"    raise self._make_status_error_from_response(err.response) from None\",\"openai.BadRequestError: Error code: 400 - {'error': {'message': 'The file type you uploaded is not supported. Please try again with a pdf', 'type': 'invalid_request_error', 'param': 'input', 'code': 'unsupported_file'}}\",\"\",\"AI extraction result: 0 songs\",\"\u26a0\ufe0f  AI extraction incomplete (0/59 songs)\",\"\ud83d\udd04 Falling back to traditional extraction...\",\"Traditional extraction failed: Failed to extract any text: Command '['pdftotext', '-layout', '-nopgbrk', '-q', '/usr/local/src/setloader/uploads/tmpjdjng2oy.pdf', '/usr/local/src/setloader/uploads/tmpjdjng2oy.tmp.txt']' returned non-zero exit status 1.\",\"\",\"Traditional extraction result: 0 songs\",\"\ud83d\udcca Using traditional results (0 songs) - better than AI (0)\",\"\ud83c\udfaf Final result: 0 songs extracted\",\"\u274c Extraction incomplete: 0/59 songs\"],\"stderr\":[]}",
+      "timestamp": 1760664143.658976,
+      "details": {}
+    },
+    {
+      "test": "Error Handling - Large File",
+      "status": "PASS",
+      "message": "Correctly handled large file",
+      "timestamp": 1760664143.659034,
+      "details": {}
+    }
+  ],
+  "defects": [
+    {
+      "test": "Frontend Connectivity",
+      "message": "Cannot connect to frontend: HTTPConnectionPool(host='localhost', port=3001): Max retries exceeded with url: / (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x10f5e0590>: Failed to establish a new connection: [Errno 61] Connection refused'))",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (party.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[\"\ud83d\udd0d Starting hybrid extraction for /usr/local/src/setloader/uploads/party.pdf\",\"Expected song count: 59\",\"\ud83e\udd16 Attempting AI extraction...\",\"AI extraction result: 45 songs\",\"\u26a0\ufe0f  AI extraction incomplete (45/59 songs)\",\"\ud83d\udd04 Falling back to traditional extraction...\",\"Traditional extraction result: 45 songs\",\"\ud83d\udcca Using traditional results (45 songs) - better than AI (45)\",\"\ud83c\udfaf Final result: 45 songs extracted\",\"\u274c Extraction incomplete: 45/59 songs\"],\"stderr\":[]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rr.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[\"\ud83d\udd0d Starting hybrid extraction for /usr/local/src/setloader/uploads/rr.pdf\",\"Expected song count: 59\",\"\ud83e\udd16 Attempting AI extraction...\",\"AI extraction result: 45 songs\",\"\u26a0\ufe0f  AI extraction incomplete (45/59 songs)\",\"\ud83d\udd04 Falling back to traditional extraction...\",\"Traditional extraction result: 46 songs\",\"\ud83d\udcca Using traditional results (46 songs) - better than AI (45)\",\"\ud83c\udfaf Final result: 46 songs extracted\",\"\u274c Extraction incomplete: 46/59 songs\"],\"stderr\":[]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (leitchfield_derby.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[\"\ud83d\udd0d Starting hybrid extraction for /usr/local/src/setloader/uploads/leitchfield_derby.pdf\",\"Expected song count: 59\",\"\ud83e\udd16 Attempting AI extraction...\",\"AI extraction result: 55 songs\",\"\u26a0\ufe0f  AI extraction incomplete (55/59 songs)\",\"\ud83d\udd04 Falling back to traditional extraction...\",\"Traditional extraction result: 55 songs\",\"\ud83d\udcca Using traditional results (55 songs) - better than AI (55)\",\"\ud83c\udfaf Final result: 55 songs extracted\",\"\u274c Extraction incomplete: 55/59 songs\"],\"stderr\":[]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rough_river_july.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[\"\ud83d\udd0d Starting hybrid extraction for /usr/local/src/setloader/uploads/rough_river_july.pdf\",\"Expected song count: 59\",\"\ud83e\udd16 Attempting AI extraction...\",\"AI extraction result: 45 songs\",\"\u26a0\ufe0f  AI extraction incomplete (45/59 songs)\",\"\ud83d\udd04 Falling back to traditional extraction...\",\"Traditional extraction result: 46 songs\",\"\ud83d\udcca Using traditional results (46 songs) - better than AI (45)\",\"\ud83c\udfaf Final result: 46 songs extracted\",\"\u274c Extraction incomplete: 46/59 songs\"],\"stderr\":[]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (hs.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[\"\ud83d\udd0d Starting hybrid extraction for /usr/local/src/setloader/uploads/hs.pdf\",\"Expected song count: 59\",\"\ud83e\udd16 Attempting AI extraction...\",\"AI extraction result: 52 songs\",\"\u26a0\ufe0f  AI extraction incomplete (52/59 songs)\",\"\ud83d\udd04 Falling back to traditional extraction...\",\"Traditional extraction result: 50 songs\",\"\ud83d\udcca Using AI results (52 songs) - better than traditional (50)\",\"\ud83c\udfaf Final result: 52 songs extracted\",\"\u274c Extraction incomplete: 52/59 songs\"],\"stderr\":[]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (bs.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[\"\ud83d\udd0d Starting hybrid extraction for /usr/local/src/setloader/uploads/bs.pdf\",\"Expected song count: 59\",\"\ud83e\udd16 Attempting AI extraction...\",\"AI extraction result: 53 songs\",\"\u26a0\ufe0f  AI extraction incomplete (53/59 songs)\",\"\ud83d\udd04 Falling back to traditional extraction...\",\"Traditional extraction result: 51 songs\",\"\ud83d\udcca Using AI results (53 songs) - better than traditional (51)\",\"\ud83c\udfaf Final result: 53 songs extracted\",\"\u274c Extraction incomplete: 53/59 songs\"],\"stderr\":[]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (party.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[\"\ud83d\udd0d Starting hybrid extraction for /usr/local/src/setloader/uploads/party.pdf\",\"Expected song count: 59\",\"\ud83e\udd16 Attempting AI extraction...\",\"AI extraction result: 44 songs\",\"\u26a0\ufe0f  AI extraction incomplete (44/59 songs)\",\"\ud83d\udd04 Falling back to traditional extraction...\",\"Traditional extraction result: 45 songs\",\"\ud83d\udcca Using traditional results (45 songs) - better than AI (44)\",\"\ud83c\udfaf Final result: 45 songs extracted\",\"\u274c Extraction incomplete: 45/59 songs\"],\"stderr\":[]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rr.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[\"\ud83d\udd0d Starting hybrid extraction for /usr/local/src/setloader/uploads/rr.pdf\",\"Expected song count: 59\",\"\ud83e\udd16 Attempting AI extraction...\",\"AI extraction result: 45 songs\",\"\u26a0\ufe0f  AI extraction incomplete (45/59 songs)\",\"\ud83d\udd04 Falling back to traditional extraction...\",\"Traditional extraction result: 46 songs\",\"\ud83d\udcca Using traditional results (46 songs) - better than AI (45)\",\"\ud83c\udfaf Final result: 46 songs extracted\",\"\u274c Extraction incomplete: 46/59 songs\"],\"stderr\":[]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rough%20river%20july.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[\"\ud83d\udd0d Starting hybrid extraction for /usr/local/src/setloader/uploads/rough_river_july.pdf\",\"Expected song count: 59\",\"\ud83e\udd16 Attempting AI extraction...\",\"AI extraction result: 45 songs\",\"\u26a0\ufe0f  AI extraction incomplete (45/59 songs)\",\"\ud83d\udd04 Falling back to traditional extraction...\",\"Traditional extraction result: 46 songs\",\"\ud83d\udcca Using traditional results (46 songs) - better than AI (45)\",\"\ud83c\udfaf Final result: 46 songs extracted\",\"\u274c Extraction incomplete: 46/59 songs\"],\"stderr\":[]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (hs.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[\"\ud83d\udd0d Starting hybrid extraction for /usr/local/src/setloader/uploads/hs.pdf\",\"Expected song count: 59\",\"\ud83e\udd16 Attempting AI extraction...\",\"AI extraction result: 52 songs\",\"\u26a0\ufe0f  AI extraction incomplete (52/59 songs)\",\"\ud83d\udd04 Falling back to traditional extraction...\",\"Traditional extraction result: 50 songs\",\"\ud83d\udcca Using AI results (52 songs) - better than traditional (50)\",\"\ud83c\udfaf Final result: 52 songs extracted\",\"\u274c Extraction incomplete: 52/59 songs\"],\"stderr\":[]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (bs.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[\"\ud83d\udd0d Starting hybrid extraction for /usr/local/src/setloader/uploads/bs.pdf\",\"Expected song count: 59\",\"\ud83e\udd16 Attempting AI extraction...\",\"AI extraction result: 53 songs\",\"\u26a0\ufe0f  AI extraction incomplete (53/59 songs)\",\"\ud83d\udd04 Falling back to traditional extraction...\",\"Traditional extraction result: 51 songs\",\"\ud83d\udcca Using AI results (53 songs) - better than traditional (51)\",\"\ud83c\udfaf Final result: 53 songs extracted\",\"\u274c Extraction incomplete: 53/59 songs\"],\"stderr\":[]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (tmpts1_exu5.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[\"\ud83d\udd0d Starting hybrid extraction for /usr/local/src/setloader/uploads/tmpts1_exu5.pdf\",\"Expected song count: 59\",\"\ud83e\udd16 Attempting AI extraction...\",\"AI extraction failed: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/ai_reader.py\\\", line 161, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/ai_reader.py\\\", line 79, in main\",\"    resp = client.responses.create(\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/lib/python3.11/site-packages/openai/_utils/_utils.py\\\", line 279, in wrapper\",\"    return func(*args, **kwargs)\",\"           ^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/lib/python3.11/site-packages/openai/resources/responses/responses.py\\\", line 603, in create\",\"    return self._post(\",\"           ^^^^^^^^^^^\",\"  File \\\"/usr/local/lib/python3.11/site-packages/openai/_base_client.py\\\", line 1242, in post\",\"    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))\",\"                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/lib/python3.11/site-packages/openai/_base_client.py\\\", line 919, in request\",\"    return self._request(\",\"           ^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/lib/python3.11/site-packages/openai/_base_client.py\\\", line 1023, in _request\",\"    raise self._make_status_error_from_response(err.response) from None\",\"openai.BadRequestError: Error code: 400 - {'error': {'message': 'The file type you uploaded is not supported. Please try again with a pdf', 'type': 'invalid_request_error', 'param': 'input', 'code': 'unsupported_file'}}\",\"\",\"AI extraction result: 0 songs\",\"\u26a0\ufe0f  AI extraction incomplete (0/59 songs)\",\"\ud83d\udd04 Falling back to traditional extraction...\",\"Traditional extraction failed: Failed to extract any text: Command '['pdftotext', '-layout', '-nopgbrk', '-q', '/usr/local/src/setloader/uploads/tmpts1_exu5.pdf', '/usr/local/src/setloader/uploads/tmpts1_exu5.tmp.txt']' returned non-zero exit status 1.\",\"\",\"Traditional extraction result: 0 songs\",\"\ud83d\udcca Using traditional results (0 songs) - better than AI (0)\",\"\ud83c\udfaf Final result: 0 songs extracted\",\"\u274c Extraction incomplete: 0/59 songs\"],\"stderr\":[]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (tmpjdjng2oy.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[\"\ud83d\udd0d Starting hybrid extraction for /usr/local/src/setloader/uploads/tmpjdjng2oy.pdf\",\"Expected song count: 59\",\"\ud83e\udd16 Attempting AI extraction...\",\"AI extraction failed: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/ai_reader.py\\\", line 161, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/ai_reader.py\\\", line 79, in main\",\"    resp = client.responses.create(\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/lib/python3.11/site-packages/openai/_utils/_utils.py\\\", line 279, in wrapper\",\"    return func(*args, **kwargs)\",\"           ^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/lib/python3.11/site-packages/openai/resources/responses/responses.py\\\", line 603, in create\",\"    return self._post(\",\"           ^^^^^^^^^^^\",\"  File \\\"/usr/local/lib/python3.11/site-packages/openai/_base_client.py\\\", line 1242, in post\",\"    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))\",\"                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/lib/python3.11/site-packages/openai/_base_client.py\\\", line 919, in request\",\"    return self._request(\",\"           ^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/lib/python3.11/site-packages/openai/_base_client.py\\\", line 1023, in _request\",\"    raise self._make_status_error_from_response(err.response) from None\",\"openai.BadRequestError: Error code: 400 - {'error': {'message': 'The file type you uploaded is not supported. Please try again with a pdf', 'type': 'invalid_request_error', 'param': 'input', 'code': 'unsupported_file'}}\",\"\",\"AI extraction result: 0 songs\",\"\u26a0\ufe0f  AI extraction incomplete (0/59 songs)\",\"\ud83d\udd04 Falling back to traditional extraction...\",\"Traditional extraction failed: Failed to extract any text: Command '['pdftotext', '-layout', '-nopgbrk', '-q', '/usr/local/src/setloader/uploads/tmpjdjng2oy.pdf', '/usr/local/src/setloader/uploads/tmpjdjng2oy.tmp.txt']' returned non-zero exit status 1.\",\"\",\"Traditional extraction result: 0 songs\",\"\ud83d\udcca Using traditional results (0 songs) - better than AI (0)\",\"\ud83c\udfaf Final result: 0 songs extracted\",\"\u274c Extraction incomplete: 0/59 songs\"],\"stderr\":[]}",
+      "details": {}
+    }
+  ]
+}

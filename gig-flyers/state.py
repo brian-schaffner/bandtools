@@ -1,0 +1,170 @@
+#!/usr/bin/env python3
+"""Persistent workflow state for gig flyer generation."""
+
+from __future__ import annotations
+
+import json
+import shutil
+import threading
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Optional
+
+ROOT = Path(__file__).resolve().parent
+STATE_PATH = ROOT / "state.json"
+APPROVED_DIR = ROOT / "output" / "approved"
+_state_lock = threading.Lock()
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def load_state() -> dict[str, Any]:
+    with _state_lock:
+        if not STATE_PATH.exists():
+            return {"gigs": {}, "last_poll_rowid": 0}
+        with STATE_PATH.open(encoding="utf-8") as f:
+            return json.load(f)
+
+
+def save_state(state: dict[str, Any]) -> None:
+    with _state_lock:
+        with STATE_PATH.open("w", encoding="utf-8") as f:
+            json.dump(state, f, indent=2)
+            f.write("\n")
+
+
+def get_gig_state(gig_id: str) -> Optional[dict[str, Any]]:
+    return load_state().get("gigs", {}).get(gig_id)
+
+
+def upsert_gig(gig_id: str, **fields: Any) -> dict[str, Any]:
+    with _state_lock:
+        if not STATE_PATH.exists():
+            state: dict[str, Any] = {"gigs": {}, "last_poll_rowid": 0}
+        else:
+            with STATE_PATH.open(encoding="utf-8") as f:
+                state = json.load(f)
+        gigs = state.setdefault("gigs", {})
+        record = gigs.setdefault(
+            gig_id,
+            {
+                "status": "new",
+                "round": 0,
+                "options": {},
+                "feedback_history": [],
+                "used_variations": [],
+                "updated_at": _now_iso(),
+            },
+        )
+        record.update(fields)
+        record["updated_at"] = _now_iso()
+        with STATE_PATH.open("w", encoding="utf-8") as f:
+            json.dump(state, f, indent=2)
+            f.write("\n")
+        return record
+
+
+def mark_pending_review(gig_id: str, options: dict[str, str], prompts: dict[str, str], round_num: int) -> None:
+    upsert_gig(
+        gig_id,
+        status="pending_review",
+        round=round_num,
+        options=options,
+        prompts=prompts,
+    )
+
+
+def append_feedback(gig_id: str, action: str, option: str, feedback: str, raw_text: str) -> None:
+    with _state_lock:
+        if not STATE_PATH.exists():
+            state: dict[str, Any] = {"gigs": {}, "last_poll_rowid": 0}
+        else:
+            with STATE_PATH.open(encoding="utf-8") as f:
+                state = json.load(f)
+        record = state.setdefault("gigs", {}).setdefault(gig_id, {})
+        history = record.setdefault("feedback_history", [])
+        history.append(
+            {
+                "at": _now_iso(),
+                "action": action,
+                "option": option,
+                "feedback": feedback,
+                "raw_text": raw_text,
+            }
+        )
+        record["updated_at"] = _now_iso()
+        with STATE_PATH.open("w", encoding="utf-8") as f:
+            json.dump(state, f, indent=2)
+            f.write("\n")
+
+
+def mark_approved(gig_id: str, option: str, source_path: Path) -> Path:
+    APPROVED_DIR.mkdir(parents=True, exist_ok=True)
+    dest = APPROVED_DIR / f"{gig_id}_{option}.png"
+    shutil.copy2(source_path, dest)
+    upsert_gig(gig_id, status="approved", approved_option=option, approved_path=str(dest))
+    return dest
+
+
+def begin_regenerate_round(gig_id: str) -> dict[str, Any]:
+    """Prepare an approved gig for a fresh generation round."""
+    record = get_gig_state(gig_id) or {}
+    fields: dict[str, Any] = {"status": "regenerating"}
+    if record.get("status") == "approved" and record.get("approved_option"):
+        history = list(record.get("approval_history", []))
+        history.append(
+            {
+                "at": _now_iso(),
+                "round": int(record.get("round") or 0),
+                "option": record.get("approved_option"),
+                "path": record.get("approved_path"),
+            }
+        )
+        fields["approval_history"] = history
+        fields["approved_option"] = None
+        fields["approved_path"] = None
+    return upsert_gig(gig_id, **fields)
+
+
+def is_approved(gig_id: str) -> bool:
+    record = get_gig_state(gig_id)
+    return bool(record and record.get("status") == "approved")
+
+
+def is_eligible_for_auto_generation(gig_id: str) -> bool:
+    """True when a gig has not yet started the flyer workflow."""
+    record = get_gig_state(gig_id)
+    if not record:
+        return True
+    status = record.get("status", "new")
+    if status == "approved":
+        return False
+    if status == "pending_review":
+        return False
+    if record.get("round", 0) > 0 or record.get("options"):
+        return False
+    return status in {"new", "unknown"}
+
+
+def has_existing_generation(gig_id: str) -> bool:
+    record = get_gig_state(gig_id) or {}
+    return bool(record.get("round", 0) > 0 or record.get("options"))
+
+
+def can_regenerate(gig_id: str) -> bool:
+    record = get_gig_state(gig_id) or {}
+    if record.get("status") == "approved":
+        return True
+    return has_existing_generation(gig_id)
+
+
+def get_last_poll_rowid() -> int:
+    return int(load_state().get("last_poll_rowid", 0))
+
+
+def set_last_poll_rowid(rowid: int) -> None:
+    state = load_state()
+    state["last_poll_rowid"] = rowid
+    save_state(state)

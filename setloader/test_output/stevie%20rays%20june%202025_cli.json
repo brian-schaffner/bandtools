@@ -1,0 +1,351 @@
+{
+  "sets": [
+    {
+      "name": "Set 1",
+      "time_window": "8-9:30",
+      "break_minutes": 20,
+      "songs": [
+        {
+          "order": 1,
+          "title": "Hurt So Good",
+          "key": "A"
+        },
+        {
+          "order": 2,
+          "title": "U’re No Good",
+          "key": "Am"
+        },
+        {
+          "order": 3,
+          "title": "Fire",
+          "key": "C"
+        },
+        {
+          "order": 4,
+          "title": "Believe",
+          "key": "F"
+        },
+        {
+          "order": 5,
+          "title": "Free Fallin",
+          "key": "F"
+        },
+        {
+          "order": 6,
+          "title": "Ex’s Ohs",
+          "key": "Dm"
+        },
+        {
+          "order": 7,
+          "title": "I Wish",
+          "key": "Dm"
+        },
+        {
+          "order": 8,
+          "title": "Tennessee Whiskey",
+          "key": "A"
+        },
+        {
+          "order": 9,
+          "title": "Green River",
+          "key": "E"
+        },
+        {
+          "order": 10,
+          "title": "When B Loved",
+          "key": "E"
+        },
+        {
+          "order": 11,
+          "title": "Knock Wood",
+          "key": "E"
+        },
+        {
+          "order": 12,
+          "title": "Swingin",
+          "key": "E"
+        },
+        {
+          "order": 13,
+          "title": "What About Love",
+          "key": "Dm"
+        },
+        {
+          "order": 14,
+          "title": "Running Empty",
+          "key": "A"
+        },
+        {
+          "order": 15,
+          "title": "Boogie Oogie",
+          "key": "Dm"
+        },
+        {
+          "order": 16,
+          "title": "Talkin Sleep",
+          "key": "Dm"
+        },
+        {
+          "order": 17,
+          "title": "Get Down2nite",
+          "key": "G"
+        },
+        {
+          "order": 18,
+          "title": "I Will Survive",
+          "key": "Gm"
+        },
+        {
+          "order": 19,
+          "title": "Hot Stuff",
+          "key": "Gm"
+        },
+        {
+          "order": 20,
+          "title": "You Win Love",
+          "key": "G/A"
+        },
+        {
+          "order": 21,
+          "title": "Chain Fools",
+          "key": "A"
+        },
+        {
+          "order": 22,
+          "title": "Unchained Melody",
+          "key": "C"
+        },
+        {
+          "order": 23,
+          "title": "Elec Slide",
+          "key": "C"
+        },
+        {
+          "order": 24,
+          "title": "Dreams",
+          "key": "F"
+        }
+      ]
+    },
+    {
+      "name": "Set 2",
+      "time_window": "9:50-11",
+      "break_minutes": 15,
+      "songs": [
+        {
+          "order": 1,
+          "title": "Stuck",
+          "key": "D"
+        },
+        {
+          "order": 2,
+          "title": "Proud Mary",
+          "key": "D"
+        },
+        {
+          "order": 3,
+          "title": "Workin’ Man",
+          "key": "D"
+        },
+        {
+          "order": 4,
+          "title": "Can’t You See",
+          "key": "D"
+        },
+        {
+          "order": 5,
+          "title": "One Headlt",
+          "key": "G"
+        },
+        {
+          "order": 6,
+          "title": "Save Me",
+          "key": "C"
+        },
+        {
+          "order": 7,
+          "title": "Superstition",
+          "key": "E"
+        },
+        {
+          "order": 8,
+          "title": "Heaven",
+          "key": "Bm"
+        },
+        {
+          "order": 9,
+          "title": "Miss You",
+          "key": "Am"
+        },
+        {
+          "order": 10,
+          "title": "Str8 On",
+          "key": "Am"
+        },
+        {
+          "order": 11,
+          "title": "Poker",
+          "key": "Am"
+        },
+        {
+          "order": 12,
+          "title": "Liza Jane",
+          "key": "A"
+        },
+        {
+          "order": 13,
+          "title": "Collide",
+          "key": "B"
+        },
+        {
+          "order": 14,
+          "title": "Party Started",
+          "key": "Bm"
+        },
+        {
+          "order": 15,
+          "title": "Shut Up Dance",
+          "key": "C#"
+        },
+        {
+          "order": 16,
+          "title": "Gimme One Reason",
+          "key": "C#"
+        },
+        {
+          "order": 17,
+          "title": "I Love R&R",
+          "key": "E"
+        },
+        {
+          "order": 18,
+          "title": "Honey I’m Home",
+          "key": "E"
+        },
+        {
+          "order": 19,
+          "title": "All About Bass",
+          "key": "A"
+        }
+      ]
+    },
+    {
+      "name": "Set 3",
+      "time_window": "11:15-12:30",
+      "break_minutes": 0,
+      "songs": [
+        {
+          "order": 1,
+          "title": "Not in 4 Love",
+          "key": "C"
+        },
+        {
+          "order": 2,
+          "title": "Roll Changes",
+          "key": "C"
+        },
+        {
+          "order": 3,
+          "title": "Roll Deep",
+          "key": "Cm"
+        },
+        {
+          "order": 4,
+          "title": "Oh Baby Baby",
+          "key": "Cm"
+        },
+        {
+          "order": 5,
+          "title": "Three Marlenas",
+          "key": "D"
+        },
+        {
+          "order": 6,
+          "title": "Last Dance",
+          "key": "D"
+        },
+        {
+          "order": 7,
+          "title": "Love Lift",
+          "key": "D"
+        },
+        {
+          "order": 8,
+          "title": "Makes Happy",
+          "key": "G"
+        },
+        {
+          "order": 9,
+          "title": "Hot Blooded",
+          "key": "G"
+        },
+        {
+          "order": 10,
+          "title": "No One Else Earth",
+          "key": "G"
+        },
+        {
+          "order": 11,
+          "title": "Real World",
+          "key": "Bb"
+        },
+        {
+          "order": 12,
+          "title": "Lights",
+          "key": "D"
+        },
+        {
+          "order": 13,
+          "title": "Cake",
+          "key": "Em"
+        },
+        {
+          "order": 14,
+          "title": "Hot Child",
+          "key": "E"
+        },
+        {
+          "order": 15,
+          "title": "Alone",
+          "key": "Am"
+        },
+        {
+          "order": 16,
+          "title": "Alright Now",
+          "key": "A"
+        },
+        {
+          "order": 17,
+          "title": "Man I Feel",
+          "key": "A"
+        },
+        {
+          "order": 18,
+          "title": "Hands 2 Yourself",
+          "key": "A"
+        },
+        {
+          "order": 19,
+          "title": "Barracuda",
+          "key": "E"
+        },
+        {
+          "order": 20,
+          "title": "Liv Prayer",
+          "key": "Em"
+        }
+      ]
+    }
+  ],
+  "extras": [],
+  "counts": {
+    "per_set": {
+      "Set 1": 24,
+      "Set 2": 19,
+      "Set 3": 20
+    },
+    "extras": 0,
+    "total": 63
+  },
+  "errors": []
+}

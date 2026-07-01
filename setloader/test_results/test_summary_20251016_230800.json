@@ -1,0 +1,21 @@
+{
+    "test_run": {
+        "timestamp": "2025-10-17T03:08:00Z",
+        "total_tests": 1,
+        "passed": 1,
+        "failed": 0,
+        "success_rate": "100.0%"
+    },
+    "test_files": [
+        {
+    "test_name": "TKs-1",
+    "input_file": "/usr/local/src/setloader/test_data/TKs-1.pdf",
+    "output_file": "/usr/local/src/setloader/test_output/TKs-1.json",
+    "status": "PASSED",
+    "duration_seconds": 18,
+    "total_songs": 59,
+    "error_count": 0,
+    "timestamp": "2025-10-17T03:08:00Z"
+}
+    ]
+}

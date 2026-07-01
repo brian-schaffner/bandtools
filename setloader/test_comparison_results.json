@@ -1,0 +1,1055 @@
+{
+  "standalone": {
+    "pdf_extraction": {
+      "success": true,
+      "data": {
+        "sets": [
+          {
+            "name": "Set 1",
+            "time_window": "7-8:30",
+            "break_minutes": 20,
+            "songs": [
+              {
+                "order": 1,
+                "title": "Hurt So Good",
+                "key": "A"
+              },
+              {
+                "order": 2,
+                "title": "U\u2019re No Good",
+                "key": "Am"
+              },
+              {
+                "order": 3,
+                "title": "Pontoon",
+                "key": "A"
+              },
+              {
+                "order": 4,
+                "title": "Hot Blooded",
+                "key": "G"
+              },
+              {
+                "order": 5,
+                "title": "No One Else Earth",
+                "key": "G"
+              },
+              {
+                "order": 6,
+                "title": "Believe",
+                "key": "F"
+              },
+              {
+                "order": 7,
+                "title": "Free Fallin",
+                "key": "F"
+              },
+              {
+                "order": 8,
+                "title": "Ex\u2019s Ohs",
+                "key": "Dm"
+              },
+              {
+                "order": 9,
+                "title": "I Wish",
+                "key": "Dm"
+              },
+              {
+                "order": 10,
+                "title": "What About Love",
+                "key": "Dm"
+              },
+              {
+                "order": 11,
+                "title": "Stuck",
+                "key": "D"
+              },
+              {
+                "order": 12,
+                "title": "Proud Mary",
+                "key": "D"
+              },
+              {
+                "order": 13,
+                "title": "Workin\u2019 Man",
+                "key": "D"
+              },
+              {
+                "order": 14,
+                "title": "Can\u2019t You See",
+                "key": "D"
+              },
+              {
+                "order": 15,
+                "title": "One Headlt",
+                "key": "G"
+              },
+              {
+                "order": 16,
+                "title": "Save Me",
+                "key": "C"
+              },
+              {
+                "order": 17,
+                "title": "Green River",
+                "key": "E"
+              },
+              {
+                "order": 18,
+                "title": "When B Loved",
+                "key": "E"
+              },
+              {
+                "order": 19,
+                "title": "Knock Wood",
+                "key": "E"
+              },
+              {
+                "order": 20,
+                "title": "Swingin",
+                "key": "E"
+              },
+              {
+                "order": 21,
+                "title": "Bye Bye",
+                "key": "A"
+              },
+              {
+                "order": 22,
+                "title": "Boogie Oogie",
+                "key": "Dm"
+              },
+              {
+                "order": 23,
+                "title": "Get Down2nite",
+                "key": "G"
+              },
+              {
+                "order": 24,
+                "title": "Makes U Happy",
+                "key": "G"
+              }
+            ]
+          },
+          {
+            "name": "Set 2",
+            "time_window": "8:50-9:50",
+            "break_minutes": 20,
+            "songs": [
+              {
+                "order": 1,
+                "title": "I Will Survive",
+                "key": "Gm"
+              },
+              {
+                "order": 2,
+                "title": "Hot Stuff",
+                "key": "Gm"
+              },
+              {
+                "order": 3,
+                "title": "You Win my Love",
+                "key": "G/A"
+              },
+              {
+                "order": 4,
+                "title": "Whenever U Come Around",
+                "key": "G"
+              },
+              {
+                "order": 5,
+                "title": "Superstition",
+                "key": "E"
+              },
+              {
+                "order": 6,
+                "title": "Heaven",
+                "key": "Bm"
+              },
+              {
+                "order": 7,
+                "title": "Party Started",
+                "key": "Bm"
+              },
+              {
+                "order": 8,
+                "title": "Honey I\u2019m Home",
+                "key": "E"
+              },
+              {
+                "order": 9,
+                "title": "Miss You",
+                "key": "Am"
+              },
+              {
+                "order": 10,
+                "title": "Str8 On",
+                "key": "Am"
+              },
+              {
+                "order": 11,
+                "title": "Poker",
+                "key": "Am"
+              },
+              {
+                "order": 12,
+                "title": "Running Empty",
+                "key": "A"
+              },
+              {
+                "order": 13,
+                "title": "Blvd Brkn Drms",
+                "key": "Am"
+              },
+              {
+                "order": 14,
+                "title": "Man I Feel",
+                "key": "A"
+              },
+              {
+                "order": 15,
+                "title": "Alright Now",
+                "key": "A"
+              },
+              {
+                "order": 16,
+                "title": "Alone",
+                "key": "Am"
+              },
+              {
+                "order": 17,
+                "title": "Hands 2 Urself",
+                "key": "A"
+              }
+            ]
+          },
+          {
+            "name": "Set 3",
+            "time_window": "10:10-11",
+            "break_minutes": 0,
+            "songs": [
+              {
+                "order": 1,
+                "title": "Not in 4 Love",
+                "key": "C"
+              },
+              {
+                "order": 2,
+                "title": "Roll Changes",
+                "key": "C"
+              },
+              {
+                "order": 3,
+                "title": "Oh Baby Baby",
+                "key": "Cm"
+              },
+              {
+                "order": 4,
+                "title": "Real World",
+                "key": "Bb"
+              },
+              {
+                "order": 5,
+                "title": "Refuge",
+                "key": "Gm"
+              },
+              {
+                "order": 6,
+                "title": "3 steps",
+                "key": "D"
+              },
+              {
+                "order": 7,
+                "title": "Liza Jane",
+                "key": "A"
+              },
+              {
+                "order": 8,
+                "title": "Ever Seen Rain",
+                "key": "Am"
+              },
+              {
+                "order": 9,
+                "title": "Fire",
+                "key": "C"
+              },
+              {
+                "order": 10,
+                "title": "Dreams",
+                "key": "F"
+              },
+              {
+                "order": 11,
+                "title": "Liv Prayer",
+                "key": "Em"
+              },
+              {
+                "order": 12,
+                "title": "Cake",
+                "key": "Em"
+              },
+              {
+                "order": 13,
+                "title": "Folsom",
+                "key": "E"
+              },
+              {
+                "order": 14,
+                "title": "Crazy Train",
+                "key": "F#m"
+              },
+              {
+                "order": 15,
+                "title": "I\u2019m Only One",
+                "key": "G"
+              }
+            ]
+          }
+        ],
+        "extras": [],
+        "counts": {
+          "per_set": {
+            "Set 1": 24,
+            "Set 2": 17,
+            "Set 3": 15
+          },
+          "extras": 0,
+          "total": 56
+        },
+        "errors": []
+      },
+      "message": "PDF extraction completed successfully",
+      "forensic_upload": "forensic/pdf_upload_1761018561_docs%20may%202025.pdf",
+      "forensic_result": "forensic/pdf_extraction_result_1761018561.json"
+    },
+    "title_validation": {
+      "success": true,
+      "data": {
+        "sets": [
+          {
+            "name": "Set 1",
+            "time_window": "7-8:30",
+            "break_minutes": 20,
+            "songs": [
+              {
+                "order": 1,
+                "title": "Hurt So Good",
+                "validated": false,
+                "status": "Not found in backup or mappings",
+                "song_id": null,
+                "validated_title": "Hurt So Good",
+                "key": "A"
+              },
+              {
+                "order": 2,
+                "title": "U\u2019re No Good",
+                "validated": false,
+                "status": "Not found in backup or mappings",
+                "song_id": null,
+                "validated_title": "U\u2019re No Good",
+                "key": "Am"
+              },
+              {
+                "order": 3,
+                "title": "Pontoon",
+                "validated": true,
+                "status": "Found in backup",
+                "song_id": 147,
+                "validated_title": "Pontoon",
+                "key": "A"
+              },
+              {
+                "order": 4,
+                "title": "Hot Blooded",
+                "validated": true,
+                "status": "Found in backup",
+                "song_id": 134,
+                "validated_title": "Hot Blooded",
+                "key": "G"
+              },
+              {
+                "order": 5,
+                "title": "No One Else Earth",
+                "validated": false,
+                "status": "Not found in backup or mappings",
+                "song_id": null,
+                "validated_title": "No One Else Earth",
+                "key": "G"
+              },
+              {
+                "order": 6,
+                "title": "Believe",
+                "validated": true,
+                "status": "Found in backup",
+                "song_id": 264,
+                "validated_title": "Believe",
+                "key": "F"
+              },
+              {
+                "order": 7,
+                "title": "Free Fallin",
+                "validated": true,
+                "status": "Found in backup",
+                "song_id": 4,
+                "validated_title": "Free Fallin",
+                "key": "F"
+              },
+              {
+                "order": 8,
+                "title": "Ex\u2019s Ohs",
+                "validated": false,
+                "status": "Not found in backup or mappings",
+                "song_id": null,
+                "validated_title": "Ex\u2019s Ohs",
+                "key": "Dm"
+              },
+              {
+                "order": 9,
+                "title": "I Wish",
+                "validated": true,
+                "status": "Found in backup",
+                "song_id": 181,
+                "validated_title": "I Wish",
+                "key": "Dm"
+              },
+              {
+                "order": 10,
+                "title": "What About Love",
+                "validated": true,
+                "status": "Found in backup",
+                "song_id": 347,
+                "validated_title": "What About Love",
+                "key": "Dm"
+              },
+              {
+                "order": 11,
+                "title": "Stuck",
+                "validated": false,
+                "status": "Not found in backup or mappings",
+                "song_id": null,
+                "validated_title": "Stuck",
+                "key": "D"
+              },
+              {
+                "order": 12,
+                "title": "Proud Mary",
+                "validated": true,
+                "status": "Found in backup",
+                "song_id": 139,
+                "validated_title": "Proud Mary",
+                "key": "D"
+              },
+              {
+                "order": 13,
+                "title": "Workin\u2019 Man",
+                "validated": false,
+                "status": "Not found in backup or mappings",
+                "song_id": null,
+                "validated_title": "Workin\u2019 Man",
+                "key": "D"
+              },
+              {
+                "order": 14,
+                "title": "Can\u2019t You See",
+                "validated": true,
+                "status": "Found in backup",
+                "song_id": 66,
+                "validated_title": "Can\u2019t You See",
+                "key": "D"
+              },
+              {
+                "order": 15,
+                "title": "One Headlt",
+                "validated": false,
+                "status": "Not found in backup or mappings",
+                "song_id": null,
+                "validated_title": "One Headlt",
+                "key": "G"
+              },
+              {
+                "order": 16,
+                "title": "Save Me",
+                "validated": true,
+                "status": "Found in backup",
+                "song_id": 413,
+                "validated_title": "Save Me",
+                "key": "C"
+              },
+              {
+                "order": 17,
+                "title": "Green River",
+                "validated": true,
+                "status": "Found in backup",
+                "song_id": 75,
+                "validated_title": "Green River",
+                "key": "E"
+              },
+              {
+                "order": 18,
+                "title": "When B Loved",
+                "validated": false,
+                "status": "Not found in backup or mappings",
+                "song_id": null,
+                "validated_title": "When B Loved",
+                "key": "E"
+              },
+              {
+                "order": 19,
+                "title": "Knock Wood",
+                "validated": false,
+                "status": "Not found in backup or mappings",
+                "song_id": null,
+                "validated_title": "Knock Wood",
+                "key": "E"
+              },
+              {
+                "order": 20,
+                "title": "Swingin",
+                "validated": true,
+                "status": "Found in backup",
+                "song_id": 145,
+                "validated_title": "Swingin",
+                "key": "E"
+              },
+              {
+                "order": 21,
+                "title": "Bye Bye",
+                "validated": true,
+                "status": "Found in backup",
+                "song_id": 242,
+                "validated_title": "Bye Bye",
+                "key": "A"
+              },
+              {
+                "order": 22,
+                "title": "Boogie Oogie",
+                "validated": false,
+                "status": "Not found in backup or mappings",
+                "song_id": null,
+                "validated_title": "Boogie Oogie",
+                "key": "Dm"
+              },
+              {
+                "order": 23,
+                "title": "Get Down2nite",
+                "validated": false,
+                "status": "Not found in backup or mappings",
+                "song_id": null,
+                "validated_title": "Get Down2nite",
+                "key": "G"
+              },
+              {
+                "order": 24,
+                "title": "Makes U Happy",
+                "validated": false,
+                "status": "Not found in backup or mappings",
+                "song_id": null,
+                "validated_title": "Makes U Happy",
+                "key": "G"
+              }
+            ],
+            "validated_count": 12,
+            "missing_count": 12
+          },
+          {
+            "name": "Set 2",
+            "time_window": "8:50-9:50",
+            "break_minutes": 20,
+            "songs": [
+              {
+                "order": 1,
+                "title": "I Will Survive",
+                "validated": true,
+                "status": "Found in backup",
+                "song_id": 164,
+                "validated_title": "I Will Survive",
+                "key": "Gm"
+              },
+              {
+                "order": 2,
+                "title": "Hot Stuff",
+                "validated": true,
+                "status": "Found in backup",
+                "song_id": 208,
+                "validated_title": "Hot Stuff",
+                "key": "Gm"
+              },
+              {
+                "order": 3,
+                "title": "You Win my Love",
+                "validated": true,
+                "status": "Found in backup",
+                "song_id": 226,
+                "validated_title": "You Win my Love",
+                "key": "G/A"
+              },
+              {
+                "order": 4,
+                "title": "Whenever U Come Around",
+                "validated": false,
+                "status": "Not found in backup or mappings",
+                "song_id": null,
+                "validated_title": "Whenever U Come Around",
+                "key": "G"
+              },
+              {
+                "order": 5,
+                "title": "Superstition",
+                "validated": true,
+                "status": "Found in backup",
+                "song_id": 161,
+                "validated_title": "Superstition",
+                "key": "E"
+              },
+              {
+                "order": 6,
+                "title": "Heaven",
+                "validated": false,
+                "status": "Not found in backup or mappings",
+                "song_id": null,
+                "validated_title": "Heaven",
+                "key": "Bm"
+              },
+              {
+                "order": 7,
+                "title": "Party Started",
+                "validated": false,
+                "status": "Not found in backup or mappings",
+                "song_id": null,
+                "validated_title": "Party Started",
+                "key": "Bm"
+              },
+              {
+                "order": 8,
+                "title": "Honey I\u2019m Home",
+                "validated": true,
+                "status": "Found in backup",
+                "song_id": 223,
+                "validated_title": "Honey I\u2019m Home",
+                "key": "E"
+              },
+              {
+                "order": 9,
+                "title": "Miss You",
+                "validated": true,
+                "status": "Found in backup",
+                "song_id": 150,
+                "validated_title": "Miss You",
+                "key": "Am"
+              },
+              {
+                "order": 10,
+                "title": "Str8 On",
+                "validated": false,
+                "status": "Not found in backup or mappings",
+                "song_id": null,
+                "validated_title": "Str8 On",
+                "key": "Am"
+              },
+              {
+                "order": 11,
+                "title": "Poker",
+                "validated": false,
+                "status": "Not found in backup or mappings",
+                "song_id": null,
+                "validated_title": "Poker",
+                "key": "Am"
+              },
+              {
+                "order": 12,
+                "title": "Running Empty",
+                "validated": false,
+                "status": "Not found in backup or mappings",
+                "song_id": null,
+                "validated_title": "Running Empty",
+                "key": "A"
+              },
+              {
+                "order": 13,
+                "title": "Blvd Brkn Drms",
+                "validated": false,
+                "status": "Not found in backup or mappings",
+                "song_id": null,
+                "validated_title": "Blvd Brkn Drms",
+                "key": "Am"
+              },
+              {
+                "order": 14,
+                "title": "Man I Feel",
+                "validated": false,
+                "status": "Not found in backup or mappings",
+                "song_id": null,
+                "validated_title": "Man I Feel",
+                "key": "A"
+              },
+              {
+                "order": 15,
+                "title": "Alright Now",
+                "validated": false,
+                "status": "Not found in backup or mappings",
+                "song_id": null,
+                "validated_title": "Alright Now",
+                "key": "A"
+              },
+              {
+                "order": 16,
+                "title": "Alone",
+                "validated": true,
+                "status": "Found in backup",
+                "song_id": 305,
+                "validated_title": "Alone",
+                "key": "Am"
+              },
+              {
+                "order": 17,
+                "title": "Hands 2 Urself",
+                "validated": false,
+                "status": "Not found in backup or mappings",
+                "song_id": null,
+                "validated_title": "Hands 2 Urself",
+                "key": "A"
+              }
+            ],
+            "validated_count": 7,
+            "missing_count": 10
+          },
+          {
+            "name": "Set 3",
+            "time_window": "10:10-11",
+            "break_minutes": 0,
+            "songs": [
+              {
+                "order": 1,
+                "title": "Not in 4 Love",
+                "validated": false,
+                "status": "Not found in backup or mappings",
+                "song_id": null,
+                "validated_title": "Not in 4 Love",
+                "key": "C"
+              },
+              {
+                "order": 2,
+                "title": "Roll Changes",
+                "validated": false,
+                "status": "Not found in backup or mappings",
+                "song_id": null,
+                "validated_title": "Roll Changes",
+                "key": "C"
+              },
+              {
+                "order": 3,
+                "title": "Oh Baby Baby",
+                "validated": false,
+                "status": "Not found in backup or mappings",
+                "song_id": null,
+                "validated_title": "Oh Baby Baby",
+                "key": "Cm"
+              },
+              {
+                "order": 4,
+                "title": "Real World",
+                "validated": true,
+                "status": "Found in backup",
+                "song_id": 260,
+                "validated_title": "Real World",
+                "key": "Bb"
+              },
+              {
+                "order": 5,
+                "title": "Refuge",
+                "validated": true,
+                "status": "Found through mapping",
+                "song_id": 251,
+                "validated_title": "Refugee",
+                "key": "Gm"
+              },
+              {
+                "order": 6,
+                "title": "3 steps",
+                "validated": false,
+                "status": "Not found in backup or mappings",
+                "song_id": null,
+                "validated_title": "3 steps",
+                "key": "D"
+              },
+              {
+                "order": 7,
+                "title": "Liza Jane",
+                "validated": true,
+                "status": "Found in backup",
+                "song_id": 272,
+                "validated_title": "Liza Jane",
+                "key": "A"
+              },
+              {
+                "order": 8,
+                "title": "Ever Seen Rain",
+                "validated": false,
+                "status": "Not found in backup or mappings",
+                "song_id": null,
+                "validated_title": "Ever Seen Rain",
+                "key": "Am"
+              },
+              {
+                "order": 9,
+                "title": "Fire",
+                "validated": true,
+                "status": "Found in backup",
+                "song_id": 153,
+                "validated_title": "Fire",
+                "key": "C"
+              },
+              {
+                "order": 10,
+                "title": "Dreams",
+                "validated": true,
+                "status": "Found in backup",
+                "song_id": 427,
+                "validated_title": "Dreams",
+                "key": "F"
+              },
+              {
+                "order": 11,
+                "title": "Liv Prayer",
+                "validated": false,
+                "status": "Not found in backup or mappings",
+                "song_id": null,
+                "validated_title": "Liv Prayer",
+                "key": "Em"
+              },
+              {
+                "order": 12,
+                "title": "Cake",
+                "validated": false,
+                "status": "Not found in backup or mappings",
+                "song_id": null,
+                "validated_title": "Cake",
+                "key": "Em"
+              },
+              {
+                "order": 13,
+                "title": "Folsom",
+                "validated": false,
+                "status": "Not found in backup or mappings",
+                "song_id": null,
+                "validated_title": "Folsom",
+                "key": "E"
+              },
+              {
+                "order": 14,
+                "title": "Crazy Train",
+                "validated": true,
+                "status": "Found in backup",
+                "song_id": 195,
+                "validated_title": "Crazy Train",
+                "key": "F#m"
+              },
+              {
+                "order": 15,
+                "title": "I\u2019m Only One",
+                "validated": false,
+                "status": "Not found in backup or mappings",
+                "song_id": null,
+                "validated_title": "I\u2019m Only One",
+                "key": "G"
+              }
+            ],
+            "validated_count": 6,
+            "missing_count": 9
+          }
+        ],
+        "extras": [],
+        "counts": {
+          "per_set": {
+            "Set 1": {
+              "total": 24,
+              "validated": 12,
+              "missing": 12
+            },
+            "Set 2": {
+              "total": 17,
+              "validated": 7,
+              "missing": 10
+            },
+            "Set 3": {
+              "total": 15,
+              "validated": 6,
+              "missing": 9
+            }
+          },
+          "extras": {
+            "total": 0,
+            "validated": 0,
+            "missing": 0
+          },
+          "total": 56,
+          "validated_total": 25,
+          "missing_total": 31
+        },
+        "errors": [],
+        "validation_info": {
+          "user_id": "35e76f8b-65f7-48c1-9920-932122e98219",
+          "backup_path": "user_data/35e76f8b-65f7-48c1-9920-932122e98219/backup_20251019_233743_SongbookPro Backup.sbpbackup",
+          "mappings_path": "work/35e76f8b-65f7-48c1-9920-932122e98219_1761018573/temp_mappings.json",
+          "validated_at": "2025-10-20T23:49:33.837965",
+          "total_songs_in_backup": 397,
+          "total_mappings": 3
+        }
+      },
+      "message": "Title validation completed successfully",
+      "forensic_input": "forensic/title_validation_input_1761018573.json",
+      "forensic_result": "forensic/title_validation_result_1761018573.json"
+    },
+    "song_extraction": {
+      "success": true,
+      "data": {
+        "success": true,
+        "output_path": "work/35e76f8b-65f7-48c1-9920-932122e98219_1761018573/Extracted_Set.sbp",
+        "file_size": 18606,
+        "statistics": {
+          "total_songs": 56,
+          "extracted_songs": 25,
+          "missing_songs": 31,
+          "sets_created": 3,
+          "songs_in_backup": 397
+        },
+        "sets": [
+          {
+            "name": "Extracted Set - Set 1",
+            "song_count": 12
+          },
+          {
+            "name": "Extracted Set - Set 2",
+            "song_count": 7
+          },
+          {
+            "name": "Extracted Set - Set 3",
+            "song_count": 6
+          }
+        ],
+        "download_id": "06c94026-c4b2-47e4-a9cd-c680dff47ebe",
+        "download_url": "/download_file/06c94026-c4b2-47e4-a9cd-c680dff47ebe?X-Standalone-User-ID=35e76f8b-65f7-48c1-9920-932122e98219"
+      },
+      "message": "Song extraction completed successfully",
+      "forensic_input": "forensic/song_extraction_input_1761018573.json",
+      "forensic_output": "forensic/song_extraction_output_1761018573.sbp"
+    }
+  },
+  "main_ui": {
+    "pdf_extraction": {
+      "stage": "pdf_extraction",
+      "message": "PDF extraction completed successfully",
+      "progress": 100,
+      "success": true,
+      "total": 56,
+      "titles": [
+        "Hurt So Good",
+        "U\u2019re No Good",
+        "Pontoon",
+        "Hot Blooded",
+        "No One Else Earth",
+        "Believe",
+        "Free Fallin",
+        "Ex\u2019s Ohs",
+        "I Wish",
+        "What About Love",
+        "Stuck",
+        "Proud Mary",
+        "Workin\u2019 Man",
+        "Can\u2019t You See",
+        "One Headlt",
+        "Save Me",
+        "Green River",
+        "When B Loved",
+        "Knock Wood",
+        "Swingin",
+        "Bye Bye",
+        "Boogie Oogie",
+        "Get Down2nite",
+        "Makes U Happy",
+        "I Will Survive",
+        "Hot Stuff",
+        "You Win my Love",
+        "Whenever U Come Around",
+        "Superstition",
+        "Heaven",
+        "Party Started",
+        "Honey I\u2019m Home",
+        "Miss You",
+        "Str8 On",
+        "Poker",
+        "Running Empty",
+        "Blvd Brkn Drms",
+        "Man I Feel",
+        "Alright Now",
+        "Alone",
+        "Hands 2 Urself",
+        "Not in 4 Love",
+        "Roll Changes",
+        "Oh Baby Baby",
+        "Real World",
+        "Refuge",
+        "3 steps",
+        "Liza Jane",
+        "Ever Seen Rain",
+        "Fire",
+        "Dreams",
+        "Liv Prayer",
+        "Cake",
+        "Folsom",
+        "Crazy Train",
+        "I\u2019m Only One"
+      ]
+    },
+    "title_validation": {
+      "stage": "title_validation",
+      "message": "Validated 25 of 56",
+      "progress": 100,
+      "success": true,
+      "validated": 25,
+      "total": 56,
+      "unfound_titles": [
+        "Hurt So Good",
+        "U\u2019re No Good",
+        "No One Else Earth",
+        "Ex\u2019s Ohs",
+        "Stuck",
+        "Workin\u2019 Man",
+        "One Headlt",
+        "When B Loved",
+        "Knock Wood",
+        "Boogie Oogie",
+        "Get Down2nite",
+        "Makes U Happy",
+        "Whenever U Come Around",
+        "Heaven",
+        "Party Started",
+        "Str8 On",
+        "Poker",
+        "Running Empty",
+        "Blvd Brkn Drms",
+        "Man I Feel",
+        "Alright Now",
+        "Hands 2 Urself",
+        "Not in 4 Love",
+        "Roll Changes",
+        "Oh Baby Baby",
+        "3 steps",
+        "Ever Seen Rain",
+        "Liv Prayer",
+        "Cake",
+        "Folsom",
+        "I\u2019m Only One"
+      ]
+    },
+    "song_extraction": {
+      "stage": "song_extraction",
+      "message": "SBP file created successfully",
+      "progress": 100,
+      "success": true
+    }
+  },
+  "differences": [
+    "PDF extraction song counts differ"
+  ]
+}

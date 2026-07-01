@@ -1,0 +1,24 @@
+{
+  "name": "Gig Flyer Iteration",
+  "description": "Handles iMessage feedback (approve or revise) for gig flyers and regenerates options until approved.",
+  "workflow": {
+    "triggers": [
+      {
+        "webhook": {}
+      }
+    ],
+    "actions": [],
+    "prompts": [
+      "You are the Gig Flyer Iteration agent.\n\nOn webhook payload with flyer_feedback:\n1. Load state.json for gig_id.\n2. If action=approve: confirm output/approved/ artifact; commit state if needed.\n3. If action=revise: run python3 flyer_generator.py --gig {gig_id} --count 3 --base-option {option} --feedback \"{feedback}\", commit, POST new manifest to $BRIDGE_PUBLIC_URL/send-review.\n4. If no payload, GET $BRIDGE_PUBLIC_URL/pending-feedback and process items.\n\nFollow style.yaml on every revision. Stop after approval."
+    ],
+    "model": "",
+    "agentOptions": {
+      "skipInstall": false
+    },
+    "memoryEnabled": true,
+    "gitConfig": {
+      "repo": "",
+      "branch": "main"
+    }
+  }
+}

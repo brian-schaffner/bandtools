@@ -1,0 +1,84 @@
+{
+  "sets": [
+    {
+      "name": "Set 1",
+      "time_window": "7-8:30",
+      "break_minutes": 20,
+      "songs": [
+        {
+          "order": 1,
+          "title": "Test Song 1",
+          "validated": true,
+          "status": "Found in backup",
+          "song_id": 1,
+          "validated_title": "Test Song 1",
+          "key": "A"
+        },
+        {
+          "order": 2,
+          "title": "Test Song 2",
+          "validated": true,
+          "status": "Found in backup",
+          "song_id": 2,
+          "validated_title": "Test Song 2",
+          "key": "B"
+        },
+        {
+          "order": 3,
+          "title": "Missing Song",
+          "validated": false,
+          "status": "Not found in backup or mappings",
+          "song_id": null,
+          "validated_title": "Missing Song",
+          "key": ""
+        }
+      ],
+      "validated_count": 2,
+      "missing_count": 1
+    }
+  ],
+  "extras": [
+    {
+      "order": 1,
+      "title": "Another Song",
+      "validated": true,
+      "status": "Found in backup",
+      "song_id": 4,
+      "validated_title": "Another Song"
+    },
+    {
+      "order": 2,
+      "title": "Final Song",
+      "validated": true,
+      "status": "Found in backup",
+      "song_id": 5,
+      "validated_title": "Final Song"
+    }
+  ],
+  "counts": {
+    "per_set": {
+      "Set 1": {
+        "total": 3,
+        "validated": 2,
+        "missing": 1
+      }
+    },
+    "extras": {
+      "total": 2,
+      "validated": 2,
+      "missing": 0
+    },
+    "total": 5,
+    "validated_total": 4,
+    "missing_total": 1
+  },
+  "errors": [],
+  "validation_info": {
+    "user_id": "test_user@example.com",
+    "backup_path": "test_backup.sbpbackup",
+    "mappings_path": null,
+    "validated_at": "2025-10-16T23:50:49.427150",
+    "total_songs_in_backup": 5,
+    "total_mappings": 0
+  }
+}

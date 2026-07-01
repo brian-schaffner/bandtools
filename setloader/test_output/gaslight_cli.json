@@ -1,0 +1,243 @@
+{
+  "sets": [
+    {
+      "name": "Set 1",
+      "time_window": "7-8:30",
+      "break_minutes": 20,
+      "songs": [
+        {
+          "order": 1,
+          "title": "Believe",
+          "key": "F"
+        },
+        {
+          "order": 2,
+          "title": "1999",
+          "key": "F"
+        },
+        {
+          "order": 3,
+          "title": "Ex’s Ohs",
+          "key": "Dm"
+        },
+        {
+          "order": 4,
+          "title": "Talking Sleep",
+          "key": "Dm"
+        },
+        {
+          "order": 5,
+          "title": "What About Love",
+          "key": "Dm"
+        },
+        {
+          "order": 6,
+          "title": "Boogie Oogie",
+          "key": "Dm"
+        },
+        {
+          "order": 7,
+          "title": "Get Down Tonight",
+          "key": "G"
+        },
+        {
+          "order": 8,
+          "title": "Free Fallin",
+          "key": "F"
+        },
+        {
+          "order": 9,
+          "title": "Hurt So Good",
+          "key": "A"
+        },
+        {
+          "order": 10,
+          "title": "Pontoon",
+          "key": "A"
+        },
+        {
+          "order": 11,
+          "title": "Hot Blooded",
+          "key": "G"
+        },
+        {
+          "order": 12,
+          "title": "No One Else Earth",
+          "key": "G"
+        },
+        {
+          "order": 13,
+          "title": "Real World",
+          "key": "Bb"
+        },
+        {
+          "order": 14,
+          "title": "Not in 4 Love",
+          "key": "C"
+        },
+        {
+          "order": 15,
+          "title": "Roll Changes",
+          "key": "C"
+        },
+        {
+          "order": 16,
+          "title": "Roll Deep",
+          "key": "Cm"
+        },
+        {
+          "order": 17,
+          "title": "Green River",
+          "key": "E"
+        },
+        {
+          "order": 18,
+          "title": "Cake Ocean",
+          "key": "Em"
+        },
+        {
+          "order": 19,
+          "title": "Black Velvet",
+          "key": "Em"
+        },
+        {
+          "order": 20,
+          "title": "When B Loved",
+          "key": "E"
+        },
+        {
+          "order": 21,
+          "title": "Knock Wood",
+          "key": "E"
+        },
+        {
+          "order": 22,
+          "title": "Swingin",
+          "key": "E"
+        },
+        {
+          "order": 23,
+          "title": "Fire",
+          "key": "C"
+        }
+      ]
+    },
+    {
+      "name": "Set 2",
+      "time_window": "9:50-10",
+      "break_minutes": 15,
+      "songs": [
+        {
+          "order": 1,
+          "title": "I Will Survive",
+          "key": "Gm"
+        },
+        {
+          "order": 2,
+          "title": "Hot Stuff",
+          "key": "Gm"
+        },
+        {
+          "order": 3,
+          "title": "You Win Love",
+          "key": "G/A"
+        },
+        {
+          "order": 4,
+          "title": "Liza Jane",
+          "key": "A"
+        },
+        {
+          "order": 5,
+          "title": "Elec Slide",
+          "key": "C"
+        },
+        {
+          "order": 6,
+          "title": "Collide",
+          "key": "B"
+        },
+        {
+          "order": 7,
+          "title": "Heaven",
+          "key": "Bm"
+        },
+        {
+          "order": 8,
+          "title": "Miss You",
+          "key": "Am"
+        },
+        {
+          "order": 9,
+          "title": "Poker",
+          "key": "Am"
+        },
+        {
+          "order": 10,
+          "title": "Blvd Brkn Drms",
+          "key": "Am"
+        },
+        {
+          "order": 11,
+          "title": "Shut Up Dance",
+          "key": "C#"
+        },
+        {
+          "order": 12,
+          "title": "Honey I’m Home",
+          "key": "E"
+        },
+        {
+          "order": 13,
+          "title": "Running Empty",
+          "key": "A"
+        },
+        {
+          "order": 14,
+          "title": "Alone",
+          "key": "Am"
+        },
+        {
+          "order": 15,
+          "title": "Wake Me Sep",
+          "key": "G"
+        },
+        {
+          "order": 16,
+          "title": "Stuck",
+          "key": "D"
+        },
+        {
+          "order": 17,
+          "title": "Proud Mary",
+          "key": "D"
+        },
+        {
+          "order": 18,
+          "title": "Workin’ Man",
+          "key": "D"
+        },
+        {
+          "order": 19,
+          "title": "One Headlt",
+          "key": "G"
+        },
+        {
+          "order": 20,
+          "title": "Liv Prayer",
+          "key": "Em"
+        }
+      ]
+    }
+  ],
+  "extras": [],
+  "counts": {
+    "per_set": {
+      "Set 1": 23,
+      "Set 2": 20
+    },
+    "extras": 0,
+    "total": 43
+  },
+  "errors": []
+}

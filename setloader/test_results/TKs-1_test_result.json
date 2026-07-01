@@ -1,0 +1,10 @@
+{
+    "test_name": "TKs-1",
+    "input_file": "/usr/local/src/setloader/test_data/TKs-1.pdf",
+    "output_file": "/usr/local/src/setloader/test_output/TKs-1.json",
+    "status": "PASSED",
+    "duration_seconds": 18,
+    "total_songs": 59,
+    "error_count": 0,
+    "timestamp": "2025-10-17T03:08:00Z"
+}

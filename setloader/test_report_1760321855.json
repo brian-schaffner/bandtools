@@ -1,0 +1,282 @@
+{
+  "summary": {
+    "total_tests": 27,
+    "passed": 11,
+    "failed": 16,
+    "warnings": 0,
+    "success_rate": 40.74074074074074
+  },
+  "results": [
+    {
+      "test": "Server Connectivity",
+      "status": "PASS",
+      "message": "Server is responding",
+      "timestamp": 1760321839.901234,
+      "details": {}
+    },
+    {
+      "test": "Frontend Connectivity",
+      "status": "PASS",
+      "message": "Frontend is responding",
+      "timestamp": 1760321839.957147,
+      "details": {}
+    },
+    {
+      "test": "PDF Discovery",
+      "status": "PASS",
+      "message": "Found 13 valid PDF files: ['TKs.pdf', 'rose_s.pdf', 'party.pdf', 'rr.pdf', 'stevie_rays_sep.pdf', 'rough_river_july.pdf', 'hs.pdf', 'bs.pdf', 'party.pdf', 'rr.pdf', 'rough%20river%20july.pdf', 'hs.pdf', 'bs.pdf']",
+      "timestamp": 1760321843.001974,
+      "details": {}
+    },
+    {
+      "test": "Backup Discovery",
+      "status": "PASS",
+      "message": "Found 2 backup files: ['SongbookPro Backup.sbpbackup', 'SongbookPro Backup.sbpbackup']",
+      "timestamp": 1760321843.002601,
+      "details": {}
+    },
+    {
+      "test": "Backup Upload (SongbookPro Backup.sbpbackup)",
+      "status": "PASS",
+      "message": "Uploaded successfully, 377 songs found",
+      "timestamp": 1760321843.108618,
+      "details": {}
+    },
+    {
+      "test": "Backup Verification",
+      "status": "PASS",
+      "message": "Backup verified, 377 songs",
+      "timestamp": 1760321843.1191208,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (TKs.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"FileNotFoundError: [Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt'\"]}",
+      "timestamp": 1760321844.0863569,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rose_s.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"FileNotFoundError: [Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt'\"]}",
+      "timestamp": 1760321844.990852,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (party.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"FileNotFoundError: [Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt'\"]}",
+      "timestamp": 1760321845.8004339,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rr.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"FileNotFoundError: [Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt'\"]}",
+      "timestamp": 1760321846.6368,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (stevie_rays_sep.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"FileNotFoundError: [Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt'\"]}",
+      "timestamp": 1760321847.5722518,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rough_river_july.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"FileNotFoundError: [Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt'\"]}",
+      "timestamp": 1760321848.429481,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (hs.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"FileNotFoundError: [Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt'\"]}",
+      "timestamp": 1760321849.379736,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (bs.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"FileNotFoundError: [Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt'\"]}",
+      "timestamp": 1760321850.2829912,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (party.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"FileNotFoundError: [Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt'\"]}",
+      "timestamp": 1760321851.10413,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rr.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"FileNotFoundError: [Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt'\"]}",
+      "timestamp": 1760321851.9356182,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rough%20river%20july.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"FileNotFoundError: [Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt'\"]}",
+      "timestamp": 1760321852.8223512,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (hs.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"FileNotFoundError: [Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt'\"]}",
+      "timestamp": 1760321853.743747,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (bs.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"FileNotFoundError: [Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt'\"]}",
+      "timestamp": 1760321854.661516,
+      "details": {}
+    },
+    {
+      "test": "Archive - Get Data",
+      "status": "PASS",
+      "message": "Archive has 57 backups, 136 setlists, 98 downloads",
+      "timestamp": 1760321854.690309,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (tmpranwve07.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 400: {\"detail\":\"User backup file not found on disk\"}",
+      "timestamp": 1760321854.700635,
+      "details": {}
+    },
+    {
+      "test": "Error Handling - Invalid PDF",
+      "status": "PASS",
+      "message": "Correctly rejected invalid PDF",
+      "timestamp": 1760321854.700681,
+      "details": {}
+    },
+    {
+      "test": "Backup Upload (tmpperjg_g8.sbpbackup)",
+      "status": "PASS",
+      "message": "Uploaded successfully, 0 songs found",
+      "timestamp": 1760321854.7143302,
+      "details": {}
+    },
+    {
+      "test": "Error Handling - Invalid Backup",
+      "status": "FAIL",
+      "message": "Should have rejected invalid backup",
+      "timestamp": 1760321854.7143779,
+      "details": {}
+    },
+    {
+      "test": "Error Handling - Missing Headers",
+      "status": "PASS",
+      "message": "Correctly rejected request without headers",
+      "timestamp": 1760321854.7165508,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (tmpv38uo4g0.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/pdf_to_sections.py\\\", line 154, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/pdf_to_sections.py\\\", line 124, in main\",\"    text = extract_text_from_pdf(getattr(args, 'in'))\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/pdf_to_sections.py\\\", line 16, in extract_text_from_pdf\",\"    raise Exception(f\\\"pdftotext failed: {result.stderr}\\\")\",\"Exception: pdftotext failed: Syntax Warning: May not be a PDF file (continuing anyway)\",\"Syntax Error: Couldn't find trailer dictionary\",\"Syntax Error: Couldn't find trailer dictionary\",\"Syntax Error: Couldn't read xref table\",\"\"]}",
+      "timestamp": 1760321855.2535958,
+      "details": {}
+    },
+    {
+      "test": "Error Handling - Large File",
+      "status": "PASS",
+      "message": "Correctly handled large file",
+      "timestamp": 1760321855.253649,
+      "details": {}
+    }
+  ],
+  "defects": [
+    {
+      "test": "PDF Processing (TKs.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"FileNotFoundError: [Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt'\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rose_s.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"FileNotFoundError: [Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt'\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (party.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"FileNotFoundError: [Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt'\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rr.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"FileNotFoundError: [Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt'\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (stevie_rays_sep.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"FileNotFoundError: [Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt'\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rough_river_july.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"FileNotFoundError: [Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt'\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (hs.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"FileNotFoundError: [Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt'\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (bs.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"FileNotFoundError: [Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt'\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (party.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"FileNotFoundError: [Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt'\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rr.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"FileNotFoundError: [Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt'\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rough%20river%20july.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"FileNotFoundError: [Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt'\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (hs.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"FileNotFoundError: [Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt'\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (bs.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Failed to extract songs for SET 1: Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 284, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 197, in main\",\"    data = load_datafile(args.datafile)\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/extract_songs.py\\\", line 66, in load_datafile\",\"    raw = open(path, 'r', encoding='utf-8').read()\",\"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"FileNotFoundError: [Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt'\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (tmpranwve07.pdf)",
+      "message": "Processing failed with status 400: {\"detail\":\"User backup file not found on disk\"}",
+      "details": {}
+    },
+    {
+      "test": "Error Handling - Invalid Backup",
+      "message": "Should have rejected invalid backup",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (tmpv38uo4g0.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/pdf_to_sections.py\\\", line 154, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/pdf_to_sections.py\\\", line 124, in main\",\"    text = extract_text_from_pdf(getattr(args, 'in'))\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/pdf_to_sections.py\\\", line 16, in extract_text_from_pdf\",\"    raise Exception(f\\\"pdftotext failed: {result.stderr}\\\")\",\"Exception: pdftotext failed: Syntax Warning: May not be a PDF file (continuing anyway)\",\"Syntax Error: Couldn't find trailer dictionary\",\"Syntax Error: Couldn't find trailer dictionary\",\"Syntax Error: Couldn't read xref table\",\"\"]}",
+      "details": {}
+    }
+  ]
+}

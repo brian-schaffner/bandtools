@@ -1,0 +1,249 @@
+{
+  "summary": {
+    "total_tests": 23,
+    "passed": 8,
+    "failed": 15,
+    "warnings": 0,
+    "success_rate": 34.78260869565217
+  },
+  "results": [
+    {
+      "test": "Server Connectivity",
+      "status": "PASS",
+      "message": "Server is responding",
+      "timestamp": 1760321764.256556,
+      "details": {}
+    },
+    {
+      "test": "Frontend Connectivity",
+      "status": "FAIL",
+      "message": "Cannot connect to frontend: HTTPConnectionPool(host='localhost', port=3001): Max retries exceeded with url: / (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x10ef8e590>: Failed to establish a new connection: [Errno 61] Connection refused'))",
+      "timestamp": 1760321764.25872,
+      "details": {}
+    },
+    {
+      "test": "PDF Discovery",
+      "status": "PASS",
+      "message": "Found 9 PDF files: ['sample.pdf', 'TKs.pdf', 'rose_s.pdf', 'stevie_rays_sep.pdf', 'party.pdf', 'rr.pdf', 'rough%20river%20july.pdf', 'hs.pdf', 'bs.pdf']",
+      "timestamp": 1760321764.2592242,
+      "details": {}
+    },
+    {
+      "test": "Backup Discovery",
+      "status": "PASS",
+      "message": "Found 2 backup files: ['SongbookPro Backup.sbpbackup', 'SongbookPro Backup.sbpbackup']",
+      "timestamp": 1760321764.259487,
+      "details": {}
+    },
+    {
+      "test": "Backup Upload (SongbookPro Backup.sbpbackup)",
+      "status": "FAIL",
+      "message": "Upload failed with status 404: {\"detail\":\"Not Found\"}",
+      "timestamp": 1760321764.277148,
+      "details": {}
+    },
+    {
+      "test": "Backup Upload (SongbookPro Backup.sbpbackup)",
+      "status": "FAIL",
+      "message": "Upload failed with status 404: {\"detail\":\"Not Found\"}",
+      "timestamp": 1760321764.2914612,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (sample.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/pdf_to_sections.py\\\", line 154, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/pdf_to_sections.py\\\", line 124, in main\",\"    text = extract_text_from_pdf(getattr(args, 'in'))\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/pdf_to_sections.py\\\", line 16, in extract_text_from_pdf\",\"    raise Exception(f\\\"pdftotext failed: {result.stderr}\\\")\",\"Exception: pdftotext failed: Syntax Error: Invalid page count 0\",\"Command Line Error: Wrong page range given: the first page (1) can not be after the last page (0).\",\"\"]}",
+      "timestamp": 1760321768.602334,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (TKs.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"[Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt' -> '/usr/local/src/setloader/pack/user_dataFile.txt'\"]}",
+      "timestamp": 1760321768.6798139,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rose_s.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"[Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt' -> '/usr/local/src/setloader/pack/user_dataFile.txt'\"]}",
+      "timestamp": 1760321768.75942,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (stevie_rays_sep.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"[Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt' -> '/usr/local/src/setloader/pack/user_dataFile.txt'\"]}",
+      "timestamp": 1760321768.837091,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (party.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"[Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt' -> '/usr/local/src/setloader/pack/user_dataFile.txt'\"]}",
+      "timestamp": 1760321768.896849,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rr.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"[Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt' -> '/usr/local/src/setloader/pack/user_dataFile.txt'\"]}",
+      "timestamp": 1760321768.965128,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rough%20river%20july.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"[Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt' -> '/usr/local/src/setloader/pack/user_dataFile.txt'\"]}",
+      "timestamp": 1760321769.03164,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (hs.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"[Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt' -> '/usr/local/src/setloader/pack/user_dataFile.txt'\"]}",
+      "timestamp": 1760321769.094453,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (bs.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"[Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt' -> '/usr/local/src/setloader/pack/user_dataFile.txt'\"]}",
+      "timestamp": 1760321769.16088,
+      "details": {}
+    },
+    {
+      "test": "Archive - Get Data",
+      "status": "PASS",
+      "message": "Archive has 54 backups, 106 setlists, 98 downloads",
+      "timestamp": 1760321769.205471,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (tmpu47r6uhg.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 400: {\"detail\":\"User backup file not found on disk\"}",
+      "timestamp": 1760321769.2161942,
+      "details": {}
+    },
+    {
+      "test": "Error Handling - Invalid PDF",
+      "status": "PASS",
+      "message": "Correctly rejected invalid PDF",
+      "timestamp": 1760321769.2162402,
+      "details": {}
+    },
+    {
+      "test": "Backup Upload (tmpaqv4smpc.sbpbackup)",
+      "status": "FAIL",
+      "message": "Upload failed with status 404: {\"detail\":\"Not Found\"}",
+      "timestamp": 1760321769.218745,
+      "details": {}
+    },
+    {
+      "test": "Error Handling - Invalid Backup",
+      "status": "PASS",
+      "message": "Correctly rejected invalid backup",
+      "timestamp": 1760321769.2187788,
+      "details": {}
+    },
+    {
+      "test": "Error Handling - Missing Headers",
+      "status": "PASS",
+      "message": "Correctly rejected request without headers",
+      "timestamp": 1760321769.221237,
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (tmp0gjvdsr7.pdf)",
+      "status": "FAIL",
+      "message": "Processing failed with status 400: {\"detail\":\"User backup file not found on disk\"}",
+      "timestamp": 1760321769.369397,
+      "details": {}
+    },
+    {
+      "test": "Error Handling - Large File",
+      "status": "PASS",
+      "message": "Correctly handled large file",
+      "timestamp": 1760321769.369449,
+      "details": {}
+    }
+  ],
+  "defects": [
+    {
+      "test": "Frontend Connectivity",
+      "message": "Cannot connect to frontend: HTTPConnectionPool(host='localhost', port=3001): Max retries exceeded with url: / (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x10ef8e590>: Failed to establish a new connection: [Errno 61] Connection refused'))",
+      "details": {}
+    },
+    {
+      "test": "Backup Upload (SongbookPro Backup.sbpbackup)",
+      "message": "Upload failed with status 404: {\"detail\":\"Not Found\"}",
+      "details": {}
+    },
+    {
+      "test": "Backup Upload (SongbookPro Backup.sbpbackup)",
+      "message": "Upload failed with status 404: {\"detail\":\"Not Found\"}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (sample.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"Traceback (most recent call last):\",\"  File \\\"/usr/local/src/setloader/src/pdf_to_sections.py\\\", line 154, in <module>\",\"    main()\",\"  File \\\"/usr/local/src/setloader/src/pdf_to_sections.py\\\", line 124, in main\",\"    text = extract_text_from_pdf(getattr(args, 'in'))\",\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"  File \\\"/usr/local/src/setloader/src/pdf_to_sections.py\\\", line 16, in extract_text_from_pdf\",\"    raise Exception(f\\\"pdftotext failed: {result.stderr}\\\")\",\"Exception: pdftotext failed: Syntax Error: Invalid page count 0\",\"Command Line Error: Wrong page range given: the first page (1) can not be after the last page (0).\",\"\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (TKs.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"[Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt' -> '/usr/local/src/setloader/pack/user_dataFile.txt'\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rose_s.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"[Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt' -> '/usr/local/src/setloader/pack/user_dataFile.txt'\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (stevie_rays_sep.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"[Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt' -> '/usr/local/src/setloader/pack/user_dataFile.txt'\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (party.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"[Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt' -> '/usr/local/src/setloader/pack/user_dataFile.txt'\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rr.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"[Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt' -> '/usr/local/src/setloader/pack/user_dataFile.txt'\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (rough%20river%20july.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"[Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt' -> '/usr/local/src/setloader/pack/user_dataFile.txt'\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (hs.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"[Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt' -> '/usr/local/src/setloader/pack/user_dataFile.txt'\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (bs.pdf)",
+      "message": "Processing failed with status 500: {\"ok\":false,\"code\":1,\"stdout\":[],\"stderr\":[\"[Errno 2] No such file or directory: '/usr/local/src/setloader/pack/dataFile.txt' -> '/usr/local/src/setloader/pack/user_dataFile.txt'\"]}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (tmpu47r6uhg.pdf)",
+      "message": "Processing failed with status 400: {\"detail\":\"User backup file not found on disk\"}",
+      "details": {}
+    },
+    {
+      "test": "Backup Upload (tmpaqv4smpc.sbpbackup)",
+      "message": "Upload failed with status 404: {\"detail\":\"Not Found\"}",
+      "details": {}
+    },
+    {
+      "test": "PDF Processing (tmp0gjvdsr7.pdf)",
+      "message": "Processing failed with status 400: {\"detail\":\"User backup file not found on disk\"}",
+      "details": {}
+    }
+  ]
+}

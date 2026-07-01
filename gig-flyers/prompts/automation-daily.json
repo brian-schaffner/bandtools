@@ -1,0 +1,26 @@
+{
+  "name": "Daily Gig Flyer Auto-Scan",
+  "description": "Every morning: scan live calendar for gigs 21–28 days out, generate 3 flyer options for new gigs, and send iMessage review links via the bridge.",
+  "workflow": {
+    "triggers": [
+      {
+        "cron": {
+          "cron": "0 9 * * *"
+        }
+      }
+    ],
+    "actions": [],
+    "prompts": [
+      "You are the Daily Gig Flyer Auto-Scan agent for Lindsey Lane Band.\n\nEach day at 9 AM:\n1. Ensure GIG_FLYERS_TEST_MODE is NOT set — use the live calendar.\n2. Read style.yaml and state.json.\n3. Run: python3 scripts/auto_scan.py\n   (same as: python3 flyer_generator.py --auto-scan)\n4. For each generated gig, verify bridge delivery succeeded.\n5. Commit PNGs, manifests, and state.json if any gigs were generated.\n6. Summarize: gigs scanned, generated, skipped (already pending/approved), errors.\n\nSkip gigs already in state.json with pending_review or prior rounds. Only process new/not-yet-started gigs in the 21–28 day window. Follow style.yaml. Never commit secrets."
+    ],
+    "model": "",
+    "agentOptions": {
+      "skipInstall": false
+    },
+    "memoryEnabled": true,
+    "gitConfig": {
+      "repo": "",
+      "branch": "main"
+    }
+  }
+}

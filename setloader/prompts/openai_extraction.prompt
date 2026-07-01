@@ -1,0 +1,72 @@
+# Setlist Extractor — Flexible (Any # of Sets) + Extras (Dynamic Total)
+
+## Task
+Extract a band setlist from raw text copied out of a PDF. The text may contain typos, odd spacing, or line breaks.
+Parse **multiple sets** (e.g., "SET 1 – 9-10:30  15 min break", "2 – 10:45-12   15 min. break", "Set 3 12:15-1", etc.)
+and an **Extras** section. Preserve song order.
+
+## Key rule about notes
+Ignore trivial performance markers such as: `snap`, `(short)`, `(ballad)`, `Detune`, `Starts Eb` — do **not** include them in output unless they are part of a song’s actual title.
+(If a parenthetical is clearly part of a title, keep it; otherwise drop it.)
+
+## Parsing rules (strict)
+1) Identify **set headers** and group subsequent **numbered song lines** under that set until the next header or Extras.
+   - A header can look like: `SET 1 – 9-10:30  15 min break`, `2 – 10:45-12   15 min. break`, `Set 3 12:15-1`.
+   - Extract, when available:
+     - `name` (e.g., "Set 1")
+     - `time_window` (e.g., "9-10:30")
+     - `break_minutes` as an integer if present (e.g., "15 min break" → 15), otherwise 0.
+2) A **song line** looks like: `N. Title – Key` (dashes can be `-`, `–`, or `—`; spacing may vary).
+   - Capture:
+     - `order` (integer N, contiguous within a set starting at 1)
+     - `title` (trim spaces; preserve capitalization; do not invent titles; lightly fix obvious OCR merges only if unambiguous)
+     - `key` (e.g., `A`, `Gm`, `C#`, `E`); if the “key” token is missing or ambiguous, set `key` to `""`.
+   - Do **not** carry over trivial notes into the output.
+3) Identify the **Extras** section:
+   - 	•	A line beginning with Extras: starts this section.
+	•	Normalization: collect all lines of the Extras block until a blank line or EOF, join them with single spaces (replace \n with ' '), then collapse multiple spaces.
+	•	Split by commas to get candidate titles; trim each.
+	•	Line-wrap merge heuristic: if a candidate would have been split only by a newline (e.g., ends with a word that is immediately followed by a single-word candidate with no comma in the source), merge them with a space (e.g., "Oh Baby" + "Baby" → "Oh Baby Baby").
+	•	Build extras as an ordered array of { "title": "<name>" }.
+
+4) **Counting & validation**:
+   - For each set, count the songs.
+   - Provide totals: per-set counts, `extras` count, and overall `total = sum(all sets) + extras`.
+   - If any set’s numbering is non-contiguous (e.g., missing `7`), return an `"errors"` array describing the issue, but still output parsed data.
+
+## Output format (JSON only; no commentary outside JSON)
+{
+  "sets": [
+    {
+      "name": "Set 1",
+      "time_window": "9-10:30",
+      "break_minutes": 15,
+      "songs": [
+        { "order": 1, "title": "Hurt So Good", "key": "A" },
+        { "order": 2, "title": "Pontoon", "key": "A" }
+        // ...
+      ]
+    }
+    // additional sets...
+  ],
+  "extras": [
+    { "title": "Save Me" }
+    // ...
+  ],
+  "counts": {
+    "per_set": { "Set 1": 0, "Set 2": 0, "Set 3": 0 },
+    "extras": 0,
+    "total": 0
+  },
+  "errors": []
+}
+
+## Post-processing checks
+- Ensure `order` values inside each set are contiguous starting at 1. If not, list gaps in `"errors"`.
+- Do not include trivial markers (snap, short, ballad, detune) in any field.
+- Only include a parenthetical in `title` if it is clearly part of the song’s name.
+
+## Input (paste raw text from PDF below this line)
+use attached pdf
+
+

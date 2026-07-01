@@ -1,0 +1,40 @@
+{
+  "sets": [
+    {
+      "name": "Test Set",
+      "time_window": "9-10:30",
+      "break_minutes": 15,
+      "songs": [
+        {
+          "order": 1,
+          "title": "Unknown Song 1",
+          "key": "A"
+        },
+        {
+          "order": 2,
+          "title": "Hurt So Good",
+          "key": "A"
+        },
+        {
+          "order": 3,
+          "title": "Another Unknown Song",
+          "key": "G"
+        }
+      ]
+    }
+  ],
+  "extras": [
+    {
+      "order": 1,
+      "title": "Extra Unknown Song"
+    }
+  ],
+  "counts": {
+    "per_set": {
+      "Test Set": 3
+    },
+    "extras": 1,
+    "total": 4
+  },
+  "errors": []
+}

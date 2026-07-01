@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.env
+*.egg-info/
+
+# Build/output
+dist/
+build/
+*.sbp
+*.zip
+
+# Project-specific
+pack/
+work/
+uploads/
+pdf/
+logs/
+*.raw.txt
+*.verified.txt
+*.container.json
+# OS cruft
+.DS_Store

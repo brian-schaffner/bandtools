@@ -1,0 +1,22 @@
+pdf2image
+openai
+fastapi==0.110.*
+uvicorn[standard]==0.30.*
+python-multipart==0.0.9
+watchfiles>=0.22
+python-dotenv>=1.0
+pdfminer.six==20240706
+PyPDF2>=3.0.0
+PyMuPDF==1.24.9
+pytesseract==0.3.10
+Pillow==10.4.0
+pydantic
+# Google OAuth (backend)
+google-auth>=2.0.0
+google-auth-oauthlib>=1.0.0
+google-auth-httplib2>=0.2.0
+google-api-python-client>=2.0.0
+# Database dependencies
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.0
+alembic>=1.13.0

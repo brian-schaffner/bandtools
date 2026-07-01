@@ -1,0 +1,26 @@
+{
+  "sets": [
+    {
+      "name": "Test Set",
+      "songs": [
+        {
+          "order": 1,
+          "title": "Refuge",
+          "key": "Gm"
+        },
+        {
+          "order": 2,
+          "title": "Test Song",
+          "key": "C"
+        }
+      ]
+    }
+  ],
+  "extras": [],
+  "counts": {
+    "total": 2,
+    "sets": 2,
+    "extras": 0
+  },
+  "errors": []
+}

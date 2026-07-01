@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Node
+node_modules/
+.next/
+out/
+
+# Secrets & local data
+.env
+.env.*
+!.env.example
+setloader/vars.sh
+setloader/setloader.plist
+setloader/setloader.db
+setloader/user_data/
+setloader/oauth_credentials/
+setloader/downloads/
+setloader/work/
+setloader/forensic/
+gig-flyers/output/
+gig-flyers/cache/
+gig-flyers/logs/
+gig-flyers/state.json
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+pack/
+
+# OS
+.DS_Store
+
+# Large test assets
+*.pdf
+*.sbpbackup

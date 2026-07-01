@@ -1,0 +1,47 @@
+# Band Tools (Setlist Loader + hub) — Fly.io deployment
+FROM node:20-bookworm-slim AS frontend-build
+
+WORKDIR /app/setlist-helper
+COPY setlist-helper/package.json setlist-helper/package-lock.json ./
+RUN npm ci
+
+COPY setlist-helper/ ./
+ENV NEXT_PUBLIC_API_URL=/api
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN npm run build
+
+FROM python:3.12-bookworm
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    caddy \
+    curl \
+    poppler-utils \
+    tesseract-ocr \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+# Next.js standalone server
+COPY --from=frontend-build /app/setlist-helper/.next/standalone ./setlist-helper/
+COPY --from=frontend-build /app/setlist-helper/.next/static ./setlist-helper/.next/static
+COPY --from=frontend-build /app/setlist-helper/public ./setlist-helper/public
+
+COPY Caddyfile /etc/caddy/Caddyfile
+RUN chmod +x /app/scripts/fly-start.sh
+
+ENV PORT=8080
+ENV BACKEND_PORT=8002
+ENV FRONTEND_PORT=3000
+ENV DATA_DIR=/data
+ENV FLYERS_UPSTREAM=https://gig-flyers.fly.dev
+
+EXPOSE 8080
+
+CMD ["/app/scripts/fly-start.sh"]

@@ -1,0 +1,284 @@
+#!/usr/bin/env python3
+"""
+extract_songs.py — Extract song JSON objects from a big data file for a given verified list,
+and optionally emit a container with sets[] generated from the input order.
+
+Key modes
+- --format songs     : write just the matched song list (JSON array) or JSONL
+- --format container : write version line + full container {"songs":[],"sets":[],"folders":[]}
+  Extras:
+    --carry-sets     : copy sets/folders and extra top-level fields from datafile
+    --filter-sets    : keep only set items whose SongId is in the subset
+    --make-set NAME  : generate a single set named NAME from the input order
+
+Formatting controls for generated set:
+  --set-id INT (default 1)
+  --start-order INT (default 0)
+  --item-type INT (default 1)
+  --set-date "now"|ISO8601 (default "now")           -> details.date
+  --set-modified "now"|ISO8601 (default "now")       -> details.ModifiedDateTime
+  --content-modified "now"|ISO8601 (default "now")   -> per-item ModifiedDateTime
+  --content-id-start INT (default 0)                 -> starting Id for set items
+  --syncid-empty-string                              -> use "" instead of null for SyncId fields
+"""
+import argparse, json, os, re
+from typing import List, Dict, Any, Set
+from datetime import datetime
+import unicodedata, re
+
+
+from datetime import datetime, timezone
+
+def _norm_title(s: str) -> str:
+    s = unicodedata.normalize("NFKC", s)
+    s = re.sub(r"\s+", " ", s).strip()
+    return s.casefold()
+
+def undelete_verified(songs_json, verified_titles):
+    """
+    Mutates songs_json in place:
+    if a song's name matches any verified title (case/spacing-insensitive),
+    force Deleted=False so it will appear in Songbook Pro.
+    """
+    vset = {_norm_title(t) for t in verified_titles if isinstance(t, str)}
+    # songs_json can be either {"songs":[...]} or a plain list
+    songs_list = songs_json["songs"] if isinstance(songs_json, dict) and "songs" in songs_json else songs_json
+    for s in songs_list:
+        if isinstance(s, dict) and "name" in s and _norm_title(s["name"]) in vset:
+            if s.get("Deleted") is True:
+                s["Deleted"] = False
+
+
+def now_iso():
+    return datetime.now(timezone.utc).isoformat(timespec='microseconds')
+
+def read_verified(path: str) -> List[str]:
+    with open(path, 'r', encoding='utf-8') as f:
+        return [ln.strip() for ln in f if ln.strip()]
+
+def slurp_after_json_start(text: str) -> str:
+    for i, ch in enumerate(text):
+        if ch in '{[':
+            return text[i:]
+    raise ValueError("No JSON object/array found in data file.")
+
+def load_datafile(path: str) -> Dict[str, Any]:
+    raw = open(path, 'r', encoding='utf-8').read()
+    raw_json = slurp_after_json_start(raw.strip())
+    data = json.loads(raw_json)
+    if not isinstance(data, dict):
+        data = {"songs": data}
+    if "songs" not in data or not isinstance(data["songs"], list):
+        raise ValueError("Data file JSON must contain a top-level 'songs' array.")
+    return data
+
+def norm_title(s: str) -> str:
+    s = s.strip()
+    s = re.sub(r"[‘’´`']", "'", s)
+    s = re.sub(r'[“”"]', '"', s)
+    s = s.replace("&", "and")
+    s = re.sub(r"\s+", " ", s)
+    return s.casefold()
+
+def build_index(songs: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    idx = {}
+    for obj in songs:
+        name = str(obj.get("name", "")).strip()
+        if not name:
+            continue
+        
+        normalized_name = norm_title(name)
+        is_deleted = obj.get("Deleted", False)
+        
+        # If we already have an entry for this title, prefer active songs over deleted ones
+        if normalized_name in idx:
+            existing = idx[normalized_name]
+            existing_deleted = existing.get("Deleted", False)
+            
+            # Only replace if current song is active and existing is deleted
+            if not is_deleted and existing_deleted:
+                idx[normalized_name] = obj
+            # If both are active or both are deleted, keep the first one (or could prioritize by ID)
+            # For now, we'll keep the first one to maintain consistency
+        else:
+            idx[normalized_name] = obj
+    return idx
+
+def filter_sets_obj(sets_obj: Any, keep_ids: Set[int]) -> Any:
+    if not isinstance(sets_obj, list):
+        return sets_obj
+    out = []
+    for s in sets_obj:
+        if not isinstance(s, dict):
+            out.append(s)
+            continue
+        s2 = dict(s)
+        contents = s2.get("contents")
+        if isinstance(contents, list):
+            contents2 = []
+            for it in contents:
+                if isinstance(it, dict):
+                    sid = it.get("SongId")
+                    if sid is None or sid in keep_ids:
+                        contents2.append(it)
+                else:
+                    contents2.append(it)
+            s2["contents"] = contents2
+        out.append(s2)
+    return out
+
+def resolve_ts(val: str) -> str:
+    if val == 'now':
+        return datetime.utcnow().isoformat(timespec='microseconds') + 'Z'
+    return val
+
+def build_set_from_titles(set_name: str, set_id: int, start_order: int, item_type: int, matched: list,
+                          set_date: str, set_modified: str, content_modified: str,
+                          content_id_start: int, syncid_empty: bool) -> dict:
+    """Create a single-set structure with details + contents based on matched songs order."""
+    syncid_value = "" if syncid_empty else None
+    details = {
+        "Id": set_id,
+        "name": set_name,
+        "date": resolve_ts(set_date),
+        "ModifiedDateTime": resolve_ts(set_modified),
+        "Deleted": 0,
+        "SyncId": syncid_value
+    }
+    contents = []
+    order = start_order
+    next_content_id = content_id_start
+    for song in matched:
+        sid = song.get("Id")
+        if isinstance(sid, int):
+            contents.append({
+                "Id": next_content_id,
+                "Order": order,
+                "Capo": 0,
+                "SetId": set_id,
+                "SongId": sid,
+                "keyOfset": 0,
+                "ModifiedDateTime": resolve_ts(content_modified),
+                "Deleted": 0,
+                "SyncId": syncid_value,
+                "NotesText": None,
+                "SectionOrder": "",
+                "ItemType": item_type,
+                "Content": ""
+            })
+            order += 1
+            next_content_id += 1
+    return {"details": details, "contents": contents}
+
+def main():
+    ap = argparse.ArgumentParser(description="Extract song JSON objects for verified titles.")
+    ap.add_argument("--verified", required=True, help="verified*.txt (one title per line)")
+    ap.add_argument("--datafile", required=True, help="dataFile.txt (contains JSON with 'songs' array)")
+    ap.add_argument("--out", required=True, help="Output path (.json or .jsonl)")
+    ap.add_argument("--jsonl", action="store_true", help="Write JSON Lines instead of a single JSON array")
+    ap.add_argument("--report", default=None, help="Optional path to write a found/missing report")
+    ap.add_argument("--format", choices=["songs", "container"], default="songs",
+                    help="Output format: 'songs' (default) or 'container' to mimic app format with 'songs', 'sets', 'folders'")
+    ap.add_argument("--carry-sets", action="store_true", help="When --format=container, carry over sets/folders and extra top-level fields from datafile")
+    ap.add_argument("--filter-sets", action="store_true", help="When --format=container, keep only set contents whose SongId is in the subset")
+    ap.add_argument("--make-set", dest="make_set", default=None, help="When --format=container, generate a sets[] entry from the verified titles order, with this set name")
+    ap.add_argument("--set-id", dest="set_id", type=int, default=1, help="Id to assign to the generated set (default 1)")
+    ap.add_argument("--start-order", dest="start_order", type=int, default=0, help="Starting Order index for generated set items (default 0)")
+    ap.add_argument("--item-type", dest="item_type", type=int, default=1, help="ItemType for generated set contents (default 1)")
+    # Formatting controls for generated set
+    ap.add_argument("--set-date", dest="set_date", default="now", help='Set "date" for generated set (ISO 8601 or "now"; default "now")')
+    ap.add_argument("--set-modified", dest="set_modified", default="now", help='Set "ModifiedDateTime" in set details (ISO 8601 or "now"; default "now")')
+    ap.add_argument("--content-modified", dest="content_modified", default="now", help='Set "ModifiedDateTime" for each set item (ISO 8601 or "now"; default "now")')
+    ap.add_argument("--content-id-start", dest="content_id_start", type=int, default=0, help="Starting Id for generated set contents (default 0)")
+    ap.add_argument("--syncid-empty-string", dest="syncid_empty", action="store_true", help="Use empty string for SyncId instead of null")
+    args = ap.parse_args()
+
+    titles = read_verified(args.verified)
+    data = load_datafile(args.datafile)
+    idx = build_index(data["songs"])
+    
+    print(f"DEBUG: Looking for {len(titles)} songs in backup with {len(data['songs'])} songs")
+    print(f"DEBUG: Available song titles in backup (first 10):")
+    for i, song in enumerate(data["songs"][:10]):
+        if isinstance(song, dict) and "name" in song:
+            print(f"  {i}: '{song['name']}' (normalized: '{norm_title(song['name'])}')")
+
+    matched = []
+    missing = []
+
+    for t in titles:
+        normalized_t = norm_title(t)
+        hit = idx.get(normalized_t)
+        if hit is None:
+            print(f"DEBUG: Song '{t}' (normalized: '{normalized_t}') not found in backup")
+            missing.append(t)
+        else:
+            print(f"DEBUG: Song '{t}' (normalized: '{normalized_t}') found in backup")
+            matched.append(hit)
+
+
+# ... after the for-loop that fills matched/missing
+    for s in matched:
+      if isinstance(s, dict) and s.get("Deleted") is True:
+        s["Deleted"] = False
+
+    # Write output
+    if args.format == "songs":
+        if args.jsonl or args.out.lower().endswith(".jsonl"):
+            with open(args.out, "w", encoding="utf-8") as f:
+                for obj in matched:
+                    f.write(json.dumps(obj, ensure_ascii=False) + "\\n")
+        else:
+            with open(args.out, "w", encoding="utf-8") as f:
+                json.dump(matched, f, ensure_ascii=False, separators=(',',':'))
+    else:
+        # container format with leading version line "1.0"
+        container = {"songs": matched, "sets": [], "folders": []}
+        # Build sets[] from verified order if requested
+        if args.make_set:
+            generated = build_set_from_titles(args.make_set, args.set_id, args.start_order, args.item_type, matched,
+                                              args.set_date, args.set_modified, args.content_modified,
+                                              args.content_id_start, args.syncid_empty)
+            container["sets"] = [generated]
+        if args.carry_sets or args.filter_sets:
+            # Start from original data object to carry extra fields
+            if isinstance(data, dict):
+                for k, v in data.items():
+                    if k == "songs":
+                        continue  # replace with subset
+                    # keep any generated set above; don't overwrite existing keys blindly
+                    if k == "sets":
+                        container.setdefault("sets", [])
+                        if args.carry_sets:
+                            container["sets"].extend(v if isinstance(v, list) else [])
+                    elif k == "folders":
+                        container.setdefault("folders", [])
+                        if args.carry_sets:
+                            container["folders"] = v
+                    else:
+                        container.setdefault(k, v)
+            container.setdefault("sets", [])  # keep any generated set above
+            container.setdefault("folders", [])
+            if args.filter_sets:
+                keep_ids = {int(obj.get("Id")) for obj in matched if isinstance(obj.get("Id"), int)}
+                container["sets"] = filter_sets_obj(container.get("sets", []), keep_ids)
+        # Write with version header and minified JSON on a single line
+        with open(args.out, "w", encoding="utf-8") as f:
+            f.write("1.0\r\n")
+            json.dump(container, f, ensure_ascii=False, separators=(',',':'))
+
+    # Report
+    if args.report:
+        with open(args.report, "w", encoding="utf-8") as f:
+            f.write(f"Found: {len(matched)}\\nMissing: {len(missing)}\\n\\n")
+            if missing:
+                f.write("Missing titles:\\n")
+                for m in missing:
+                    f.write(f"  - {m}\\n")
+
+    print(f"Wrote {len(matched)} songs to {args.out}")
+    if missing:
+        print(f"{len(missing)} titles not found. {'See ' + args.report if args.report else ''}")
+
+if __name__ == "__main__":
+    main()
