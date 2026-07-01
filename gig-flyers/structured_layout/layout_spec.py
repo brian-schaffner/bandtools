@@ -506,6 +506,10 @@ def _apply_footer_contrast(layout: LayoutSpec) -> LayoutSpec:
     return layout
 
 
+def _is_style_dna(layout: LayoutSpec) -> bool:
+    return "style dna" in (layout.style_notes or "").lower()
+
+
 def finalize_layout_spec(
     layout: LayoutSpec,
     venue: str,
@@ -516,6 +520,8 @@ def finalize_layout_spec(
     event: Optional[Any] = None,
 ) -> LayoutSpec:
     """Post-process AI layout: canonical text, safe photo frame, mandatory footer."""
+    if _is_style_dna(layout):
+        return layout
     layout = inject_canonical_event_text(layout, venue, band=band, event=event)
     layout = sanitize_band_photo_frame(layout)
     if event is not None:

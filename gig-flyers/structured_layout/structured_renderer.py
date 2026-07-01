@@ -855,6 +855,27 @@ def render_flyer(
         on_progress: Progress callback
         option: Option letter (B or C)
     """
+    from structured_layout.style_dna_renderer import is_style_dna_layout, render_style_dna_from_layout
+
+    if is_style_dna_layout(layout):
+        emit_progress(
+            on_progress,
+            step="render",
+            substep="style_dna",
+            message=f"Rendering Style DNA archetype for option {option}…",
+            option=option,
+        )
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        render_style_dna_from_layout(layout, photo_path, output_path)
+        emit_progress(
+            on_progress,
+            step="render",
+            substep="complete",
+            message=f"Style DNA render complete for option {option}",
+            option=option,
+        )
+        return
+
     emit_progress(
         on_progress,
         step="render",

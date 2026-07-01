@@ -1714,28 +1714,80 @@ def create_collage_layout(
     archetype: Optional[TierArchetype] = None,
     rng: Optional[random.Random] = None,
 ) -> LayoutSpec:
-    """Option C — wildly creative: named layout variants via seeded hash."""
+    """Option C — Style DNA archetype: designed template per gig/round seed."""
+    from structured_layout.style_dna_renderer import pick_creative_archetype
+
     r = rng or _make_rng()
-    arch = archetype or load_tier_archetype("creative", event=event)
-    variant = _select_creative_variant(r)
-    kwargs = {
-        "venue": venue,
-        "band": band,
-        "date": date,
-        "time": time,
-        "address": address,
-        "event": event,
-        "archetype": arch,
-        "rng": r,
-    }
-    builders = {
-        "dark_field": _create_collage_dark_field,
-        "light_collage": _create_collage_light_collage,
-        "troubadour_inverted": _create_collage_troubadour_inverted,
-        "roxy_corners": _create_collage_roxy_corners,
-        "torn_reveal": _create_collage_torn_reveal,
-    }
-    return builders[variant](**kwargs)
+    _ = archetype or load_tier_archetype("creative", event=event)
+    dna_key = pick_creative_archetype(r)
+    seed = r.randint(1, 2**31 - 1)
+    date_line = _compact_date_upper(date)
+
+    return LayoutSpec(
+        canvas_width=1024,
+        canvas_height=1536,
+        design_style=DesignStyle.COLLAGE,
+        style_notes=f"style dna — {dna_key} (seed {seed})",
+        background=BackgroundSpec(color=ColorSpec("#f0ebe0"), texture="none"),
+        photo_frame=PhotoFrame(
+            x=10,
+            y=18,
+            width=80,
+            height=44,
+            placement=PhotoPlacement.CENTER,
+            opacity=1.0,
+        ),
+        text_elements=[
+            TextElement(
+                content=venue,
+                x=TEXT_MARGIN_X_PCT,
+                y=_safe_y_pct(),
+                width=MAX_TEXT_WIDTH_PCT,
+                font_size=TYPE_XL,
+                font_weight=FontWeight.BOLD,
+                alignment=TextAlignment.LEFT,
+            ),
+            TextElement(
+                content=band,
+                x=TEXT_MARGIN_X_PCT,
+                y=_safe_y_pct() + 8,
+                width=MAX_TEXT_WIDTH_PCT,
+                font_size=TYPE_LG,
+                font_weight=FontWeight.BOLD,
+                alignment=TextAlignment.LEFT,
+            ),
+            TextElement(
+                content=date_line,
+                x=TEXT_MARGIN_X_PCT,
+                y=72,
+                width=MAX_TEXT_WIDTH_PCT,
+                font_size=TYPE_MD,
+                font_weight=FontWeight.BOLD,
+                alignment=TextAlignment.LEFT,
+            ),
+            TextElement(
+                content=time.upper() if time else "TBA",
+                x=TEXT_MARGIN_X_PCT,
+                y=78,
+                width=MAX_TEXT_WIDTH_PCT,
+                font_size=TYPE_MD,
+                font_weight=FontWeight.BOLD,
+                alignment=TextAlignment.LEFT,
+            ),
+            TextElement(
+                content=address,
+                x=TEXT_MARGIN_X_PCT,
+                y=88,
+                width=MAX_TEXT_WIDTH_PCT,
+                font_size=TYPE_SM,
+                font_weight=FontWeight.NORMAL,
+                alignment=TextAlignment.LEFT,
+            ),
+        ],
+        graphic_elements=[],
+        photocopy_effect=0.0,
+        age_effect=0.0,
+    )
 
 
 def layout_for_option(

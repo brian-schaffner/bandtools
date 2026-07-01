@@ -427,13 +427,40 @@ class StructuredLayoutTest(unittest.TestCase):
         )
         self.assertEqual(layout.photo_frame.opacity, 1.0)
 
-    def test_creative_variant_catalog_and_footer_contrast(self) -> None:
-        """Option C uses named variants; dark bg gets light footer text."""
-        from structured_layout.fixed_templates import (
-            CREATIVE_VARIANTS,
-            layout_for_option,
-        )
+    def test_creative_style_dna_archetype_routing(self) -> None:
+        """Option C uses Style DNA archetypes — unique template per round."""
+        import tempfile
 
+        from structured_layout.fixed_templates import layout_for_option
+        from structured_layout.style_dna_renderer import CREATIVE_ARCHETYPE_KEYS
+        from structured_layout.structured_renderer import render_flyer
+
+        archetypes_seen: set[str] = set()
+        for round_num in range(1, 9):
+            layout = layout_for_option(
+                "C",
+                self.tuesday_jam.venue,
+                "Lindsey Lane Band",
+                "Tuesday, June 30, 2026",
+                "7:30 pm",
+                address="230 East Main Street, Louisville, KY 40202",
+                event=self.tuesday_jam,
+                gig_id=self.tuesday_jam.gig_id,
+                option_letter="C",
+                round_num=round_num,
+            )
+            notes = layout.style_notes.lower()
+            self.assertIn("style dna", notes)
+            matched = [key for key in CREATIVE_ARCHETYPE_KEYS if key in notes]
+            self.assertEqual(len(matched), 1, msg=layout.style_notes)
+            archetypes_seen.add(matched[0])
+            all_text = " ".join(t.content for t in layout.text_elements)
+            self.assertIn("40202", all_text)
+
+        self.assertGreaterEqual(len(archetypes_seen), 2, "archetypes should vary across rounds")
+
+        photo = ROOT / "bandphotos/679394308_1366641221939459_1410337987474015419_n.jpg"
+        self.assertTrue(photo.is_file(), "band photo fixture missing")
         layout = layout_for_option(
             "C",
             self.tuesday_jam.venue,
@@ -444,33 +471,13 @@ class StructuredLayoutTest(unittest.TestCase):
             event=self.tuesday_jam,
             gig_id=self.tuesday_jam.gig_id,
             option_letter="C",
-            round_num=3,
+            round_num=1,
         )
-        self.assertTrue(
-            any(
-                token in layout.style_notes.lower()
-                for token in (
-                    "dark_field",
-                    "light_collage",
-                    "troubadour_inverted",
-                    "roxy_corners",
-                    "torn_reveal",
-                )
-            )
-        )
-        all_text = " ".join(t.content for t in layout.text_elements)
-        self.assertIn("40202", all_text)
-
-        if "dark_field" in layout.style_notes.lower() or "torn_reveal" in layout.style_notes.lower():
-            footer_text = [t for t in layout.text_elements if "40202" in t.content]
-            self.assertTrue(footer_text)
-            lum = sum(int(footer_text[0].color.hex.lstrip("#")[i : i + 2], 16) for i in (0, 2, 4)) / 3
-            self.assertGreater(lum, 180, "footer should be light on dark bg")
-
-        accent_types = {g.element_type for g in layout.graphic_elements}
-        self.assertTrue(
-            accent_types & {"tape", "stamp", "starburst", "corner_strip", "ticket_stub", "box"}
-        )
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "option_c_style_dna.png"
+            render_flyer(layout, photo, out, option="C", tier="creative")
+            self.assertTrue(out.is_file())
+            self.assertGreater(out.stat().st_size, 50_000)
 
     def test_tuesday_jam_golden_handbill_render(self) -> None:
         """Golden: house-jam handbill has required facts, no text on photo."""
