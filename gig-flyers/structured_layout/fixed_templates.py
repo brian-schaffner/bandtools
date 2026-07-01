@@ -71,6 +71,14 @@ from structured_layout.layout_spec import (  # noqa: E402
 )
 
 
+def _stamp_date(date: str) -> str:
+    """Compact two-line date for small stamp badges."""
+    parts = date.replace(",", "").split()
+    if len(parts) >= 4:
+        return f"{parts[1][:3].upper()}\n{parts[2]}"
+    return date[:8].upper()
+
+
 def _short_date(date: str) -> str:
     """Compact date for stamp badge."""
     parts = date.replace(",", "").split()
@@ -396,14 +404,14 @@ def _create_handbill_paste_up(
         graphic_elements.append(
             GraphicElement(
                 element_type="stamp",
-                x=type_x + type_w - 18,
+                x=type_x,
                 y=round(top_y + header_h + gap, 1),
-                width=16,
-                height=9,
+                width=14,
+                height=10,
                 stroke_color=ColorSpec(arch.ink_accent),
                 stroke_width=2,
                 rotation=-6,
-                properties={"text": _short_date(date)},
+                properties={"text": _stamp_date(date)},
             )
         )
         text_elements.append(
@@ -619,14 +627,14 @@ def _create_handbill_tri_band(
         graphic_elements.append(
             GraphicElement(
                 element_type="stamp",
-                x=round(100 - TEXT_MARGIN_X_PCT - 18, 1),
+                x=TEXT_MARGIN_X_PCT + 1,
                 y=round(mid_y + 1, 1),
-                width=16,
-                height=9,
+                width=14,
+                height=10,
                 stroke_color=ColorSpec(arch.ink_accent),
                 stroke_width=2,
                 rotation=-8,
-                properties={"text": _short_date(date)},
+                properties={"text": _stamp_date(date)},
             )
         )
     elif accent == "tape":
@@ -816,9 +824,10 @@ def _create_handbill_inverted_footer(
     band_y = round(photo_bottom + gap + 0.8, 1)
     date_y = round(band_y + 7.5 + gap, 1)
     time_y = round(date_y + 5.5 + gap, 1)
-    footer_h = _rf(14.0, 17.0, rng)
+    footer_h = _rf(10.0, 12.5, rng)
     footer_y = round(100 - _safe_y_pct() - footer_h - 1.0, 1)
-    venue_text_y = round(footer_y + footer_h * 0.22, 1)
+    venue_text_y = round(footer_y + footer_h * 0.32, 1)
+    address_y = round(footer_y + footer_h * 0.62, 1) if address else None
     saturation = _rf(0.05, 0.15, rng)
     contrast = _rf(1.05, 1.15, rng)
 
@@ -869,7 +878,7 @@ def _create_handbill_inverted_footer(
             x=TEXT_MARGIN_X_PCT,
             y=venue_text_y,
             width=MAX_TEXT_WIDTH_PCT,
-            font_size=_ri(44, 56, rng),
+            font_size=_ri(44, 52, rng),
             font_family=_DISPLAY_VENUE_FONT,
             font_weight=FontWeight.BLACK,
             alignment=TextAlignment.CENTER,
@@ -877,6 +886,20 @@ def _create_handbill_inverted_footer(
             color=ColorSpec(arch.paper_color),
         ),
     ]
+    if address:
+        text_elements.append(
+            TextElement(
+                content=address,
+                x=TEXT_MARGIN_X_PCT,
+                y=address_y,
+                width=MAX_TEXT_WIDTH_PCT,
+                font_size=TYPE_XS,
+                font_weight=FontWeight.NORMAL,
+                alignment=TextAlignment.CENTER,
+                color=ColorSpec(arch.paper_color, opacity=0.85),
+                font_family=FONT_BODY_CONDENSED,
+            )
+        )
 
     if accent == "starburst":
         graphic_elements.append(
@@ -896,14 +919,14 @@ def _create_handbill_inverted_footer(
         graphic_elements.append(
             GraphicElement(
                 element_type="stamp",
-                x=round(100 - TEXT_MARGIN_X_PCT - 18, 1),
-                y=round(band_y - 1, 1),
-                width=16,
-                height=9,
+                x=TEXT_MARGIN_X_PCT + 1,
+                y=round(date_y - 1, 1),
+                width=14,
+                height=10,
                 stroke_color=ColorSpec(arch.ink_accent),
                 stroke_width=2,
-                rotation=-8,
-                properties={"text": _short_date(date)},
+                rotation=6,
+                properties={"text": _stamp_date(date)},
             )
         )
 

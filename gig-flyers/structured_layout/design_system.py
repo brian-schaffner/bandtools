@@ -266,9 +266,17 @@ def _polish_accents(layout: LayoutSpec) -> LayoutSpec:
             el.height = max(el.height, 12.0)
             el.width = snap_pct(min(el.width, 24.0))
             el.height = snap_pct(min(el.height, 16.0))
+            max_x = 100 - TEXT_MARGIN_X_PCT - el.width
+            if el.x + el.width > 100 - TEXT_MARGIN_X_PCT:
+                el.x = snap_pct(max(TEXT_MARGIN_X_PCT, max_x))
         elif el.element_type == "stamp":
-            el.width = snap_pct(max(el.width, 14.0))
-            el.height = snap_pct(max(el.height, 8.0))
+            el.width = snap_pct(min(max(el.width, 12.0), 16.0))
+            el.height = snap_pct(min(max(el.height, 8.0), 12.0))
+            max_x = 100 - TEXT_MARGIN_X_PCT - el.width
+            if el.x > max_x:
+                el.x = snap_pct(max(TEXT_MARGIN_X_PCT, max_x))
+            if el.x < TEXT_MARGIN_X_PCT:
+                el.x = TEXT_MARGIN_X_PCT
         elif el.element_type == "tape":
             el.width = snap_pct(max(el.width, 12.0))
             el.height = snap_pct(max(el.height, 3.5))

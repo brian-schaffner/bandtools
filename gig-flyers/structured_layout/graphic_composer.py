@@ -260,10 +260,24 @@ def _finish_creative(
     *,
     date: str,
     time: str,
+    band: str = "",
     grain_strength: float = 0.08,
 ) -> Image.Image:
     _apply_primary_accent(img, recipe, date=date, time=time)
     _apply_creative_layers(img, recipe)
+    if band.strip():
+        from structured_layout.band_mark import draw_band_mark
+
+        pal = recipe.palette
+        draw_band_mark(
+            img,
+            band,
+            style=recipe.archetype,
+            ink=pal.ink,
+            accent=pal.accent,
+            paper=pal.paper,
+            seed=recipe.seed,
+        )
     return grain(img, grain_strength, seed=recipe.seed)
 
 
@@ -297,7 +311,7 @@ def _render_xerox_punk(facts: dict, photo: Path, recipe: GraphicRecipe) -> Image
     draw_stroked_text_layer(
         img, (48, 1360), facts["address"], load_font(24, "body"), (*pal.footer_fg, 200),
     )
-    return _finish_creative(img, recipe, date=facts["date"], time=facts["time"], grain_strength=0.1)
+    return _finish_creative(img, recipe, date=facts["date"], time=facts["time"], band=facts["band"], grain_strength=0.1)
 
 
 def _render_duotone(facts: dict, photo: Path, recipe: GraphicRecipe) -> Image.Image:
@@ -329,7 +343,7 @@ def _render_duotone(facts: dict, photo: Path, recipe: GraphicRecipe) -> Image.Im
     draw_stroked_text_layer(
         img, (48, 1350), facts["address"], load_font(30, "body"), (*pal.footer_fg, 255),
     )
-    return _finish_creative(img, recipe, date=facts["date"], time=facts["time"], grain_strength=0.06)
+    return _finish_creative(img, recipe, date=facts["date"], time=facts["time"], band=facts["band"], grain_strength=0.06)
 
 
 def _render_psychedelic(facts: dict, photo: Path, recipe: GraphicRecipe) -> Image.Image:
@@ -362,7 +376,7 @@ def _render_psychedelic(facts: dict, photo: Path, recipe: GraphicRecipe) -> Imag
         anchor="mm",
     )
     draw_stroked_text_layer(img, (80, CANVAS[1] - 88), facts["address"], load_font(22, "body"), (*pal.paper, 255))
-    return _finish_creative(img, recipe, date=facts["date"], time=facts["time"], grain_strength=0.07)
+    return _finish_creative(img, recipe, date=facts["date"], time=facts["time"], band=facts["band"], grain_strength=0.07)
 
 
 def _render_boutique(facts: dict, photo: Path, recipe: GraphicRecipe) -> Image.Image:
@@ -395,7 +409,7 @@ def _render_boutique(facts: dict, photo: Path, recipe: GraphicRecipe) -> Image.I
         img, (CANVAS[0] // 2, 1455), "Live Music · Good Food · Great Community",
         load_font(24, "body"), (*pal.footer_fg, 255), anchor="mm",
     )
-    return _finish_creative(img, recipe, date=facts["date"], time=facts["time"], grain_strength=0.05)
+    return _finish_creative(img, recipe, date=facts["date"], time=facts["time"], band=facts["band"], grain_strength=0.05)
 
 
 def _render_neon_bar(facts: dict, photo: Path, recipe: GraphicRecipe) -> Image.Image:
@@ -423,7 +437,7 @@ def _render_neon_bar(facts: dict, photo: Path, recipe: GraphicRecipe) -> Image.I
 
     draw.rectangle([0, 1280, CANVAS[0], CANVAS[1]], fill=(*pal.footer_bg, 255))
     draw_stroked_text_layer(img, (48, 1320), facts["address"], load_font(28, "body"), (*pal.footer_fg, 255))
-    return _finish_creative(img, recipe, date=facts["date"], time=facts["time"], grain_strength=0.08)
+    return _finish_creative(img, recipe, date=facts["date"], time=facts["time"], band=facts["band"], grain_strength=0.08)
 
 
 def _render_pasteup_zine(facts: dict, photo: Path, recipe: GraphicRecipe) -> Image.Image:
@@ -454,7 +468,7 @@ def _render_pasteup_zine(facts: dict, photo: Path, recipe: GraphicRecipe) -> Ima
         img, (72, 1330), f"{facts['venue'].upper()}  ·  {facts['address']}",
         load_font(26, "typewriter"), (*pal.footer_fg, 255),
     )
-    return _finish_creative(img, recipe, date=facts["date"], time=facts["time"], grain_strength=0.12)
+    return _finish_creative(img, recipe, date=facts["date"], time=facts["time"], band=facts["band"], grain_strength=0.12)
 
 
 def _render_broadside(facts: dict, photo: Path, recipe: GraphicRecipe) -> Image.Image:
@@ -483,7 +497,7 @@ def _render_broadside(facts: dict, photo: Path, recipe: GraphicRecipe) -> Image.
     draw_stroked_text_layer(
         img, (48, 980), "FEATURING", load_font(24, "typewriter"), (*pal.accent, 255),
     )
-    return _finish_creative(img, recipe, date=facts["date"], time=facts["time"], grain_strength=0.05)
+    return _finish_creative(img, recipe, date=facts["date"], time=facts["time"], band=facts["band"], grain_strength=0.05)
 
 
 def _render_country_fair(facts: dict, photo: Path, recipe: GraphicRecipe) -> Image.Image:
@@ -519,7 +533,7 @@ def _render_country_fair(facts: dict, photo: Path, recipe: GraphicRecipe) -> Ima
     draw_stroked_text_layer(
         img, (CANVAS[0] // 2, 1420), facts["address"], load_font(26, "body"), (*pal.footer_fg, 255), anchor="mm",
     )
-    return _finish_creative(img, recipe, date=facts["date"], time=facts["time"], grain_strength=0.06)
+    return _finish_creative(img, recipe, date=facts["date"], time=facts["time"], band=facts["band"], grain_strength=0.06)
 
 
 _RENDERERS: dict[str, Callable[..., Image.Image]] = {
