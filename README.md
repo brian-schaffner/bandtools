@@ -32,6 +32,7 @@ Or run components individually from this monorepo (see each subfolder README).
 cp .env.example .env   # fill in secrets
 FLY_CONFIG=fly.test.toml ./scripts/fly-deploy.sh
 ./scripts/smoke-test.sh https://bandtools-test.fly.dev
+./scripts/sync-staging-setloader.sh   # copy prod backup + song mappings to test
 ```
 
 ### Production
