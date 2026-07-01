@@ -36,6 +36,7 @@ TYPE_MD = 25   # featuring, secondary headlines
 TYPE_LG = 39   # venue display
 TYPE_XL = 61   # band headline
 TYPE_XXL = 76  # broadside hero band
+TYPE_HERO = 96  # procedural poster headline
 
 PRO_MIN_FONT_PT = 16
 
@@ -137,6 +138,29 @@ def _role_size(role: str, tier: str, current: int) -> int:
 
 
 def _polish_typography(layout: LayoutSpec, tier: str) -> LayoutSpec:
+    if "procedural creative" in (layout.style_notes or "").lower():
+        updated: list[TextElement] = []
+        for text in layout.text_elements:
+            updated.append(
+                TextElement(
+                    content=text.content,
+                    x=snap_pct(text.x),
+                    y=snap_pct(text.y),
+                    width=snap_pct(min(text.width, MAX_TEXT_WIDTH_PCT)),
+                    font_size=text.font_size,
+                    font_family=text.font_family,
+                    font_weight=text.font_weight,
+                    color=text.color,
+                    alignment=text.alignment,
+                    rotation=text.rotation,
+                    letter_spacing=text.letter_spacing,
+                    line_height=text.line_height,
+                    all_caps=text.all_caps,
+                )
+            )
+        layout.text_elements = updated
+        return layout
+
     updated: list[TextElement] = []
     for text in layout.text_elements:
         role = _text_role(text.content)

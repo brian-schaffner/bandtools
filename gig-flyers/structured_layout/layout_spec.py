@@ -309,24 +309,33 @@ class BackgroundSpec:
     texture_strength: float = 0.3
     grain_strength: float = 0.02
     margin_grain_only: bool = False  # restrict grain/xerox to margins outside photo
+    wash_color: Optional[ColorSpec] = None
+    wash_height_pct: float = 0.0  # top portion split-ink wash (0–100)
     
     def to_dict(self) -> dict[str, Any]:
-        return {
+        result = {
             "color": self.color.to_dict(),
             "texture": self.texture,
             "texture_strength": self.texture_strength,
             "grain_strength": self.grain_strength,
             "margin_grain_only": self.margin_grain_only,
+            "wash_height_pct": self.wash_height_pct,
         }
+        if self.wash_color:
+            result["wash_color"] = self.wash_color.to_dict()
+        return result
     
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "BackgroundSpec":
+        wash = data.get("wash_color")
         return cls(
             color=ColorSpec.from_dict(data.get("color", {"hex": "#F5F0E6"})),
             texture=data.get("texture", "paper"),
             texture_strength=data.get("texture_strength", 0.3),
             grain_strength=data.get("grain_strength", 0.02),
             margin_grain_only=data.get("margin_grain_only", False),
+            wash_color=ColorSpec.from_dict(wash) if wash else None,
+            wash_height_pct=data.get("wash_height_pct", 0.0),
         )
 
 
@@ -347,6 +356,9 @@ class LayoutSpec:
     
     # Background
     background: BackgroundSpec = field(default_factory=BackgroundSpec)
+    
+    # Seed for renderer entropy (textures, torn edges) — 0 = legacy fixed noise
+    render_seed: int = 0
     
     # Photo placement (immutable source artwork)
     photo_frame: PhotoFrame = field(default_factory=lambda: PhotoFrame(
@@ -375,6 +387,7 @@ class LayoutSpec:
             "graphic_elements": [g.to_dict() for g in self.graphic_elements],
             "photocopy_effect": self.photocopy_effect,
             "age_effect": self.age_effect,
+            "render_seed": self.render_seed,
         }
     
     def to_json(self, indent: int = 2) -> str:
@@ -395,6 +408,7 @@ class LayoutSpec:
             graphic_elements=[GraphicElement.from_dict(g) for g in data.get("graphic_elements", [])],
             photocopy_effect=data.get("photocopy_effect", 0.0),
             age_effect=data.get("age_effect", 0.0),
+            render_seed=data.get("render_seed", 0),
         )
     
     @classmethod
@@ -593,12 +607,18 @@ def _inject_time_below_photo(
     return layout
 
 
+def _is_procedural_creative(layout: LayoutSpec) -> bool:
+    return "procedural creative" in (layout.style_notes or "").lower()
+
+
 def ensure_prominent_date_time(
     layout: LayoutSpec,
     event: Any,
     time: str,
 ) -> LayoutSpec:
     """Inject date/time below the photo when missing or misplaced."""
+    if _is_procedural_creative(layout):
+        return layout
     layout = relocate_event_details_below_photo(layout, event, time)
     all_text = " ".join(t.content for t in layout.text_elements)
     has_starburst = _layout_has_starburst_date(layout)

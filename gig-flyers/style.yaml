@@ -422,26 +422,18 @@ variations:
     label: "C) Creative"
     tier: creative
     creative_freedom: high
-    orientation: dynamic_collage
+    orientation: procedural_composer
     description: >
-      Bolder authentic promoter composition — unexpected but believable layout (ticket stub edge,
-      torn photocopy margin, real bar neon sign in background NOT fantasy neon), more color and
-      composition risk while event facts and band photo fidelity stay sacred.
-    creative_directive:
-      - "Event facts (venue, date, band, time) remain sacred and instantly legible"
-      - "Band reference photo fidelity rules still apply — no distortion; all members visible"
-      - "Try a memorable real-world device: ticket stub perforation, torn flyer edge, diagonal type band"
-      - "Bolder venue-appropriate color — bar sign glow, warm tungsten, beer-brand tones — NOT sci-fi neon"
-      - "Layered paste-up collage energy — overlapping blocks with readable hierarchy on top"
-      - "Must still look like a real promoter made it — NOT a polished AI poster or Canva template"
+      Procedural paste-up composer — each generation combines topology, mood, date treatment,
+      photo style, and accent overlays into a unique layout. No fixed template; seeded by
+      gig + round for reproducibility but visually distinct every regenerate.
     layout_structure:
-      - "Diagonal type band beside or above the photo paste-up — never draw type across faces"
-      - "Layered flyer blocks with torn paper margin, tape, or stamp overlays around the photo"
-      - "Asymmetric collage — venue/date in a high-contrast top band; band photo unchanged beneath"
+      - "Seeded recipe axes: column_split, diagonal_hero, layered_pasteup, bottom_bleed, corner_poster, slab_interrupted"
+      - "Mood variants: dark_ink, warm_paper, split_wash, duotone_pop — each changes palette + background wash"
+      - "1–2 accent devices per run: tape, stamp, starburst, corner_strip, ticket_stub, perforated_margin"
     layout_guidance:
-      - "Bolder composition: diagonal bands, overlapping blocks, collage energy"
-      - "May include authentic bar neon/signage in BACKGROUND only if venue-appropriate — not fantasy glow"
-      - "Venue/date must read in under 3 seconds despite bolder layout"
+      - "Every run must look structurally different — not recolored bar-stack clones of A/B"
+      - "Renderer uses seed-derived grain/torn-edge so texture fingerprint varies per flyer"
     color_approach: "Bolder venue palette — warm tungsten, beer-brand reds, blues-bar mood — still photocopy/grain"
     typography_approach: "Strong scale contrast — huge venue/date over smaller support type; handbill urgency"
     production_feel: "Well-worn photocopy collage — torn edge, ticket stub, tape, stamp — believable promoter energy"
