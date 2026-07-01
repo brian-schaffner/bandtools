@@ -109,8 +109,9 @@ def _paste_logo_mark(
     accent: tuple[int, int, int],
 ) -> None:
     logo = _load_logo_rgba(logo_path)
-    max_w = 420 if style in ("neon_bar", "broadside", "country_fair") else 340
-    ratio = min(max_w / logo.width, 130 / logo.height)
+    max_w = 480 if style in ("neon_bar", "broadside", "country_fair") else 400
+    max_h = 160 if style != "xerox_punk" else 280
+    ratio = min(max_w / logo.width, max_h / logo.height)
     nw, nh = max(1, int(logo.width * ratio)), max(1, int(logo.height * ratio))
     logo = logo.resize((nw, nh), Image.Resampling.LANCZOS)
 
