@@ -23,7 +23,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr \
     fonts-dejavu-core \
     fonts-liberation2 \
-    fonts-oswald \
     fontconfig \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
@@ -44,6 +43,14 @@ RUN python3 -m venv /opt/flyers-venv \
 
 COPY setloader/ ./setloader/
 COPY gig-flyers/ ./gig-flyers/
+
+# Display fonts for Option C graphic composer (Oswald + Bebas Neue)
+RUN mkdir -p /usr/share/fonts/truetype/gig-flyers \
+    && curl -fsSL -o /usr/share/fonts/truetype/gig-flyers/BebasNeue-Regular.ttf \
+         "https://raw.githubusercontent.com/googlefonts/bebas-neue/main/fonts/ttf/BebasNeue-Regular.ttf" \
+    && curl -fsSL -o /usr/share/fonts/truetype/gig-flyers/Oswald-Bold.ttf \
+         "https://raw.githubusercontent.com/googlefonts/Oswald/master/fonts/ttf/Oswald-Bold.ttf" \
+    && fc-cache -f -v
 
 # Next.js standalone output (static assets must live under standalone/.next/static)
 COPY --from=frontend-build /app/setloader/setlist-helper/.next/standalone ./setlist-helper/.next/standalone/
