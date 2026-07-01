@@ -27,6 +27,14 @@ check /flyers/pick 200
 check / 200
 check /setlist-loader 200
 
+# Hub Gig Flyers must use a plain anchor so nginx serves the bridge (not Next.js client nav → :8090)
+if curl -sS "$BASE/" | grep -q '<a href="/flyers/">'; then
+  echo "OK   hub gig-flyers uses plain anchor"
+else
+  echo "FAIL hub missing plain <a href=\"/flyers/\"> link"
+  exit 1
+fi
+
 # Verify Next.js CSS bundle is served (standalone static path)
 CSS_PATH=$(curl -sS "$BASE/" | grep -oE '/_next/static/css/[^"]+\.css' | head -1)
 if [[ -n "$CSS_PATH" ]]; then
