@@ -4,7 +4,16 @@ from __future__ import annotations
 
 import unittest
 
-from structured_layout.band_mark import band_initials, band_slug, find_band_logo
+from PIL import Image, ImageChops
+
+from structured_layout.band_mark import (
+    HERO_BOXES,
+    band_initials,
+    band_slug,
+    draw_band_hero,
+    find_band_logo,
+)
+from structured_layout.graphic_primitives import CANVAS
 
 
 class BandMarkTest(unittest.TestCase):
@@ -21,6 +30,26 @@ class BandMarkTest(unittest.TestCase):
         path = find_band_logo("Lindsey Lane Band", paper=(240, 235, 225))
         self.assertIsNotNone(path)
         self.assertTrue(path.name.endswith(".png"))
+
+    def test_hero_logo_replaces_header_cramp(self) -> None:
+        """Logo belongs in band zone, not squeezed beside venue header."""
+        paper = (220, 50, 45)
+        base = Image.new("RGBA", CANVAS, (*paper, 255))
+        canvas = base.copy()
+        placed = draw_band_hero(
+            canvas,
+            "Lindsey Lane Band",
+            style="duotone_modern",
+            paper=paper,
+            accent=(255, 248, 235),
+            ink=(255, 248, 235),
+        )
+        self.assertTrue(placed)
+        diff = ImageChops.difference(base, canvas).convert("L")
+        header_change = sum(diff.crop((0, 0, CANVAS[0], 160)).get_flattened_data())
+        x1, y1, x2, y2 = HERO_BOXES["duotone_modern"]
+        hero_change = sum(diff.crop((x1, y1, x2, y2)).get_flattened_data())
+        self.assertGreater(hero_change, header_change * 4)
 
 
 if __name__ == "__main__":

@@ -264,33 +264,33 @@ def _finish_creative(
     grain_strength: float = 0.08,
     skip_logo: bool = False,
 ) -> Image.Image:
-    if band.strip() and not skip_logo and recipe.archetype != "xerox_punk":
-        from structured_layout.band_mark import draw_band_mark
-
-        pal = recipe.palette
-        draw_band_mark(
-            img,
-            band,
-            style=recipe.archetype,
-            ink=pal.ink,
-            accent=pal.accent,
-            paper=pal.paper,
-            seed=recipe.seed,
-        )
     _apply_primary_accent(img, recipe, date=date, time=time)
     _apply_creative_layers(img, recipe)
     return grain(img, grain_strength, seed=recipe.seed)
+
+
+def _draw_band_or_logo(img: Image.Image, facts: dict, recipe: GraphicRecipe) -> bool:
+    """Use official logo in band zone when available; skip duplicate band text."""
+    band = facts.get("band", "").strip()
+    if not band:
+        return False
+    from structured_layout.band_mark import draw_band_hero
+
+    pal = recipe.palette
+    return draw_band_hero(
+        img, band, style=recipe.archetype,
+        paper=pal.paper, accent=pal.accent, ink=pal.ink,
+    )
 
 
 def _render_xerox_punk(facts: dict, photo: Path, recipe: GraphicRecipe) -> Image.Image:
     pal = recipe.palette
     img = Image.new("RGBA", CANVAS, (*pal.paper, 255))
     if facts.get("band", "").strip():
-        from structured_layout.band_mark import draw_band_mark
+        from structured_layout.band_mark import draw_band_watermark
 
-        draw_band_mark(
-            img, facts["band"], style="xerox_punk",
-            ink=pal.ink, accent=pal.accent, paper=pal.paper, seed=recipe.seed,
+        draw_band_watermark(
+            img, facts["band"], paper=pal.paper, seed=recipe.seed,
         )
     ht = halftone_dots(CANVAS, bg=pal.paper, dot=pal.ink, spacing=18, seed=recipe.seed)
     img = Image.alpha_composite(img, ht)
@@ -304,10 +304,11 @@ def _render_xerox_punk(facts: dict, photo: Path, recipe: GraphicRecipe) -> Image
     img.paste(ph, (photo_box[0], photo_box[1]), ph)
 
     band_font = load_font(88, "display")
-    draw_stroked_text_layer(
-        img, (48, 740), facts["band"].upper(), band_font, (*pal.ink, 255),
-        stroke=(255, 255, 255, 255), stroke_width=2,
-    )
+    if not _draw_band_or_logo(img, facts, recipe):
+        draw_stroked_text_layer(
+            img, (48, 740), facts["band"].upper(), band_font, (*pal.ink, 255),
+            stroke=(255, 255, 255, 255), stroke_width=2,
+        )
     draw.line([(48, 840), (976, 840)], fill=(*pal.ink, 255), width=4)
     draw_stroked_text_layer(img, (48, 860), facts["date"].upper(), load_font(36, "body"), (*pal.ink, 255))
     draw_stroked_text_layer(img, (48, 910), facts["time"].upper(), load_font(52, "display"), (*pal.accent, 255))
@@ -343,10 +344,11 @@ def _render_duotone(facts: dict, photo: Path, recipe: GraphicRecipe) -> Image.Im
         dt = duotone_photo(load_photo(photo, box), pal.ink, pal.paper)
         img.paste(dt, (box[0], box[1]), dt)
 
-    draw_stroked_text_layer(
-        img, (48, 700), facts["band"].upper(), load_font(92, "display"), (*pal.ink, 255),
-        stroke=(*pal.paper, 255), stroke_width=3,
-    )
+    if not _draw_band_or_logo(img, facts, recipe):
+        draw_stroked_text_layer(
+            img, (48, 700), facts["band"].upper(), load_font(92, "display"), (*pal.ink, 255),
+            stroke=(*pal.paper, 255), stroke_width=3,
+        )
     draw_stroked_text_layer(img, (48, 810), compact_day(facts["date"]), load_font(68, "display"), (*pal.ink, 255))
     draw_stroked_text_layer(img, (48, 890), facts["time"].upper(), load_font(56, "display"), (*pal.accent, 255))
 
@@ -370,10 +372,11 @@ def _render_psychedelic(facts: dict, photo: Path, recipe: GraphicRecipe) -> Imag
     img.paste(ph, (photo_box[0], photo_box[1]), ph)
 
     band_font = load_font(72, "display")
-    draw_stroked_text_layer(
-        img, (CANVAS[0] // 2, 150), facts["band"].upper(), band_font, (*pal.paper, 255),
-        stroke=(*pal.ink, 255), stroke_width=4, anchor="mm",
-    )
+    if not _draw_band_or_logo(img, facts, recipe):
+        draw_stroked_text_layer(
+            img, (CANVAS[0] // 2, 150), facts["band"].upper(), band_font, (*pal.paper, 255),
+            stroke=(*pal.ink, 255), stroke_width=4, anchor="mm",
+        )
     draw_stroked_text_layer(
         img, (CANVAS[0] // 2, 960), facts["venue"].upper(), load_font(48, "display"), (*pal.paper, 255),
         stroke=(*pal.ink, 255), stroke_width=2, anchor="mm",
@@ -399,10 +402,11 @@ def _render_boutique(facts: dict, photo: Path, recipe: GraphicRecipe) -> Image.I
         draw.ellipse([x + 26, 44, x + 42, 60], fill=(255, 230, 180))
 
     band_font = load_font(56, "serif")
-    bw, _ = text_size(facts["band"].upper(), band_font)
-    draw_stroked_text_layer(
-        img, ((CANVAS[0] - bw) // 2, 72), facts["band"].upper(), band_font, (*pal.ink, 255),
-    )
+    if not _draw_band_or_logo(img, facts, recipe):
+        bw, _ = text_size(facts["band"].upper(), band_font)
+        draw_stroked_text_layer(
+            img, ((CANVAS[0] - bw) // 2, 72), facts["band"].upper(), band_font, (*pal.ink, 255),
+        )
 
     photo_box = (96, 190, 928, 710)
     ph = load_photo(photo, photo_box)
@@ -439,10 +443,11 @@ def _render_neon_bar(facts: dict, photo: Path, recipe: GraphicRecipe) -> Image.I
     ph = duotone_photo(load_photo(photo, photo_box), (20, 20, 30), pal.accent)
     img.paste(ph, (photo_box[0], photo_box[1]), ph)
 
-    draw_stroked_text_layer(
-        img, (48, 860), facts["band"].upper(), load_font(72, "display"), (*pal.accent, 255),
-        stroke=(0, 0, 0, 255), stroke_width=3,
-    )
+    if not _draw_band_or_logo(img, facts, recipe):
+        draw_stroked_text_layer(
+            img, (48, 860), facts["band"].upper(), load_font(72, "display"), (*pal.accent, 255),
+            stroke=(0, 0, 0, 255), stroke_width=3,
+        )
     draw_stroked_text_layer(img, (48, 950), facts["date"].upper(), load_font(32, "body"), (255, 255, 255, 255))
     draw_stroked_text_layer(img, (48, 1000), facts["time"].upper(), load_font(48, "display"), (*pal.accent, 255))
 
@@ -468,9 +473,10 @@ def _render_pasteup_zine(facts: dict, photo: Path, recipe: GraphicRecipe) -> Ima
     torn_paste(img, halftone_photo(ph, 4), (photo_box[0], photo_box[1]), seed=recipe.seed)
 
     draw_tape_strip(img, (60, 240, 220, 290), rotation=-8)
-    draw_stroked_text_layer(
-        img, (72, 820), facts["band"].upper(), load_font(76, "display"), (*pal.ink, 255),
-    )
+    if not _draw_band_or_logo(img, facts, recipe):
+        draw_stroked_text_layer(
+            img, (72, 820), facts["band"].upper(), load_font(76, "display"), (*pal.ink, 255),
+        )
     draw_stroked_text_layer(img, (72, 910), facts["date"].upper(), load_font(34, "typewriter"), (*pal.ink, 255))
     draw_stroked_text_layer(img, (72, 960), facts["time"].upper(), load_font(44, "display"), (*pal.accent, 255))
 
@@ -500,9 +506,10 @@ def _render_broadside(facts: dict, photo: Path, recipe: GraphicRecipe) -> Image.
     photo_box = (580, 400, 960, 720)
     img.paste(load_photo(photo, photo_box), (photo_box[0], photo_box[1]), load_photo(photo, photo_box))
 
-    draw_stroked_text_layer(
-        img, (48, 780), facts["band"].upper(), load_font(68, "display"), (*pal.ink, 255),
-    )
+    if not _draw_band_or_logo(img, facts, recipe):
+        draw_stroked_text_layer(
+            img, (48, 780), facts["band"].upper(), load_font(68, "display"), (*pal.ink, 255),
+        )
     draw.line([(48, 870), (976, 870)], fill=(*pal.ink, 255), width=3)
     draw_stroked_text_layer(img, (48, 890), facts["address"], load_font(28, "body"), (*pal.ink, 255))
     draw_stroked_text_layer(
@@ -529,9 +536,11 @@ def _render_country_fair(facts: dict, photo: Path, recipe: GraphicRecipe) -> Ima
     img.paste(load_photo(photo, photo_box), (photo_box[0], photo_box[1]), load_photo(photo, photo_box))
 
     draw.rounded_rectangle((80, 740, 944, 1040), radius=8, outline=(*pal.ink, 255), width=4)
-    draw_stroked_text_layer(
-        img, (CANVAS[0] // 2, 790), facts["band"].upper(), load_font(64, "serif"), (*pal.ink, 255), anchor="mm",
-    )
+    if not _draw_band_or_logo(img, facts, recipe):
+        draw_stroked_text_layer(
+            img, (CANVAS[0] // 2, 790), facts["band"].upper(), load_font(64, "serif"),
+            (*pal.ink, 255), anchor="mm",
+        )
     draw_stroked_text_layer(
         img, (CANVAS[0] // 2, 880), f"{compact_day(facts['date'])}  ·  {facts['time'].upper()}",
         load_font(40, "display"), (*pal.accent, 255), anchor="mm",
