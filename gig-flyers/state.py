@@ -20,12 +20,26 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def load_state() -> dict[str, Any]:
-    with _state_lock:
-        if not STATE_PATH.exists():
-            return {"gigs": {}, "last_poll_rowid": 0}
+def _empty_state() -> dict[str, Any]:
+    return {"gigs": {}, "last_poll_rowid": 0}
+
+
+def _read_state_file() -> dict[str, Any]:
+    if not STATE_PATH.exists():
+        return _empty_state()
+    raw = STATE_PATH.read_text(encoding="utf-8").strip()
+    if not raw:
+        return _empty_state()
+    try:
         with STATE_PATH.open(encoding="utf-8") as f:
             return json.load(f)
+    except json.JSONDecodeError:
+        return _empty_state()
+
+
+def load_state() -> dict[str, Any]:
+    with _state_lock:
+        return _read_state_file()
 
 
 def save_state(state: dict[str, Any]) -> None:
@@ -41,11 +55,7 @@ def get_gig_state(gig_id: str) -> Optional[dict[str, Any]]:
 
 def upsert_gig(gig_id: str, **fields: Any) -> dict[str, Any]:
     with _state_lock:
-        if not STATE_PATH.exists():
-            state: dict[str, Any] = {"gigs": {}, "last_poll_rowid": 0}
-        else:
-            with STATE_PATH.open(encoding="utf-8") as f:
-                state = json.load(f)
+        state = _read_state_file()
         gigs = state.setdefault("gigs", {})
         record = gigs.setdefault(
             gig_id,
@@ -78,11 +88,7 @@ def mark_pending_review(gig_id: str, options: dict[str, str], prompts: dict[str,
 
 def append_feedback(gig_id: str, action: str, option: str, feedback: str, raw_text: str) -> None:
     with _state_lock:
-        if not STATE_PATH.exists():
-            state: dict[str, Any] = {"gigs": {}, "last_poll_rowid": 0}
-        else:
-            with STATE_PATH.open(encoding="utf-8") as f:
-                state = json.load(f)
+        state = _read_state_file()
         record = state.setdefault("gigs", {}).setdefault(gig_id, {})
         history = record.setdefault("feedback_history", [])
         history.append(

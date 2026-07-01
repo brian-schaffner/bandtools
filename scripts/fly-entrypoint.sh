@@ -19,7 +19,9 @@ ln -sfn "$DATA/setloader.db" "$SETLOADER/setloader.db"
 
 ln -sfn "$DATA/flyers-output" "$FLYERS/output"
 ln -sfn "$DATA/cache" "$FLYERS/cache"
-touch "$DATA/flyers-state.json"
+if [[ ! -s "$DATA/flyers-state.json" ]]; then
+  printf '%s\n' '{"gigs": {}, "last_poll_rowid": 0}' > "$DATA/flyers-state.json"
+fi
 ln -sfn "$DATA/flyers-state.json" "$FLYERS/state.json"
 
 if [[ -z "${APP_URL:-}" && -n "${FLY_APP_NAME:-}" ]]; then
