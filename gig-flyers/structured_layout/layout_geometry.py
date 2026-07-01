@@ -174,15 +174,24 @@ def enforce_no_text_on_photo(layout: LayoutSpec) -> LayoutSpec:
     """Move any text overlapping the photo frame to a safe zone."""
     from structured_layout.layout_spec import TextElement, TextAlignment
 
-    photo_left, photo_top, _photo_right, photo_bottom = photo_frame_rect_pct(layout)
+    photo_left, photo_top, photo_right, photo_bottom = photo_frame_rect_pct(layout)
     gap = VERTICAL_GAP_PCT
 
-    header_stack_y = 48 / layout.canvas_height * 100
+    # Vertical split posters: type lives in a dedicated right column beside the photo.
+    if "vertical split" in (layout.style_notes or "").lower():
+        layout.text_elements = [clamp_text_element(t, layout) for t in layout.text_elements]
+        return layout
+
     below_photo_y = photo_bottom + gap
+
+    header_stack_y = 48 / layout.canvas_height * 100
 
     new_elements: list[TextElement] = []
     for text in layout.text_elements:
         clamped = clamp_text_element(text, layout)
+        if clamped.x >= photo_right - 1.0:
+            new_elements.append(clamped)
+            continue
         if not text_overlaps_photo(clamped, layout):
             new_elements.append(clamped)
             continue
@@ -279,11 +288,14 @@ def enforce_no_text_on_photo(layout: LayoutSpec) -> LayoutSpec:
 
 def validate_layout_bounds(layout: LayoutSpec) -> list[str]:
     """Return issues for text on photo or out-of-canvas bounds."""
+    photo_left, _photo_top, photo_right, _photo_bottom = photo_frame_rect_pct(layout)
+    split_layout = "vertical split" in (layout.style_notes or "").lower()
     issues: list[str] = []
     for text in layout.text_elements:
         clamped = clamp_text_element(text, layout)
-        if text_overlaps_photo(clamped, layout):
-            issues.append(f"Text overlaps photo frame: '{clamped.content[:40]}'")
+        if not (split_layout and clamped.x >= photo_right):
+            if text_overlaps_photo(clamped, layout):
+                issues.append(f"Text overlaps photo frame: '{clamped.content[:40]}'")
         if text_exceeds_canvas(clamped, layout):
             issues.append(f"Text exceeds canvas bounds: '{clamped.content[:40]}'")
     return issues

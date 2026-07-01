@@ -16,6 +16,7 @@ from structured_layout.design_system import (
     FONT_DISPLAY,
     FONT_DISPLAY_HEAVY,
     PRO_GAP_PCT,
+    TYPE_HERO,
     TYPE_LG,
     TYPE_MD,
     TYPE_SM,
@@ -88,13 +89,7 @@ def _starburst_date(date: str) -> str:
 
 
 MEDIUM_VARIANTS = ("paste_up", "broadside", "tri_band", "inverted_footer")
-CREATIVE_VARIANTS = (
-    "dark_field",
-    "light_collage",
-    "troubadour_inverted",
-    "roxy_corners",
-    "torn_reveal",
-)
+CREATIVE_VARIANTS = ("showbill_pasteup",)
 
 _DISPLAY_VENUE_FONT = FONT_DISPLAY
 _DISPLAY_BAND_FONT = FONT_DISPLAY_HEAVY
@@ -108,8 +103,27 @@ def _select_medium_variant(arch: TierArchetype, rng: random.Random) -> str:
 
 
 def _select_creative_variant(rng: random.Random) -> str:
-    """Deterministic creative-tier layout pick."""
-    return CREATIVE_VARIANTS[rng.randint(0, len(CREATIVE_VARIANTS) - 1)]
+    """Option C uses a single strong showbill paste-up layout."""
+    return "showbill_pasteup"
+
+
+def _date_band_label(date: str) -> str:
+    """Compact label for diagonal urgency band, e.g. 'TUE · JUL 14'."""
+    parts = date.replace(",", "").split()
+    if len(parts) >= 4:
+        dow = parts[0][:3].upper()
+        mon = parts[1][:3].upper()
+        day = parts[2]
+        return f"{dow} · {mon} {day}"
+    return date[:14].upper()
+
+
+def _month_day_stack(date: str) -> tuple[str, str]:
+    """Split date into month and day lines for stacked display."""
+    parts = date.replace(",", "").split()
+    if len(parts) >= 3:
+        return parts[1][:3].upper(), parts[2]
+    return date[:6].upper(), ""
 
 
 def _compact_date_upper(date: str) -> str:
@@ -1703,6 +1717,260 @@ def _create_collage_torn_reveal(
     )
 
 
+def _poster_band_lines(band: str) -> tuple[str, str]:
+    """Split band name into two poster lines for vertical type column."""
+    words = band.upper().split()
+    if len(words) <= 1:
+        return band.upper(), ""
+    if len(words) == 2:
+        return words[0], words[1]
+    mid = max(1, len(words) // 2)
+    return " ".join(words[:mid]), " ".join(words[mid:])
+
+
+def _create_collage_showbill_pasteup(
+    venue: str,
+    band: str,
+    date: str,
+    time: str,
+    *,
+    address: str = "",
+    event: Optional[Any] = None,
+    archetype: TierArchetype,
+    rng: random.Random,
+) -> LayoutSpec:
+    """Vertical split poster — tall photo LEFT, typographic poster RIGHT.
+
+    No full-width horizontal ink bars (that is Options A/B). Right column carries
+    venue + hero band name + date; photo dominates the left half.
+    """
+    arch = archetype
+    top_y = _safe_y_pct()
+    gap = VERTICAL_GAP_PCT
+    house = is_house_series_gig(event) if event is not None else False
+    band_line = featured_act_line(band) if house else band
+
+    paper = arch.paper_color
+    ink = arch.ink_primary
+    accent = arch.ink_accent
+    month_line, day_line = _month_day_stack(date)
+    band_line1, band_line2 = _poster_band_lines(band_line if not house else band)
+
+    split_x = snap_pct(52.0)
+    panel_x = snap_pct(53.5)
+    panel_w = snap_pct(41.5)
+    panel_h = snap_pct(78.0)
+
+    photo_x = TEXT_MARGIN_X_PCT
+    photo_y = top_y
+    photo_w = snap_pct(47.0)
+    photo_h = panel_h
+
+    venue_y = round(top_y + 2.0, 1)
+    band1_y = round(venue_y + 5.5, 1)
+    if house:
+        band1_size = TYPE_MD
+        band1_content = "FEATURING"
+        act1, act2 = _poster_band_lines(band)
+        band2_y = round(band1_y + 4.5, 1)
+        band2_size = TYPE_XL
+        band2_content = act1
+        band3_y = round(band2_y + 7.0, 1) if act2 else band2_y
+        band3_size = TYPE_XL
+        band3_content = act2
+    else:
+        band1_size = TYPE_HERO
+        band1_content = band_line1
+        band2_y = round(band1_y + 8.5, 1) if band_line2 else band1_y
+        band2_size = TYPE_XL
+        band2_content = band_line2
+        band3_y = band2_y
+        band3_size = TYPE_XL
+        band3_content = ""
+    month_y = round(
+        (band3_y if house and act2 else (band2_y if (house or band_line2) else band1_y)) + 2.0,
+        1,
+    )
+    day_y = round(month_y + 3.0, 1)
+    time_y = round(day_y + 9.0, 1)
+
+    info_y = round(top_y + panel_h + gap + 1.0, 1)
+    footer_y = round(info_y + 3.5, 1)
+
+    info_parts = [venue, f"{month_line} {day_line}".strip(), time.upper() if time else ""]
+    if address:
+        info_parts.append(address)
+    info_line = "  ·  ".join(p for p in info_parts if p)
+
+    graphic_els: list[GraphicElement] = [
+        GraphicElement(
+            element_type="box",
+            x=panel_x,
+            y=photo_y,
+            width=panel_w,
+            height=panel_h,
+            fill_color=ColorSpec(ink),
+        ),
+        GraphicElement(
+            element_type="box",
+            x=split_x,
+            y=photo_y,
+            width=snap_pct(1.0),
+            height=panel_h,
+            fill_color=ColorSpec(accent),
+        ),
+        GraphicElement(
+            element_type="box",
+            x=TEXT_MARGIN_X_PCT,
+            y=info_y,
+            width=MAX_TEXT_WIDTH_PCT,
+            height=0.35,
+            fill_color=ColorSpec(ink),
+        ),
+    ]
+
+    text_els: list[TextElement] = [
+        TextElement(
+            content=venue.upper(),
+            x=panel_x,
+            y=venue_y,
+            width=panel_w,
+            font_size=TYPE_MD,
+            font_family=FONT_BODY_CONDENSED,
+            font_weight=FontWeight.BLACK,
+            alignment=TextAlignment.LEFT,
+            all_caps=True,
+            color=ColorSpec(accent),
+            letter_spacing=0.06,
+        ),
+        TextElement(
+            content=band1_content,
+            x=panel_x,
+            y=band1_y,
+            width=panel_w,
+            font_size=band1_size,
+            font_family=_DISPLAY_BAND_FONT if not house else FONT_BODY_CONDENSED,
+            font_weight=FontWeight.BLACK,
+            alignment=TextAlignment.LEFT,
+            all_caps=True,
+            color=ColorSpec(paper if not house else accent, opacity=0.9 if house else 1.0),
+            line_height=0.82,
+        ),
+    ]
+    if (house or band_line2) and band2_content:
+        text_els.append(
+            TextElement(
+                content=band2_content,
+                x=panel_x,
+                y=band2_y,
+                width=panel_w,
+                font_size=band2_size,
+                font_family=_DISPLAY_BAND_FONT,
+                font_weight=FontWeight.BLACK,
+                alignment=TextAlignment.LEFT,
+                all_caps=True,
+                color=ColorSpec(paper),
+                line_height=0.82,
+            )
+        )
+    if house and band3_content:
+        text_els.append(
+            TextElement(
+                content=band3_content,
+                x=panel_x,
+                y=band3_y,
+                width=panel_w,
+                font_size=band3_size,
+                font_family=_DISPLAY_BAND_FONT,
+                font_weight=FontWeight.BLACK,
+                alignment=TextAlignment.LEFT,
+                all_caps=True,
+                color=ColorSpec(paper),
+                line_height=0.82,
+            )
+        )
+    text_els.extend(
+        [
+            TextElement(
+                content=month_line,
+                x=panel_x,
+                y=month_y,
+                width=panel_w,
+                font_size=TYPE_SM,
+                font_family=FONT_BODY_CONDENSED,
+                font_weight=FontWeight.BOLD,
+                alignment=TextAlignment.LEFT,
+                color=ColorSpec(paper, opacity=0.85),
+            ),
+            TextElement(
+                content=day_line,
+                x=panel_x,
+                y=day_y,
+                width=panel_w,
+                font_size=TYPE_HERO,
+                font_family=_DISPLAY_BAND_FONT,
+                font_weight=FontWeight.BLACK,
+                alignment=TextAlignment.LEFT,
+                color=ColorSpec(accent),
+                line_height=0.85,
+            ),
+            TextElement(
+                content=time.upper() if time else "TBA",
+                x=panel_x,
+                y=time_y,
+                width=panel_w,
+                font_size=TYPE_XL,
+                font_family=_DISPLAY_BAND_FONT,
+                font_weight=FontWeight.BLACK,
+                alignment=TextAlignment.LEFT,
+                color=ColorSpec(paper),
+            ),
+            TextElement(
+                content=info_line,
+                x=TEXT_MARGIN_X_PCT,
+                y=footer_y,
+                width=MAX_TEXT_WIDTH_PCT,
+                font_size=TYPE_XS,
+                font_family=FONT_BODY_CONDENSED,
+                font_weight=FontWeight.BOLD,
+                alignment=TextAlignment.LEFT,
+                color=ColorSpec(ink),
+            ),
+        ]
+    )
+
+    layout = LayoutSpec(
+        design_style=DesignStyle.COLLAGE,
+        style_notes="Creative showbill vertical split — tall photo left, poster type right, no ink bars",
+        background=BackgroundSpec(
+            color=ColorSpec(paper),
+            texture="paper",
+            texture_strength=_rf(0.08, 0.14, rng),
+            grain_strength=min(arch.grain_strength, 0.010),
+        ),
+        photo_frame=PhotoFrame(
+            x=photo_x,
+            y=photo_y,
+            width=photo_w,
+            height=photo_h,
+            placement=PhotoPlacement.LEFT,
+            rotation=_rf(-0.6, 0.6, rng),
+            film_grain=0.005,
+            paper_texture=0.0,
+            border_width=0,
+            brightness=1.01,
+            contrast=_rf(1.03, 1.07, rng),
+            saturation=1.0,
+            opacity=1.0,
+        ),
+        text_elements=text_els,
+        graphic_elements=graphic_els,
+        photocopy_effect=0.0,
+        age_effect=0.0,
+    )
+    return finalize_layout_spec(layout, venue, band, time, address=address, event=event)
+
+
 def create_collage_layout(
     venue: str,
     band: str,
@@ -1714,10 +1982,9 @@ def create_collage_layout(
     archetype: Optional[TierArchetype] = None,
     rng: Optional[random.Random] = None,
 ) -> LayoutSpec:
-    """Option C — wildly creative: named layout variants via seeded hash."""
+    """Option C — West Coast club showbill paste-up (split ink, diagonal band, asymmetric photo)."""
     r = rng or _make_rng()
     arch = archetype or load_tier_archetype("creative", event=event)
-    variant = _select_creative_variant(r)
     kwargs = {
         "venue": venue,
         "band": band,
@@ -1728,14 +1995,7 @@ def create_collage_layout(
         "archetype": arch,
         "rng": r,
     }
-    builders = {
-        "dark_field": _create_collage_dark_field,
-        "light_collage": _create_collage_light_collage,
-        "troubadour_inverted": _create_collage_troubadour_inverted,
-        "roxy_corners": _create_collage_roxy_corners,
-        "torn_reveal": _create_collage_torn_reveal,
-    }
-    return builders[variant](**kwargs)
+    return _create_collage_showbill_pasteup(**kwargs)
 
 
 def layout_for_option(

@@ -422,30 +422,30 @@ variations:
     label: "C) Creative"
     tier: creative
     creative_freedom: high
-    orientation: dynamic_collage
+    orientation: showbill_pasteup
     description: >
-      Bolder authentic promoter composition — unexpected but believable layout (ticket stub edge,
-      torn photocopy margin, real bar neon sign in background NOT fantasy neon), more color and
-      composition risk while event facts and band photo fidelity stay sacred.
+      West Coast club showbill energy — split-ink photocopy wash, diagonal date band,
+      left type column + right photo paste-up breaking the grid, inverted band-name slab.
+      Bolder than Medium but still believable promoter paste-up (Troubadour/Roxy handbill lineage).
     creative_directive:
       - "Event facts (venue, date, band, time) remain sacred and instantly legible"
       - "Band reference photo fidelity rules still apply — no distortion; all members visible"
-      - "Try a memorable real-world device: ticket stub perforation, torn flyer edge, diagonal type band"
-      - "Bolder venue-appropriate color — bar sign glow, warm tungsten, beer-brand tones — NOT sci-fi neon"
-      - "Layered paste-up collage energy — overlapping blocks with readable hierarchy on top"
+      - "Use split-ink wash + diagonal urgency band for date — never type across faces"
+      - "Photo paste-up offset right with visible white border and tape seams"
+      - "Band name on inverted ink slab — venue/date/time in left column hierarchy"
       - "Must still look like a real promoter made it — NOT a polished AI poster or Canva template"
     layout_structure:
-      - "Diagonal type band beside or above the photo paste-up — never draw type across faces"
-      - "Layered flyer blocks with torn paper margin, tape, or stamp overlays around the photo"
-      - "Asymmetric collage — venue/date in a high-contrast top band; band photo unchanged beneath"
+      - "Tall band photo LEFT (~48% width, ~78% height) — no full-width ink bars"
+      - "Dark inverted type column RIGHT: venue, stacked band name, month/day/time"
+      - "Thin rule + info line footer on paper — venue · date · time · address"
     layout_guidance:
-      - "Bolder composition: diagonal bands, overlapping blocks, collage energy"
-      - "May include authentic bar neon/signage in BACKGROUND only if venue-appropriate — not fantasy glow"
+      - "Vertical split poster — structurally unlike A/B bar-stack layouts"
+      - "Extreme type scale on dark panel: hero band name + oversized day numeral"
       - "Venue/date must read in under 3 seconds despite bolder layout"
-    color_approach: "Bolder venue palette — warm tungsten, beer-brand reds, blues-bar mood — still photocopy/grain"
-    typography_approach: "Strong scale contrast — huge venue/date over smaller support type; handbill urgency"
-    production_feel: "Well-worn photocopy collage — torn edge, ticket stub, tape, stamp — believable promoter energy"
-    photo_placement: "Locked band photo on canvas — typography and accents around it; do not draw or duplicate people"
+    color_approach: "Paper field + solid ink type column + accent stripe between photo and type"
+    typography_approach: "Poster hierarchy — TYPE_HERO band + day, condensed venue/time on inverted panel"
+    production_feel: "Screen-printed club poster — tall photo column, dark type slab, no horizontal bar bands"
+    photo_placement: "Locked band photo left column — full height paste-up; typography never on faces"
     negative_prompts:
       - "No minimal safe stack-only layout (that is Conservative)"
       - "No single-accent subtle paste-up only (that is Medium)"

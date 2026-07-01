@@ -309,24 +309,39 @@ class BackgroundSpec:
     texture_strength: float = 0.3
     grain_strength: float = 0.02
     margin_grain_only: bool = False  # restrict grain/xerox to margins outside photo
-    
+    # Two-color photocopy wash (top band + misregistered bleed)
+    wash_color: Optional[ColorSpec] = None
+    wash_height_pct: float = 0.0
+    wash_bleed_pct: float = 1.2
+
     def to_dict(self) -> dict[str, Any]:
-        return {
+        result = {
             "color": self.color.to_dict(),
             "texture": self.texture,
             "texture_strength": self.texture_strength,
             "grain_strength": self.grain_strength,
             "margin_grain_only": self.margin_grain_only,
+            "wash_height_pct": self.wash_height_pct,
+            "wash_bleed_pct": self.wash_bleed_pct,
         }
-    
+        if self.wash_color:
+            result["wash_color"] = self.wash_color.to_dict()
+        return result
+
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "BackgroundSpec":
+        wash_color = None
+        if data.get("wash_color"):
+            wash_color = ColorSpec.from_dict(data["wash_color"])
         return cls(
             color=ColorSpec.from_dict(data.get("color", {"hex": "#F5F0E6"})),
             texture=data.get("texture", "paper"),
             texture_strength=data.get("texture_strength", 0.3),
             grain_strength=data.get("grain_strength", 0.02),
             margin_grain_only=data.get("margin_grain_only", False),
+            wash_color=wash_color,
+            wash_height_pct=data.get("wash_height_pct", 0.0),
+            wash_bleed_pct=data.get("wash_bleed_pct", 1.2),
         )
 
 
@@ -565,6 +580,19 @@ def _has_event_date(text: str, event: Any) -> bool:
     return month in lower and day in lower and year in lower
 
 
+def _has_compact_event_date(layout: LayoutSpec, event: Any) -> bool:
+    """True when month abbreviation + day appear in layout (showbill date stack)."""
+    month_abbr = event.event_date.strftime("%b").lower()
+    day = str(event.event_date.day)
+    combined = " ".join(t.content for t in layout.text_elements).lower()
+    graphic_text = " ".join(
+        str(g.properties.get("text", ""))
+        for g in layout.graphic_elements
+    ).lower()
+    haystack = f"{combined} {graphic_text}"
+    return month_abbr in haystack and day in haystack
+
+
 def _layout_has_starburst_date(layout: LayoutSpec) -> bool:
     """True when a starburst graphic carries the compact date badge."""
     return any(g.element_type == "starburst" for g in layout.graphic_elements)
@@ -599,6 +627,8 @@ def ensure_prominent_date_time(
     time: str,
 ) -> LayoutSpec:
     """Inject date/time below the photo when missing or misplaced."""
+    if "vertical split" in (layout.style_notes or "").lower():
+        return layout
     layout = relocate_event_details_below_photo(layout, event, time)
     all_text = " ".join(t.content for t in layout.text_elements)
     has_starburst = _layout_has_starburst_date(layout)
@@ -611,7 +641,7 @@ def ensure_prominent_date_time(
             layout = _inject_time_below_photo(layout, time)
         return layout
 
-    if _has_event_date(all_text, event):
+    if _has_event_date(all_text, event) or _has_compact_event_date(layout, event):
         return layout
 
     date_str = event.event_date.strftime("%A, %B %d, %Y")
@@ -921,6 +951,12 @@ def ensure_footer_elements(
     has_featuring = _layout_has_text_role(layout, "featuring", venue, band, time)
     has_band = _layout_has_text_role(layout, "band", venue, band, time)
     has_address = _layout_has_text_role(layout, "address", venue, band, time)
+    if "vertical split" in (layout.style_notes or "").lower():
+        has_band = True
+        if any(venue.lower() in t.content.lower() for t in layout.text_elements):
+            has_venue = True
+        if address and any(address in t.content for t in layout.text_elements):
+            has_address = True
 
     footer_y = _footer_y_start(layout.canvas_height)
     line_gap = VERTICAL_GAP_PCT + 1.5
