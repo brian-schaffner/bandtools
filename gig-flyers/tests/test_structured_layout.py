@@ -431,8 +431,8 @@ class StructuredLayoutTest(unittest.TestCase):
         """Option C uses Style DNA archetypes — unique template per round."""
         import tempfile
 
+        from structured_layout.graphic_composer import ARCHETYPES
         from structured_layout.fixed_templates import layout_for_option
-        from structured_layout.style_dna_renderer import CREATIVE_ARCHETYPE_KEYS
         from structured_layout.structured_renderer import render_flyer
 
         archetypes_seen: set[str] = set()
@@ -451,7 +451,7 @@ class StructuredLayoutTest(unittest.TestCase):
             )
             notes = layout.style_notes.lower()
             self.assertIn("style dna", notes)
-            matched = [key for key in CREATIVE_ARCHETYPE_KEYS if key in notes]
+            matched = [key for key in ARCHETYPES if key in notes]
             self.assertEqual(len(matched), 1, msg=layout.style_notes)
             archetypes_seen.add(matched[0])
             all_text = " ".join(t.content for t in layout.text_elements)
@@ -477,7 +477,7 @@ class StructuredLayoutTest(unittest.TestCase):
             out = Path(tmp) / "option_c_style_dna.png"
             render_flyer(layout, photo, out, option="C", tier="creative")
             self.assertTrue(out.is_file())
-            self.assertGreater(out.stat().st_size, 50_000)
+            self.assertGreater(out.stat().st_size, 80_000)
 
     def test_tuesday_jam_golden_handbill_render(self) -> None:
         """Golden: house-jam handbill has required facts, no text on photo."""

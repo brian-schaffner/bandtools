@@ -23,6 +23,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr \
     fonts-dejavu-core \
     fonts-liberation2 \
+    fonts-oswald \
     fontconfig \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \

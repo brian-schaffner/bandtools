@@ -1714,20 +1714,20 @@ def create_collage_layout(
     archetype: Optional[TierArchetype] = None,
     rng: Optional[random.Random] = None,
 ) -> LayoutSpec:
-    """Option C — Style DNA archetype: designed template per gig/round seed."""
-    from structured_layout.style_dna_renderer import pick_creative_archetype
+    """Option C — Graphic Composer: Style DNA pro archetypes with seeded palette/accent."""
+    from structured_layout.graphic_composer import build_recipe, recipe_signature
 
     r = rng or _make_rng()
     _ = archetype or load_tier_archetype("creative", event=event)
-    dna_key = pick_creative_archetype(r)
-    seed = r.randint(1, 2**31 - 1)
+    recipe = build_recipe(r)
+    seed = recipe.seed
     date_line = _compact_date_upper(date)
 
     return LayoutSpec(
         canvas_width=1024,
         canvas_height=1536,
         design_style=DesignStyle.COLLAGE,
-        style_notes=f"style dna — {dna_key} (seed {seed})",
+        style_notes=recipe_signature(recipe),
         background=BackgroundSpec(color=ColorSpec("#f0ebe0"), texture="none"),
         photo_frame=PhotoFrame(
             x=10,
