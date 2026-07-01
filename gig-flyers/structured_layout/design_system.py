@@ -244,6 +244,12 @@ def _polish_photo(layout: LayoutSpec, tier: str) -> LayoutSpec:
             frame.height = snap_pct(max(frame.height, min(target_h, 50.0)))
         frame.rotation = round(max(-1.0, min(1.0, frame.rotation)), 1)
 
+    elif "showbill" in notes:
+        frame.rotation = round(max(-2.0, min(2.0, frame.rotation)), 1)
+        frame.border_width = max(frame.border_width, 5.0)
+        if frame.width > 52:
+            frame.x = snap_pct(min(frame.x, 100 - frame.width - TEXT_MARGIN_X_PCT))
+
     else:
         if frame.width > 70 and frame.height < 40:
             frame.height = snap_pct(frame.width / PHOTO_ASPECT_4_3 * 0.55)

@@ -88,13 +88,7 @@ def _starburst_date(date: str) -> str:
 
 
 MEDIUM_VARIANTS = ("paste_up", "broadside", "tri_band", "inverted_footer")
-CREATIVE_VARIANTS = (
-    "dark_field",
-    "light_collage",
-    "troubadour_inverted",
-    "roxy_corners",
-    "torn_reveal",
-)
+CREATIVE_VARIANTS = ("showbill_pasteup",)
 
 _DISPLAY_VENUE_FONT = FONT_DISPLAY
 _DISPLAY_BAND_FONT = FONT_DISPLAY_HEAVY
@@ -108,8 +102,27 @@ def _select_medium_variant(arch: TierArchetype, rng: random.Random) -> str:
 
 
 def _select_creative_variant(rng: random.Random) -> str:
-    """Deterministic creative-tier layout pick."""
-    return CREATIVE_VARIANTS[rng.randint(0, len(CREATIVE_VARIANTS) - 1)]
+    """Option C uses a single strong showbill paste-up layout."""
+    return "showbill_pasteup"
+
+
+def _date_band_label(date: str) -> str:
+    """Compact label for diagonal urgency band, e.g. 'TUE · JUL 14'."""
+    parts = date.replace(",", "").split()
+    if len(parts) >= 4:
+        dow = parts[0][:3].upper()
+        mon = parts[1][:3].upper()
+        day = parts[2]
+        return f"{dow} · {mon} {day}"
+    return date[:14].upper()
+
+
+def _month_day_stack(date: str) -> tuple[str, str]:
+    """Split date into month and day lines for stacked display."""
+    parts = date.replace(",", "").split()
+    if len(parts) >= 3:
+        return parts[1][:3].upper(), parts[2]
+    return date[:6].upper(), ""
 
 
 def _compact_date_upper(date: str) -> str:
@@ -1703,6 +1716,223 @@ def _create_collage_torn_reveal(
     )
 
 
+def _create_collage_showbill_pasteup(
+    venue: str,
+    band: str,
+    date: str,
+    time: str,
+    *,
+    address: str = "",
+    event: Optional[Any] = None,
+    archetype: TierArchetype,
+    rng: random.Random,
+) -> LayoutSpec:
+    """West Coast club showbill — split-ink wash, diagonal date band, asymmetric photo paste-up.
+
+    Inspired by Troubadour/Roxy handbills: left type column, right photo breaking the grid,
+    inverted band-name slab, ticket perforation margin. Distinct from A (stack) and B (paste-up accent).
+    """
+    arch = archetype
+    top_y = _safe_y_pct()
+    gap = VERTICAL_GAP_PCT
+    house = is_house_series_gig(event) if event is not None else False
+    band_line = featured_act_line(band) if house else band
+
+    paper = arch.paper_color
+    ink = arch.ink_primary
+    accent = arch.ink_accent
+    wash = arch.ink_muted
+    month_line, day_line = _month_day_stack(date)
+
+    # Left info column stays clear of photo (photo starts ~41%)
+    type_x = TEXT_MARGIN_X_PCT
+    type_w = snap_pct(34.0)
+    venue_y = round(top_y + 1.0, 1)
+    month_y = round(venue_y + 9.5, 1)
+    day_y = round(month_y + 5.0, 1)
+    time_y = round(day_y + 9.0, 1)
+
+    photo_x = snap_pct(40.0)
+    photo_y = round(top_y + 1.5, 1)
+    photo_w = snap_pct(56.0)
+    photo_h = snap_pct(44.0)
+    photo_bottom = round(photo_y + photo_h, 1)
+
+    band_bar_y = round(photo_bottom + gap + 0.5, 1)
+    band_bar_h = snap_pct(11.0)
+    band_text_y = round(band_bar_y + 2.0, 1)
+
+    graphic_els: list[GraphicElement] = [
+        GraphicElement(
+            element_type="perforated_margin",
+            x=0,
+            y=0,
+            width=snap_pct(3.5),
+            height=100,
+            properties={"edge": "left", "cut_color": paper},
+        ),
+        GraphicElement(
+            element_type="diagonal_band",
+            x=type_x,
+            y=round(top_y - 0.5, 1),
+            width=snap_pct(38.0),
+            height=snap_pct(5.5),
+            fill_color=ColorSpec(accent),
+            rotation=_rf(-10, -6, rng),
+            properties={"text": _date_band_label(date), "skew_pct": 8},
+        ),
+        GraphicElement(
+            element_type="box",
+            x=type_x - 0.5,
+            y=round(venue_y - 1.0, 1),
+            width=type_w + 1.0,
+            height=snap_pct(28.0),
+            fill_color=ColorSpec(paper, opacity=0.55),
+            properties={"drop_shadow": True, "shadow_offset": 3, "shadow_color": "#2A2A2A"},
+        ),
+        GraphicElement(
+            element_type="box",
+            x=TEXT_MARGIN_X_PCT,
+            y=band_bar_y,
+            width=MAX_TEXT_WIDTH_PCT,
+            height=band_bar_h,
+            fill_color=ColorSpec(ink),
+        ),
+        GraphicElement(
+            element_type="tape",
+            x=round(photo_x + photo_w * 0.62, 1),
+            y=round(photo_y - 1.0, 1),
+            width=snap_pct(14.0),
+            height=snap_pct(2.8),
+            rotation=_rf(4, 10, rng),
+        ),
+        GraphicElement(
+            element_type="tape",
+            x=round(photo_x + photo_w * 0.08, 1),
+            y=round(photo_y + photo_h - 2.0, 1),
+            width=snap_pct(11.0),
+            height=snap_pct(2.5),
+            rotation=_rf(-12, -5, rng),
+        ),
+        GraphicElement(
+            element_type="stamp",
+            x=round(photo_x + photo_w - 17, 1),
+            y=round(photo_y + photo_h - 11, 1),
+            width=15,
+            height=9,
+            stroke_color=ColorSpec(accent),
+            stroke_width=2,
+            rotation=_rf(8, 14, rng),
+            properties={"text": "LIVE"},
+        ),
+    ]
+
+    text_els: list[TextElement] = [
+        TextElement(
+            content=venue.upper(),
+            x=type_x,
+            y=venue_y,
+            width=type_w,
+            font_size=TYPE_LG,
+            font_family=_DISPLAY_VENUE_FONT,
+            font_weight=FontWeight.BLACK,
+            alignment=TextAlignment.LEFT,
+            all_caps=True,
+            color=ColorSpec(accent),
+            line_height=1.05,
+        ),
+        TextElement(
+            content=month_line,
+            x=type_x,
+            y=month_y,
+            width=type_w,
+            font_size=TYPE_SM,
+            font_family=FONT_BODY_CONDENSED,
+            font_weight=FontWeight.BOLD,
+            alignment=TextAlignment.LEFT,
+            color=ColorSpec(ink),
+            letter_spacing=0.08,
+        ),
+        TextElement(
+            content=day_line,
+            x=type_x,
+            y=day_y,
+            width=type_w,
+            font_size=TYPE_XXL,
+            font_family=_DISPLAY_BAND_FONT,
+            font_weight=FontWeight.BLACK,
+            alignment=TextAlignment.LEFT,
+            color=ColorSpec(ink),
+            line_height=0.95,
+        ),
+        TextElement(
+            content=time.upper() if time else "TBA",
+            x=type_x,
+            y=time_y,
+            width=type_w,
+            font_size=TYPE_XL,
+            font_family=_DISPLAY_BAND_FONT,
+            font_weight=FontWeight.BLACK,
+            alignment=TextAlignment.LEFT,
+            color=ColorSpec(accent),
+        ),
+        TextElement(
+            content=band_line.upper() if not house else band_line,
+            x=TEXT_MARGIN_X_PCT,
+            y=band_text_y,
+            width=MAX_TEXT_WIDTH_PCT,
+            font_size=TYPE_XXL,
+            font_family=_DISPLAY_BAND_FONT,
+            font_weight=FontWeight.BLACK,
+            alignment=TextAlignment.CENTER,
+            all_caps=not house,
+            color=ColorSpec(paper),
+        ),
+    ]
+
+    sepia_tint = {
+        "blues_bar": "#3D5A80",
+        "country_bar": "#8B6914",
+    }.get(arch.venue_type, "#6B5344")
+
+    layout = LayoutSpec(
+        design_style=DesignStyle.COLLAGE,
+        style_notes="Creative showbill_pasteup — split-ink wash, diagonal date band, asymmetric paste-up",
+        background=BackgroundSpec(
+            color=ColorSpec(paper),
+            texture="photocopy",
+            texture_strength=_rf(0.18, 0.28, rng),
+            grain_strength=arch.grain_strength + 0.01,
+            margin_grain_only=True,
+            wash_color=ColorSpec(wash),
+            wash_height_pct=_rf(22.0, 26.0, rng),
+            wash_bleed_pct=1.4,
+        ),
+        photo_frame=PhotoFrame(
+            x=photo_x,
+            y=photo_y,
+            width=photo_w,
+            height=photo_h,
+            placement=PhotoPlacement.RIGHT,
+            rotation=_rf(1.2, 2.0, rng),
+            film_grain=_rf(0.006, 0.010, rng),
+            paper_texture=0.0,
+            border_width=7,
+            border_color=ColorSpec(paper),
+            brightness=1.02,
+            contrast=_rf(1.10, 1.18, rng),
+            saturation=_rf(0.72, 0.88, rng),
+            color_tint=ColorSpec(sepia_tint),
+            opacity=1.0,
+        ),
+        text_elements=text_els,
+        graphic_elements=graphic_els,
+        photocopy_effect=0.0,
+        age_effect=0.0,
+    )
+    return finalize_layout_spec(layout, venue, band, time, address=address, event=event)
+
+
 def create_collage_layout(
     venue: str,
     band: str,
@@ -1714,10 +1944,9 @@ def create_collage_layout(
     archetype: Optional[TierArchetype] = None,
     rng: Optional[random.Random] = None,
 ) -> LayoutSpec:
-    """Option C — wildly creative: named layout variants via seeded hash."""
+    """Option C — West Coast club showbill paste-up (split ink, diagonal band, asymmetric photo)."""
     r = rng or _make_rng()
     arch = archetype or load_tier_archetype("creative", event=event)
-    variant = _select_creative_variant(r)
     kwargs = {
         "venue": venue,
         "band": band,
@@ -1728,14 +1957,7 @@ def create_collage_layout(
         "archetype": arch,
         "rng": r,
     }
-    builders = {
-        "dark_field": _create_collage_dark_field,
-        "light_collage": _create_collage_light_collage,
-        "troubadour_inverted": _create_collage_troubadour_inverted,
-        "roxy_corners": _create_collage_roxy_corners,
-        "torn_reveal": _create_collage_torn_reveal,
-    }
-    return builders[variant](**kwargs)
+    return _create_collage_showbill_pasteup(**kwargs)
 
 
 def layout_for_option(

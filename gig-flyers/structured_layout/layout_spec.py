@@ -309,24 +309,39 @@ class BackgroundSpec:
     texture_strength: float = 0.3
     grain_strength: float = 0.02
     margin_grain_only: bool = False  # restrict grain/xerox to margins outside photo
-    
+    # Two-color photocopy wash (top band + misregistered bleed)
+    wash_color: Optional[ColorSpec] = None
+    wash_height_pct: float = 0.0
+    wash_bleed_pct: float = 1.2
+
     def to_dict(self) -> dict[str, Any]:
-        return {
+        result = {
             "color": self.color.to_dict(),
             "texture": self.texture,
             "texture_strength": self.texture_strength,
             "grain_strength": self.grain_strength,
             "margin_grain_only": self.margin_grain_only,
+            "wash_height_pct": self.wash_height_pct,
+            "wash_bleed_pct": self.wash_bleed_pct,
         }
-    
+        if self.wash_color:
+            result["wash_color"] = self.wash_color.to_dict()
+        return result
+
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "BackgroundSpec":
+        wash_color = None
+        if data.get("wash_color"):
+            wash_color = ColorSpec.from_dict(data["wash_color"])
         return cls(
             color=ColorSpec.from_dict(data.get("color", {"hex": "#F5F0E6"})),
             texture=data.get("texture", "paper"),
             texture_strength=data.get("texture_strength", 0.3),
             grain_strength=data.get("grain_strength", 0.02),
             margin_grain_only=data.get("margin_grain_only", False),
+            wash_color=wash_color,
+            wash_height_pct=data.get("wash_height_pct", 0.0),
+            wash_bleed_pct=data.get("wash_bleed_pct", 1.2),
         )
 
 

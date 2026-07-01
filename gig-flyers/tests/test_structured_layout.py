@@ -449,30 +449,56 @@ class StructuredLayoutTest(unittest.TestCase):
         self.assertTrue(
             any(
                 token in layout.style_notes.lower()
-                for token in (
-                    "dark_field",
-                    "light_collage",
-                    "troubadour_inverted",
-                    "roxy_corners",
-                    "torn_reveal",
-                )
+                for token in ("showbill_pasteup",)
             )
         )
         all_text = " ".join(t.content for t in layout.text_elements)
         self.assertIn("40202", all_text)
 
-        if "dark_field" in layout.style_notes.lower() or "torn_reveal" in layout.style_notes.lower():
-            footer_text = [t for t in layout.text_elements if "40202" in t.content]
-            self.assertTrue(footer_text)
-            lum = sum(int(footer_text[0].color.hex.lstrip("#")[i : i + 2], 16) for i in (0, 2, 4)) / 3
-            self.assertGreater(lum, 180, "footer should be light on dark bg")
-
         accent_types = {g.element_type for g in layout.graphic_elements}
         self.assertTrue(
-            accent_types & {"tape", "stamp", "starburst", "corner_strip", "ticket_stub", "box"}
+            accent_types & {"tape", "stamp", "diagonal_band", "perforated_margin", "box"}
         )
+        self.assertIn("diagonal_band", accent_types)
+        self.assertIn("perforated_margin", accent_types)
+        # Left column type must not overlap photo bbox
+        photo = layout.photo_frame
+        for text in layout.text_elements:
+            if text.content and "40202" not in text.content:
+                self.assertFalse(text_overlaps_photo(text, layout), msg=text.content)
 
-    def test_tuesday_jam_golden_handbill_render(self) -> None:
+    def test_creative_showbill_render(self) -> None:
+        """Option C showbill paste-up renders with new graphic primitives."""
+        from structured_layout.fixed_templates import layout_for_option
+
+        layout = layout_for_option(
+            "C",
+            self.tuesday_jam.venue,
+            "Lindsey Lane Band",
+            "Tuesday, June 30, 2026",
+            "7:30 pm",
+            address="230 East Main Street, Louisville, KY 40202",
+            event=self.tuesday_jam,
+            gig_id=self.tuesday_jam.gig_id,
+            option_letter="C",
+            round_num=1,
+        )
+        self.assertIn("showbill_pasteup", layout.style_notes.lower())
+        self.assertIsNotNone(layout.background.wash_color)
+        self.assertGreater(layout.background.wash_height_pct, 0)
+
+        photo = ROOT / "bandphotos/679394308_1366641221939459_1410337987474015419_n.jpg"
+        if not photo.is_file():
+            self.skipTest("band photo fixture missing")
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "golden-C.png"
+            render_flyer(layout, photo, out, option="C", tier="creative")
+            self.assertTrue(out.is_file())
+            result = validate_structured_flyer(
+                out, layout, self.tuesday_jam, band="Lindsey Lane Band"
+            )
+            self.assertTrue(result.passed, result.issues)
+
         """Golden: house-jam handbill has required facts, no text on photo."""
         from structured_layout.fixed_templates import create_handbill_layout
         from structured_layout.structured_renderer import render_flyer

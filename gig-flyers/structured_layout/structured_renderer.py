@@ -182,6 +182,37 @@ def _apply_opacity(rgb: tuple[int, int, int], opacity: float) -> tuple[int, int,
     return (*rgb, int(255 * opacity))
 
 
+def _render_ink_wash(
+    bg: Image.Image,
+    background: BackgroundSpec,
+) -> None:
+    """Top-band accent ink with slight misregistration bleed (2-color photocopy)."""
+    if not background.wash_color or background.wash_height_pct <= 0:
+        return
+
+    w, h = bg.size
+    wash_rgb = _hex_to_rgb(background.wash_color.hex)
+    wash_h = int(h * background.wash_height_pct / 100)
+    bleed = int(h * background.wash_bleed_pct / 100)
+    layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(layer)
+
+    # Slightly offset ghost pass (misregistered second plate)
+    ghost = tuple(max(0, min(255, c + 18)) for c in wash_rgb)
+    draw.rectangle([4, 0, w, wash_h + bleed + 6], fill=(*ghost, 90))
+    draw.rectangle([0, 0, w, wash_h + bleed], fill=(*wash_rgb, 255))
+
+    # Soft blend into paper below the wash
+    fade = Image.new("L", (w, bleed * 2 + 4), 0)
+    fade_draw = ImageDraw.Draw(fade)
+    for i in range(fade.height):
+        alpha = int(255 * (1 - i / max(1, fade.height - 1)))
+        fade_draw.line([(0, i), (w, i)], fill=alpha)
+    fade_y = max(0, wash_h - bleed // 2)
+    bg.paste(layer, (0, 0), layer)
+    bg.paste(fade, (0, fade_y), fade)
+
+
 def _render_background(
     canvas: Image.Image,
     background: BackgroundSpec,
@@ -193,6 +224,8 @@ def _render_background(
     
     bg_color = _hex_to_rgb(background.color.hex)
     bg = Image.new("RGBA", (w, h), (*bg_color, 255))
+
+    _render_ink_wash(bg, background)
     
     if background.texture == "paper":
         _apply_paper_texture(bg, background.texture_strength)
@@ -591,45 +624,76 @@ def estimate_text_overflow_issues(layout: LayoutSpec) -> list[str]:
     return issues
 
 
-def _render_text(
-    draw: ImageDraw.ImageDraw,
+def _render_text_on_layer(
+    layer_draw: ImageDraw.ImageDraw,
     text: TextElement,
-    canvas_size: tuple[int, int],
-) -> None:
-    """Render a text element, auto-shrinking or wrapping when wider than max_width."""
-    canvas_w, canvas_h = canvas_size
-
+    *,
+    origin_x: int,
+    origin_y: int,
+    max_width: int,
+) -> int:
+    """Draw wrapped text on a layer; return total height in px."""
     content = text.content.upper() if text.all_caps else text.content
-
-    x = int(canvas_w * text.x / 100)
-    y = int(canvas_h * text.y / 100)
-    max_width = int(canvas_w * text.width / 100)
-
     color = _apply_opacity(_hex_to_rgb(text.color.hex), text.color.opacity)
 
     font, font_size = _fit_text_font(
-        draw,
+        layer_draw,
         content,
         text.font_family,
         text.font_size,
         text.font_weight,
         max_width,
     )
-    bbox = draw.textbbox((0, 0), content, font=font)
+    bbox = layer_draw.textbbox((0, 0), content, font=font)
     lines = [content]
     if bbox[2] - bbox[0] > max_width:
-        lines = _wrap_text_lines(draw, content, font, max_width)
+        lines = _wrap_text_lines(layer_draw, content, font, max_width)
 
     line_height_px = max(1, int(font_size * text.line_height))
     for i, line in enumerate(lines):
-        line_bbox = draw.textbbox((0, 0), line, font=font)
+        line_bbox = layer_draw.textbbox((0, 0), line, font=font)
         line_width = line_bbox[2] - line_bbox[0]
-        draw_x = x
+        draw_x = origin_x
         if text.alignment == TextAlignment.CENTER:
-            draw_x = x + (max_width - line_width) // 2
+            draw_x = origin_x + (max_width - line_width) // 2
         elif text.alignment == TextAlignment.RIGHT:
-            draw_x = x + max_width - line_width
-        draw.text((draw_x, y + i * line_height_px), line, font=font, fill=color)
+            draw_x = origin_x + max_width - line_width
+        layer_draw.text((draw_x, origin_y + i * line_height_px), line, font=font, fill=color)
+    return len(lines) * line_height_px
+
+
+def _render_text(
+    draw: ImageDraw.ImageDraw,
+    text: TextElement,
+    canvas_size: tuple[int, int],
+    *,
+    canvas: Optional[Image.Image] = None,
+) -> None:
+    """Render a text element, auto-shrinking or wrapping when wider than max_width."""
+    canvas_w, canvas_h = canvas_size
+
+    x = int(canvas_w * text.x / 100)
+    y = int(canvas_h * text.y / 100)
+    max_width = int(canvas_w * text.width / 100)
+
+    if text.rotation != 0 and canvas is not None:
+        pad = max_width + 120
+        layer = Image.new("RGBA", (pad * 2, pad * 2), (0, 0, 0, 0))
+        layer_draw = ImageDraw.Draw(layer)
+        _render_text_on_layer(layer_draw, text, origin_x=pad, origin_y=pad, max_width=max_width)
+        rotated = layer.rotate(
+            -text.rotation,
+            resample=Image.Resample.BICUBIC,
+            expand=True,
+            fillcolor=(0, 0, 0, 0),
+        )
+        # Anchor rotated layer so (pad, pad) maps to (x, y)
+        paste_x = x - pad + (rotated.width - layer.width) // 2
+        paste_y = y - pad + (rotated.height - layer.height) // 2
+        canvas.alpha_composite(rotated, (paste_x, paste_y))
+        return
+
+    _render_text_on_layer(draw, text, origin_x=x, origin_y=y, max_width=max_width)
 
 
 def _draw_starburst(
@@ -679,6 +743,15 @@ def _render_graphic(
     if element.element_type == "box":
         layer = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
         layer_draw = ImageDraw.Draw(layer)
+        if element.properties.get("drop_shadow"):
+            shadow_offset = int(element.properties.get("shadow_offset", 4))
+            shadow_fill = element.properties.get("shadow_color", "#1A1A1A")
+            shadow_rgb = _hex_to_rgb(shadow_fill)
+            shadow_alpha = int(60 * element.opacity)
+            layer_draw.rectangle(
+                [x + shadow_offset, y + shadow_offset, x + w + shadow_offset, y + h + shadow_offset],
+                fill=(*shadow_rgb, shadow_alpha),
+            )
         if element.corner_radius > 0:
             layer_draw.rounded_rectangle(
                 [x, y, x + w, y + h],
@@ -786,6 +859,44 @@ def _render_graphic(
         layer_draw.polygon(points, fill=strip_fill)
         canvas.alpha_composite(layer)
 
+    elif element.element_type == "diagonal_band":
+        skew_px = int(canvas_w * float(element.properties.get("skew_pct", 6)) / 100)
+        layer = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+        layer_draw = ImageDraw.Draw(layer)
+        band_fill = fill or (139, 0, 0, int(235 * element.opacity))
+        points = [(x, y + h), (x + w, y), (x + w + skew_px, y), (x + skew_px, y + h)]
+        layer_draw.polygon(points, fill=band_fill)
+        band_text = element.properties.get("text", "")
+        if band_text:
+            font_size = max(14, min(h // 2, w // max(1, len(band_text) // 2)))
+            font = _get_font("Helvetica", font_size, FontWeight.BLACK)
+            tb = layer_draw.textbbox((0, 0), band_text, font=font)
+            tw, th = tb[2] - tb[0], tb[3] - tb[1]
+            tx = x + (w - tw) // 2 + skew_px // 3
+            ty = y + (h - th) // 2
+            layer_draw.text((tx, ty), band_text, font=font, fill=(255, 255, 255, 255))
+        if element.rotation != 0:
+            layer = layer.rotate(element.rotation, center=(x + w // 2, y + h // 2), expand=False)
+        canvas.alpha_composite(layer)
+
+    elif element.element_type == "perforated_margin":
+        layer = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+        layer_draw = ImageDraw.Draw(layer)
+        edge = element.properties.get("edge", "left")
+        perf_step = max(8, int(canvas_h * float(element.properties.get("step_pct", 2.5)) / 100))
+        perf_r = max(3, int(canvas_w * 0.004))
+        cut_color = _hex_to_rgb(element.properties.get("cut_color", "#F5F0E6"))
+        if edge == "left":
+            cx = x + w // 2
+            for py in range(y, y + h, perf_step):
+                layer_draw.ellipse(
+                    [cx - perf_r, py, cx + perf_r, py + perf_r * 2],
+                    fill=(*cut_color, 255),
+                )
+            line_color = outline or (120, 120, 120, 140)
+            layer_draw.line([cx, y, cx, y + h], fill=line_color, width=1)
+        canvas.alpha_composite(layer)
+
 
 def _apply_photocopy_effect(image: Image.Image, strength: float) -> Image.Image:
     """Apply overall photocopy effect."""
@@ -890,7 +1001,16 @@ def render_flyer(
     )
     
     for element in layout.graphic_elements:
-        if element.element_type in ("box", "line", "divider", "starburst", "ticket_stub", "corner_strip"):
+        if element.element_type in (
+            "box",
+            "line",
+            "divider",
+            "starburst",
+            "ticket_stub",
+            "corner_strip",
+            "diagonal_band",
+            "perforated_margin",
+        ):
             draw = ImageDraw.Draw(canvas)
             _render_graphic(canvas, draw, element, canvas_size)
     
@@ -921,7 +1041,7 @@ def render_flyer(
     )
     draw = ImageDraw.Draw(canvas)
     for text in layout.text_elements:
-        _render_text(draw, _clamp_text_element(text, canvas_size), canvas_size)
+        _render_text(draw, _clamp_text_element(text, canvas_size), canvas_size, canvas=canvas)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     canvas.convert("RGB").save(output_path, format="PNG")
