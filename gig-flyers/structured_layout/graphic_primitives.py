@@ -172,6 +172,76 @@ def draw_tape_strip(
     canvas.alpha_composite(layer)
 
 
+def draw_corner_strip(
+    canvas: Image.Image,
+    *,
+    corner: str,
+    size: tuple[int, int],
+    color: tuple[int, int, int, int],
+) -> None:
+    w, h = size
+    cw, ch = canvas.size
+    anchors = {
+        "top_left": (0, 0),
+        "top_right": (cw - w, 0),
+        "bottom_left": (0, ch - h),
+        "bottom_right": (cw - w, ch - h),
+    }
+    x, y = anchors.get(corner, (0, 0))
+    layer = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(layer)
+    if corner == "top_left":
+        points = [(x, y), (x + w, y), (x, y + h)]
+    elif corner == "top_right":
+        points = [(x + w, y), (x + w, y + h), (x, y)]
+    elif corner == "bottom_left":
+        points = [(x, y + h), (x, y), (x + w, y + h)]
+    else:
+        points = [(x + w, y + h), (x, y + h), (x + w, y)]
+    draw.polygon(points, fill=color)
+    canvas.alpha_composite(layer)
+
+
+def draw_ticket_stub(
+    canvas: Image.Image,
+    *,
+    box: tuple[int, int, int, int],
+    edge: str = "right",
+    perforations: int = 14,
+    color: tuple[int, int, int, int] = (80, 80, 80, 180),
+) -> None:
+    x1, y1, x2, y2 = box
+    layer = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(layer)
+    draw.rectangle([x1, y1, x2, y2], fill=(*color[:3], min(40, color[3])))
+    draw.rectangle([x1, y1, x2, y2], outline=color, width=2)
+    edge_x = x2 if edge == "right" else x1
+    step = max(4, (y2 - y1) // max(1, perforations))
+    for i in range(perforations):
+        py = y1 + i * step
+        if py > y2:
+            break
+        draw.ellipse([edge_x - 2, py, edge_x + 2, py + 4], fill=color)
+    draw.line([edge_x, y1, edge_x, y2], fill=color, width=1)
+    canvas.alpha_composite(layer)
+
+
+def draw_double_rule(
+    canvas: Image.Image,
+    *,
+    y: int,
+    x1: int = 48,
+    x2: int | None = None,
+    color: tuple[int, int, int, int],
+    gap: int = 6,
+) -> None:
+    if x2 is None:
+        x2 = canvas.width - 48
+    draw = ImageDraw.Draw(canvas)
+    draw.line([(x1, y), (x2, y)], fill=color, width=2)
+    draw.line([(x1, y + gap), (x2, y + gap)], fill=(*color[:3], max(80, color[3] // 2)), width=1)
+
+
 def draw_diagonal_band(
     canvas: Image.Image,
     *,

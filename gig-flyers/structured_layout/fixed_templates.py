@@ -157,6 +157,77 @@ def _add_tape_on_photo_edge(
     )
 
 
+def _add_medium_header_double_rule(
+    graphic_elements: list[GraphicElement],
+    *,
+    y: float,
+    arch: TierArchetype,
+    rng: random.Random,
+) -> None:
+    """Hairline double rule under venue header — layout chrome, not an accent device."""
+    if rng.random() > 0.55:
+        return
+    for i, opacity in enumerate((0.5, 0.28)):
+        graphic_elements.append(
+            GraphicElement(
+                element_type="divider",
+                x=TEXT_MARGIN_X_PCT,
+                y=round(y + i * 0.55, 1),
+                width=MAX_TEXT_WIDTH_PCT,
+                height=0,
+                stroke_color=ColorSpec(arch.ink_muted, opacity=opacity),
+                stroke_width=1,
+            )
+        )
+
+
+def _build_medium_photo_frame(
+    arch: TierArchetype,
+    rng: random.Random,
+    *,
+    photo_x: float,
+    photo_y: float,
+    photo_w: float,
+    photo_h: float,
+    placement: PhotoPlacement,
+    rotation: float,
+    contrast: float,
+    saturation: float,
+) -> PhotoFrame:
+    """Option B photo — light halftone, paste-up border, optional paper texture."""
+    use_halftone = rng.random() < 0.48
+    border_w = 4.0 if rng.random() < 0.38 else 3.0
+    return PhotoFrame(
+        x=photo_x,
+        y=photo_y,
+        width=photo_w,
+        height=photo_h,
+        placement=placement,
+        rotation=rotation,
+        film_grain=_rf(0.010, 0.018, rng),
+        halftone=use_halftone,
+        halftone_dot_size=5 if use_halftone else 4,
+        paper_texture=_rf(0.05, 0.14, rng) if rng.random() < 0.42 else 0.0,
+        border_width=border_w,
+        border_color=ColorSpec(arch.ink_primary),
+        brightness=1.01,
+        contrast=contrast,
+        saturation=saturation,
+        opacity=1.0,
+    )
+
+
+def _medium_background(arch: TierArchetype, rng: random.Random) -> BackgroundSpec:
+    """Slightly richer paper/photocopy texture for medium tier."""
+    texture = "photocopy" if rng.random() < 0.35 else "paper"
+    return BackgroundSpec(
+        color=ColorSpec(arch.paper_color),
+        texture=texture,
+        texture_strength=_rf(0.26, 0.38, rng),
+        grain_strength=arch.grain_strength + _rf(0.01, 0.03, rng),
+    )
+
+
 def _create_handbill_paste_up(
     venue: str,
     band: str,
@@ -218,6 +289,12 @@ def _create_handbill_paste_up(
             fill_color=ColorSpec(arch.ink_muted, opacity=1.0),
         ),
     ]
+    _add_medium_header_double_rule(
+        graphic_elements,
+        y=round(top_y + header_h + 0.4, 1),
+        arch=arch,
+        rng=rng,
+    )
 
     text_elements: list[TextElement] = [
         TextElement(
@@ -383,27 +460,18 @@ def _create_handbill_paste_up(
     layout = LayoutSpec(
         design_style=DesignStyle.HANDBILL,
         style_notes="Medium paste-up — two-column offset photo, one accent element",
-        background=BackgroundSpec(
-            color=ColorSpec(arch.paper_color),
-            texture="paper",
-            texture_strength=_rf(0.22, 0.32, rng),
-            grain_strength=arch.grain_strength,
-        ),
-        photo_frame=PhotoFrame(
-            x=photo_x,
-            y=photo_y,
-            width=photo_w,
-            height=photo_h,
+        background=_medium_background(arch, rng),
+        photo_frame=_build_medium_photo_frame(
+            arch,
+            rng,
+            photo_x=photo_x,
+            photo_y=photo_y,
+            photo_w=photo_w,
+            photo_h=photo_h,
             placement=PhotoPlacement.RIGHT if photo_right else PhotoPlacement.LEFT,
             rotation=photo_rotation,
-            film_grain=0.008,
-            paper_texture=0.0,
-            border_width=3,
-            border_color=ColorSpec(arch.paper_color),
-            brightness=1.01,
             contrast=contrast,
             saturation=saturation,
-            opacity=1.0,
         ),
         text_elements=text_elements,
         graphic_elements=graphic_elements,
@@ -470,6 +538,12 @@ def _create_handbill_tri_band(
             fill_color=ColorSpec(arch.ink_primary),
         ),
     ]
+    _add_medium_header_double_rule(
+        graphic_elements,
+        y=round(top_y + header_h + 0.35, 1),
+        arch=arch,
+        rng=rng,
+    )
 
     text_elements: list[TextElement] = [
         TextElement(
@@ -569,27 +643,18 @@ def _create_handbill_tri_band(
     layout = LayoutSpec(
         design_style=DesignStyle.HANDBILL,
         style_notes="Medium tri-band — header / offset photo / footer type",
-        background=BackgroundSpec(
-            color=ColorSpec(arch.paper_color),
-            texture="paper",
-            texture_strength=_rf(0.22, 0.30, rng),
-            grain_strength=arch.grain_strength,
-        ),
-        photo_frame=PhotoFrame(
-            x=photo_x,
-            y=photo_y,
-            width=photo_w,
-            height=photo_h,
+        background=_medium_background(arch, rng),
+        photo_frame=_build_medium_photo_frame(
+            arch,
+            rng,
+            photo_x=photo_x,
+            photo_y=photo_y,
+            photo_w=photo_w,
+            photo_h=photo_h,
             placement=PhotoPlacement.RIGHT if photo_right else PhotoPlacement.LEFT,
             rotation=_rf(-1.2, 1.2, rng),
-            film_grain=0.008,
-            paper_texture=0.0,
-            border_width=2,
-            border_color=ColorSpec(arch.paper_color),
-            brightness=1.01,
             contrast=contrast,
             saturation=saturation,
-            opacity=1.0,
         ),
         text_elements=text_elements,
         graphic_elements=graphic_elements,
@@ -636,27 +701,18 @@ def _create_handbill_broadside(
     layout = LayoutSpec(
         design_style=DesignStyle.HANDBILL,
         style_notes="Medium broadside — photo top, massive band, double rule, venue bar",
-        background=BackgroundSpec(
-            color=ColorSpec(arch.paper_color),
-            texture="photocopy",
-            texture_strength=_rf(0.15, 0.22, rng),
-            grain_strength=arch.grain_strength,
-        ),
-        photo_frame=PhotoFrame(
-            x=TEXT_MARGIN_X_PCT,
-            y=photo_y,
-            width=MAX_TEXT_WIDTH_PCT,
-            height=photo_h,
+        background=_medium_background(arch, rng),
+        photo_frame=_build_medium_photo_frame(
+            arch,
+            rng,
+            photo_x=TEXT_MARGIN_X_PCT,
+            photo_y=photo_y,
+            photo_w=MAX_TEXT_WIDTH_PCT,
+            photo_h=photo_h,
             placement=PhotoPlacement.TOP,
             rotation=0.0,
-            film_grain=0.008,
-            paper_texture=0.0,
-            border_width=0,
-            border_color=ColorSpec(arch.paper_color),
-            brightness=1.01,
             contrast=contrast,
             saturation=saturation,
-            opacity=1.0,
         ),
         text_elements=[
             TextElement(
@@ -854,27 +910,18 @@ def _create_handbill_inverted_footer(
     layout = LayoutSpec(
         design_style=DesignStyle.HANDBILL,
         style_notes="Medium inverted footer — photo top, black footer venue bar",
-        background=BackgroundSpec(
-            color=ColorSpec(arch.paper_color),
-            texture="paper",
-            texture_strength=_rf(0.18, 0.28, rng),
-            grain_strength=arch.grain_strength,
-        ),
-        photo_frame=PhotoFrame(
-            x=TEXT_MARGIN_X_PCT,
-            y=photo_y,
-            width=MAX_TEXT_WIDTH_PCT,
-            height=photo_h,
+        background=_medium_background(arch, rng),
+        photo_frame=_build_medium_photo_frame(
+            arch,
+            rng,
+            photo_x=TEXT_MARGIN_X_PCT,
+            photo_y=photo_y,
+            photo_w=MAX_TEXT_WIDTH_PCT,
+            photo_h=photo_h,
             placement=PhotoPlacement.TOP,
             rotation=_rf(-1.0, 1.0, rng),
-            film_grain=0.008,
-            paper_texture=0.0,
-            border_width=2,
-            border_color=ColorSpec(arch.paper_color),
-            brightness=1.01,
             contrast=contrast,
             saturation=saturation,
-            opacity=1.0,
         ),
         text_elements=text_elements,
         graphic_elements=graphic_elements,

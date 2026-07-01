@@ -53,6 +53,7 @@ def _render_archetype(archetype: str, **kwargs) -> None:
         palette_id=recipe.palette_id,
         palette=recipe.palette,
         accent=recipe.accent,
+        layers=recipe.layers,
         mirror=recipe.mirror,
         seed=seed,
     )

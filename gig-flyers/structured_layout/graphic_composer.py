@@ -19,10 +19,13 @@ from structured_layout.graphic_primitives import (
     CANVAS,
     compact_day,
     concentric_rings,
+    draw_corner_strip,
     draw_diagonal_band,
+    draw_double_rule,
     draw_starburst,
     draw_stroked_text_layer,
     draw_tape_strip,
+    draw_ticket_stub,
     duotone_photo,
     grain,
     halftone_dots,
@@ -51,6 +54,7 @@ ARCHETYPES = (
 )
 
 ACCENTS = ("starburst", "tape", "stamp", "none")
+LAYER_ELEMENTS = ("corner_strip", "ticket_stub", "tape_corner", "rings", "double_rule")
 
 
 @dataclass(frozen=True)
@@ -102,6 +106,7 @@ class GraphicRecipe:
     palette_id: str
     palette: Palette
     accent: str
+    layers: tuple[str, ...]
     mirror: bool
     seed: int
 
@@ -119,22 +124,28 @@ def build_recipe(rng: random.Random, archetype: str | None = None) -> GraphicRec
     options = PALETTES.get(arch, PALETTES["xerox_punk"])
     palette_id, palette = options[rng.randint(0, len(options) - 1)]
     accent = ACCENTS[rng.randint(0, len(ACCENTS) - 1)]
-    if accent == "stamp" and arch not in ("xerox_punk", "pasteup_zine"):
+    if accent == "stamp" and arch not in ("xerox_punk", "pasteup_zine", "broadside"):
         accent = "starburst"
+    layer_pool = [layer for layer in LAYER_ELEMENTS if not (layer == "tape_corner" and accent == "tape")]
+    rng.shuffle(layer_pool)
+    layer_count = rng.randint(2, min(3, len(layer_pool)))
+    layers = tuple(layer_pool[:layer_count])
     return GraphicRecipe(
         archetype=arch,
         palette_id=palette_id,
         palette=palette,
         accent=accent,
+        layers=layers,
         mirror=rng.random() < 0.35,
         seed=rng.randint(1, 2**31 - 1),
     )
 
 
 def recipe_signature(recipe: GraphicRecipe) -> str:
+    layer_sig = ",".join(recipe.layers) if recipe.layers else "none"
     return (
         f"style dna pro — {recipe.archetype}/{recipe.palette_id}/"
-        f"{recipe.accent}{'/mirror' if recipe.mirror else ''} (seed {recipe.seed})"
+        f"{recipe.accent}+{layer_sig}{'/mirror' if recipe.mirror else ''} (seed {recipe.seed})"
     )
 
 
@@ -162,7 +173,7 @@ def _facts_from_layout(layout: LayoutSpec) -> dict[str, str]:
     }
 
 
-def _apply_accent(canvas: Image.Image, recipe: GraphicRecipe, *, date: str, time: str) -> None:
+def _apply_primary_accent(canvas: Image.Image, recipe: GraphicRecipe, *, date: str, time: str) -> None:
     pal = recipe.palette
     if recipe.accent == "starburst":
         cx = 860 if not recipe.mirror else 164
@@ -177,7 +188,6 @@ def _apply_accent(canvas: Image.Image, recipe: GraphicRecipe, *, date: str, time
             canvas, (cx, 140), compact_day(date), font, (*pal.footer_fg, 255),
             stroke=(*pal.ink, 255), stroke_width=2, anchor="mm",
         )
-        tw, _ = text_size(time.upper(), load_font(22, "body"))
         draw_stroked_text_layer(
             canvas, (cx, 175), time.upper(), load_font(22, "body"), (*pal.ink, 255),
             stroke=(255, 255, 255, 255), stroke_width=1, anchor="mm",
@@ -194,6 +204,67 @@ def _apply_accent(canvas: Image.Image, recipe: GraphicRecipe, *, date: str, time
             canvas, (cx, cy - 8), compact_day(date), font, (*pal.accent, 255),
             stroke=(*pal.ink, 255), stroke_width=1, anchor="mm",
         )
+
+
+def _apply_creative_layers(canvas: Image.Image, recipe: GraphicRecipe) -> None:
+    """Stack 2–3 decorative layers on Option C (beyond the primary accent)."""
+    pal = recipe.palette
+    rng = random.Random(recipe.seed + 313)
+    for layer in recipe.layers:
+        if layer == "corner_strip":
+            draw_corner_strip(
+                canvas, corner="top_left", size=(140, 110),
+                color=(*pal.accent, rng.randint(160, 220)),
+            )
+            draw_corner_strip(
+                canvas, corner="bottom_right", size=(120, 100),
+                color=(*pal.ink, rng.randint(140, 200)),
+            )
+        elif layer == "ticket_stub":
+            side = "left" if recipe.mirror else "right"
+            box = (24, 420, 130, 920) if side == "left" else (894, 420, CANVAS[0] - 24, 920)
+            draw_ticket_stub(
+                canvas, box=box, edge=side,
+                perforations=rng.randint(12, 18),
+                color=(*pal.ink, 170),
+            )
+        elif layer == "tape_corner":
+            draw_tape_strip(
+                canvas,
+                (CANVAS[0] - 240, 48, CANVAS[0] - 60, 96) if not recipe.mirror else (60, 48, 240, 96),
+                rotation=rng.uniform(-12, 8),
+            )
+        elif layer == "rings":
+            overlay = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+            concentric_rings(
+                ImageDraw.Draw(overlay),
+                CANVAS[0] // 2,
+                rng.randint(520, 640),
+                [pal.accent, pal.paper, pal.ink],
+                rng.randint(180, 280),
+                rng.randint(24, 36),
+            )
+            overlay.putalpha(overlay.split()[3].point(lambda a: int(a * 0.22)))
+            canvas.alpha_composite(overlay)
+        elif layer == "double_rule":
+            draw_double_rule(
+                canvas,
+                y=rng.randint(1180, 1240),
+                color=(*pal.ink, 200),
+            )
+
+
+def _finish_creative(
+    img: Image.Image,
+    recipe: GraphicRecipe,
+    *,
+    date: str,
+    time: str,
+    grain_strength: float = 0.08,
+) -> Image.Image:
+    _apply_primary_accent(img, recipe, date=date, time=time)
+    _apply_creative_layers(img, recipe)
+    return grain(img, grain_strength, seed=recipe.seed)
 
 
 def _render_xerox_punk(facts: dict, photo: Path, recipe: GraphicRecipe) -> Image.Image:
@@ -226,8 +297,7 @@ def _render_xerox_punk(facts: dict, photo: Path, recipe: GraphicRecipe) -> Image
     draw_stroked_text_layer(
         img, (48, 1360), facts["address"], load_font(24, "body"), (*pal.footer_fg, 200),
     )
-    _apply_accent(img, recipe, date=facts["date"], time=facts["time"])
-    return grain(img, 0.1, seed=recipe.seed)
+    return _finish_creative(img, recipe, date=facts["date"], time=facts["time"], grain_strength=0.1)
 
 
 def _render_duotone(facts: dict, photo: Path, recipe: GraphicRecipe) -> Image.Image:
@@ -259,8 +329,7 @@ def _render_duotone(facts: dict, photo: Path, recipe: GraphicRecipe) -> Image.Im
     draw_stroked_text_layer(
         img, (48, 1350), facts["address"], load_font(30, "body"), (*pal.footer_fg, 255),
     )
-    _apply_accent(img, recipe, date=facts["date"], time=facts["time"])
-    return grain(img, 0.06, seed=recipe.seed)
+    return _finish_creative(img, recipe, date=facts["date"], time=facts["time"], grain_strength=0.06)
 
 
 def _render_psychedelic(facts: dict, photo: Path, recipe: GraphicRecipe) -> Image.Image:
@@ -293,7 +362,7 @@ def _render_psychedelic(facts: dict, photo: Path, recipe: GraphicRecipe) -> Imag
         anchor="mm",
     )
     draw_stroked_text_layer(img, (80, CANVAS[1] - 88), facts["address"], load_font(22, "body"), (*pal.paper, 255))
-    return img
+    return _finish_creative(img, recipe, date=facts["date"], time=facts["time"], grain_strength=0.07)
 
 
 def _render_boutique(facts: dict, photo: Path, recipe: GraphicRecipe) -> Image.Image:
@@ -326,7 +395,7 @@ def _render_boutique(facts: dict, photo: Path, recipe: GraphicRecipe) -> Image.I
         img, (CANVAS[0] // 2, 1455), "Live Music · Good Food · Great Community",
         load_font(24, "body"), (*pal.footer_fg, 255), anchor="mm",
     )
-    return img
+    return _finish_creative(img, recipe, date=facts["date"], time=facts["time"], grain_strength=0.05)
 
 
 def _render_neon_bar(facts: dict, photo: Path, recipe: GraphicRecipe) -> Image.Image:
@@ -354,8 +423,7 @@ def _render_neon_bar(facts: dict, photo: Path, recipe: GraphicRecipe) -> Image.I
 
     draw.rectangle([0, 1280, CANVAS[0], CANVAS[1]], fill=(*pal.footer_bg, 255))
     draw_stroked_text_layer(img, (48, 1320), facts["address"], load_font(28, "body"), (*pal.footer_fg, 255))
-    _apply_accent(img, recipe, date=facts["date"], time=facts["time"])
-    return grain(img, 0.08, seed=recipe.seed)
+    return _finish_creative(img, recipe, date=facts["date"], time=facts["time"], grain_strength=0.08)
 
 
 def _render_pasteup_zine(facts: dict, photo: Path, recipe: GraphicRecipe) -> Image.Image:
@@ -386,7 +454,7 @@ def _render_pasteup_zine(facts: dict, photo: Path, recipe: GraphicRecipe) -> Ima
         img, (72, 1330), f"{facts['venue'].upper()}  ·  {facts['address']}",
         load_font(26, "typewriter"), (*pal.footer_fg, 255),
     )
-    return grain(img, 0.12, seed=recipe.seed)
+    return _finish_creative(img, recipe, date=facts["date"], time=facts["time"], grain_strength=0.12)
 
 
 def _render_broadside(facts: dict, photo: Path, recipe: GraphicRecipe) -> Image.Image:
@@ -415,7 +483,7 @@ def _render_broadside(facts: dict, photo: Path, recipe: GraphicRecipe) -> Image.
     draw_stroked_text_layer(
         img, (48, 980), "FEATURING", load_font(24, "typewriter"), (*pal.accent, 255),
     )
-    return grain(img, 0.05, seed=recipe.seed)
+    return _finish_creative(img, recipe, date=facts["date"], time=facts["time"], grain_strength=0.05)
 
 
 def _render_country_fair(facts: dict, photo: Path, recipe: GraphicRecipe) -> Image.Image:
@@ -451,7 +519,7 @@ def _render_country_fair(facts: dict, photo: Path, recipe: GraphicRecipe) -> Ima
     draw_stroked_text_layer(
         img, (CANVAS[0] // 2, 1420), facts["address"], load_font(26, "body"), (*pal.footer_fg, 255), anchor="mm",
     )
-    return img
+    return _finish_creative(img, recipe, date=facts["date"], time=facts["time"], grain_strength=0.06)
 
 
 _RENDERERS: dict[str, Callable[..., Image.Image]] = {
@@ -491,6 +559,7 @@ def compose_from_layout(layout: LayoutSpec, photo_path: Path, output_path: Path)
         palette_id=recipe.palette_id,
         palette=recipe.palette,
         accent=recipe.accent,
+        layers=recipe.layers,
         mirror=recipe.mirror,
         seed=seed,
     )

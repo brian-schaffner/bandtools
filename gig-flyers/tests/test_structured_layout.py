@@ -394,6 +394,8 @@ class StructuredLayoutTest(unittest.TestCase):
         self.assertEqual(layout.photo_frame.opacity, 1.0)
         self.assertEqual(layout.photocopy_effect, 0.0)
         self.assertEqual(layout.age_effect, 0.0)
+        self.assertGreaterEqual(layout.background.texture_strength, 0.26)
+        self.assertGreaterEqual(layout.photo_frame.border_width, 3.0)
 
     def test_medium_variant_catalog_deterministic(self) -> None:
         """Option B picks from named variants via seeded hash."""
@@ -451,6 +453,7 @@ class StructuredLayoutTest(unittest.TestCase):
             )
             notes = layout.style_notes.lower()
             self.assertIn("style dna", notes)
+            self.assertIn("+", notes, "Option C recipe should include layered visual elements")
             matched = [key for key in ARCHETYPES if key in notes]
             self.assertEqual(len(matched), 1, msg=layout.style_notes)
             archetypes_seen.add(matched[0])
