@@ -183,7 +183,7 @@ def _apply_accent(canvas: Image.Image, recipe: GraphicRecipe, *, date: str, time
             stroke=(255, 255, 255, 255), stroke_width=1, anchor="mm",
         )
     elif recipe.accent == "tape":
-        draw_tape_strip(canvas, (40, 36, 280, 78), seed=recipe.seed)
+        draw_tape_strip(canvas, (40, 36, 280, 78))
     elif recipe.accent == "stamp":
         layer = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
         d = ImageDraw.Draw(layer)
