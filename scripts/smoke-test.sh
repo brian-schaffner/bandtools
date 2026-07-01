@@ -28,10 +28,11 @@ check / 200
 check /setlist-loader 200
 
 # Hub Gig Flyers must use a plain anchor so nginx serves the bridge (not Next.js client nav → :8090)
-if curl -sS "$BASE/" | grep -q '<a href="/flyers/">'; then
+HUB_HTML=$(curl -sS "$BASE/")
+if echo "$HUB_HTML" | grep -q 'href="/flyers/"' && ! echo "$HUB_HTML" | grep -q 'href="/flyers/"[^>]*data-nextjs-link'; then
   echo "OK   hub gig-flyers uses plain anchor"
 else
-  echo "FAIL hub missing plain <a href=\"/flyers/\"> link"
+  echo "FAIL hub missing plain /flyers/ anchor link"
   exit 1
 fi
 
