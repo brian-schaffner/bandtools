@@ -627,6 +627,8 @@ def ensure_prominent_date_time(
     time: str,
 ) -> LayoutSpec:
     """Inject date/time below the photo when missing or misplaced."""
+    if "vertical split" in (layout.style_notes or "").lower():
+        return layout
     layout = relocate_event_details_below_photo(layout, event, time)
     all_text = " ".join(t.content for t in layout.text_elements)
     has_starburst = _layout_has_starburst_date(layout)
@@ -949,6 +951,12 @@ def ensure_footer_elements(
     has_featuring = _layout_has_text_role(layout, "featuring", venue, band, time)
     has_band = _layout_has_text_role(layout, "band", venue, band, time)
     has_address = _layout_has_text_role(layout, "address", venue, band, time)
+    if "vertical split" in (layout.style_notes or "").lower():
+        has_band = True
+        if any(venue.lower() in t.content.lower() for t in layout.text_elements):
+            has_venue = True
+        if address and any(address in t.content for t in layout.text_elements):
+            has_address = True
 
     footer_y = _footer_y_start(layout.canvas_height)
     line_gap = VERTICAL_GAP_PCT + 1.5

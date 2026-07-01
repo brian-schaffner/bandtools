@@ -31,6 +31,7 @@ from structured_layout.layout_spec import (  # noqa: E402
 )
 from structured_layout.layout_scorer import score_layout_detailed  # noqa: E402
 from structured_layout.layout_geometry import (  # noqa: E402
+    MAX_TEXT_WIDTH_PCT,
     enforce_no_text_on_photo,
     text_overlaps_photo,
 )
@@ -449,9 +450,19 @@ class StructuredLayoutTest(unittest.TestCase):
         self.assertTrue(
             any(
                 token in layout.style_notes.lower()
-                for token in ("showbill_pasteup",)
+                for token in ("showbill", "vertical split")
             )
         )
+        # Structurally distinct from A/B: photo left, no full-width top bar
+        self.assertLess(layout.photo_frame.x, 40.0)
+        self.assertGreater(layout.photo_frame.height, 70.0)
+        full_bars = [
+            g for g in layout.graphic_elements
+            if g.element_type == "box"
+            and g.width >= MAX_TEXT_WIDTH_PCT - 2
+            and g.height > 4.0
+        ]
+        self.assertEqual(full_bars, [], "Option C should not use full-width ink bars")
         all_text = " ".join(t.content for t in layout.text_elements)
         self.assertIn("40202", all_text)
 
@@ -481,7 +492,7 @@ class StructuredLayoutTest(unittest.TestCase):
             option_letter="C",
             round_num=1,
         )
-        self.assertIn("showbill_pasteup", layout.style_notes.lower())
+        self.assertIn("vertical split", layout.style_notes.lower())
         self.assertIsNone(layout.background.wash_color)
 
         photo = ROOT / "bandphotos/679394308_1366641221939459_1410337987474015419_n.jpg"
@@ -496,9 +507,9 @@ class StructuredLayoutTest(unittest.TestCase):
             )
             self.assertTrue(result.passed, result.issues)
 
+    def test_golden_handbill_house_jam(self) -> None:
         """Golden: house-jam handbill has required facts, no text on photo."""
         from structured_layout.fixed_templates import create_handbill_layout
-        from structured_layout.structured_renderer import render_flyer
 
         layout = create_handbill_layout(
             self.tuesday_jam.venue,

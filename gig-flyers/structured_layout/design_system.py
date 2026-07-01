@@ -36,6 +36,7 @@ TYPE_MD = 25   # featuring, secondary headlines
 TYPE_LG = 39   # venue display
 TYPE_XL = 61   # band headline
 TYPE_XXL = 76  # broadside hero band
+TYPE_HERO = 96  # creative poster headline
 
 PRO_MIN_FONT_PT = 16
 
@@ -137,6 +138,29 @@ def _role_size(role: str, tier: str, current: int) -> int:
 
 
 def _polish_typography(layout: LayoutSpec, tier: str) -> LayoutSpec:
+    if "vertical split" in (layout.style_notes or "").lower():
+        updated: list[TextElement] = []
+        for text in layout.text_elements:
+            updated.append(
+                TextElement(
+                    content=text.content,
+                    x=snap_pct(text.x),
+                    y=snap_pct(text.y),
+                    width=snap_pct(min(text.width, MAX_TEXT_WIDTH_PCT)),
+                    font_size=text.font_size,
+                    font_family=text.font_family,
+                    font_weight=text.font_weight,
+                    color=text.color,
+                    alignment=text.alignment,
+                    rotation=text.rotation,
+                    letter_spacing=text.letter_spacing,
+                    line_height=text.line_height,
+                    all_caps=text.all_caps,
+                )
+            )
+        layout.text_elements = updated
+        return layout
+
     updated: list[TextElement] = []
     for text in layout.text_elements:
         role = _text_role(text.content)
@@ -244,11 +268,12 @@ def _polish_photo(layout: LayoutSpec, tier: str) -> LayoutSpec:
             frame.height = snap_pct(max(frame.height, min(target_h, 50.0)))
         frame.rotation = round(max(-1.0, min(1.0, frame.rotation)), 1)
 
-    elif "showbill" in notes:
-        frame.rotation = round(max(-2.0, min(2.0, frame.rotation)), 1)
-        frame.border_width = max(frame.border_width, 5.0)
-        if frame.width > 52:
-            frame.x = snap_pct(min(frame.x, 100 - frame.width - TEXT_MARGIN_X_PCT))
+    elif "showbill" in notes or "vertical split" in notes:
+        frame.rotation = round(max(-1.0, min(1.0, frame.rotation)), 1)
+        frame.border_width = min(frame.border_width, 3.0)
+        # Tall left-column photo — preserve height
+        if frame.x < 50 and frame.height < 55:
+            frame.height = snap_pct(max(frame.height, 62.0))
 
     else:
         if frame.width > 70 and frame.height < 40:
@@ -303,6 +328,8 @@ def _polish_bars(layout: LayoutSpec, tier: str) -> LayoutSpec:
 
 def _polish_footer_band(layout: LayoutSpec) -> LayoutSpec:
     """Integrate address into a designed footer band instead of orphaned text."""
+    if "vertical split" in (layout.style_notes or "").lower():
+        return layout
     canvas_h = layout.canvas_height
     footer_threshold = round((canvas_h - 48 * 4) / canvas_h * 100, 1) - 4
 

@@ -16,6 +16,7 @@ from structured_layout.design_system import (
     FONT_DISPLAY,
     FONT_DISPLAY_HEAVY,
     PRO_GAP_PCT,
+    TYPE_HERO,
     TYPE_LG,
     TYPE_MD,
     TYPE_SM,
@@ -1716,6 +1717,17 @@ def _create_collage_torn_reveal(
     )
 
 
+def _poster_band_lines(band: str) -> tuple[str, str]:
+    """Split band name into two poster lines for vertical type column."""
+    words = band.upper().split()
+    if len(words) <= 1:
+        return band.upper(), ""
+    if len(words) == 2:
+        return words[0], words[1]
+    mid = max(1, len(words) // 2)
+    return " ".join(words[:mid]), " ".join(words[mid:])
+
+
 def _create_collage_showbill_pasteup(
     venue: str,
     band: str,
@@ -1727,10 +1739,10 @@ def _create_collage_showbill_pasteup(
     archetype: TierArchetype,
     rng: random.Random,
 ) -> LayoutSpec:
-    """Club broadside — tight typographic grid, no sticker clutter.
+    """Vertical split poster — tall photo LEFT, typographic poster RIGHT.
 
-    Full-width venue bar → date/time column + photo row → band slab → address footer.
-    One accent only; photo stays natural (no heavy duotone).
+    No full-width horizontal ink bars (that is Options A/B). Right column carries
+    venue + hero band name + date; photo dominates the left half.
     """
     arch = archetype
     top_y = _safe_y_pct()
@@ -1742,64 +1754,75 @@ def _create_collage_showbill_pasteup(
     ink = arch.ink_primary
     accent = arch.ink_accent
     month_line, day_line = _month_day_stack(date)
+    band_line1, band_line2 = _poster_band_lines(band_line if not house else band)
 
-    venue_bar_h = snap_pct(8.0)
-    venue_text_y = round(top_y + 1.2, 1)
+    split_x = snap_pct(52.0)
+    panel_x = snap_pct(53.5)
+    panel_w = snap_pct(41.5)
+    panel_h = snap_pct(78.0)
 
-    content_y = round(top_y + venue_bar_h + gap + 0.5, 1)
-    type_x = TEXT_MARGIN_X_PCT
-    type_w = snap_pct(36.0)
-    month_y = content_y
-    day_y = round(content_y + 4.5, 1)
-    time_y = round(day_y + 10.0, 1)
+    photo_x = TEXT_MARGIN_X_PCT
+    photo_y = top_y
+    photo_w = snap_pct(47.0)
+    photo_h = panel_h
 
-    photo_x = snap_pct(41.0)
-    photo_y = content_y
-    photo_w = snap_pct(53.5)
-    photo_h = snap_pct(41.0)
-    photo_bottom = round(photo_y + photo_h, 1)
+    venue_y = round(top_y + 2.0, 1)
+    band1_y = round(venue_y + 5.5, 1)
+    if house:
+        band1_size = TYPE_MD
+        band1_content = "FEATURING"
+        act1, act2 = _poster_band_lines(band)
+        band2_y = round(band1_y + 4.5, 1)
+        band2_size = TYPE_XL
+        band2_content = act1
+        band3_y = round(band2_y + 7.0, 1) if act2 else band2_y
+        band3_size = TYPE_XL
+        band3_content = act2
+    else:
+        band1_size = TYPE_HERO
+        band1_content = band_line1
+        band2_y = round(band1_y + 8.5, 1) if band_line2 else band1_y
+        band2_size = TYPE_XL
+        band2_content = band_line2
+        band3_y = band2_y
+        band3_size = TYPE_XL
+        band3_content = ""
+    month_y = round(
+        (band3_y if house and act2 else (band2_y if (house or band_line2) else band1_y)) + 2.0,
+        1,
+    )
+    day_y = round(month_y + 3.0, 1)
+    time_y = round(day_y + 9.0, 1)
 
-    band_bar_y = round(photo_bottom + gap + 1.0, 1)
-    band_bar_h = snap_pct(10.5)
-    band_text_y = round(band_bar_y + 2.2, 1)
+    info_y = round(top_y + panel_h + gap + 1.0, 1)
+    footer_y = round(info_y + 3.5, 1)
 
-    footer_bar_y = round(band_bar_y + band_bar_h + gap + 0.5, 1)
-    footer_bar_h = snap_pct(9.0)
-    footer_text_y = round(footer_bar_y + 2.0, 1)
-
-    footer_line = address.strip() if address else venue
-    if time and time.upper() not in footer_line.upper():
-        footer_line = f"{footer_line}  ·  {time.upper()}"
+    info_parts = [venue, f"{month_line} {day_line}".strip(), time.upper() if time else ""]
+    if address:
+        info_parts.append(address)
+    info_line = "  ·  ".join(p for p in info_parts if p)
 
     graphic_els: list[GraphicElement] = [
         GraphicElement(
             element_type="box",
-            x=TEXT_MARGIN_X_PCT,
-            y=top_y,
-            width=MAX_TEXT_WIDTH_PCT,
-            height=venue_bar_h,
+            x=panel_x,
+            y=photo_y,
+            width=panel_w,
+            height=panel_h,
             fill_color=ColorSpec(ink),
         ),
         GraphicElement(
             element_type="box",
-            x=TEXT_MARGIN_X_PCT,
-            y=band_bar_y,
-            width=MAX_TEXT_WIDTH_PCT,
-            height=band_bar_h,
+            x=split_x,
+            y=photo_y,
+            width=snap_pct(1.0),
+            height=panel_h,
             fill_color=ColorSpec(accent),
         ),
         GraphicElement(
             element_type="box",
             x=TEXT_MARGIN_X_PCT,
-            y=footer_bar_y,
-            width=MAX_TEXT_WIDTH_PCT,
-            height=footer_bar_h,
-            fill_color=ColorSpec(ink, opacity=0.92),
-        ),
-        GraphicElement(
-            element_type="box",
-            x=TEXT_MARGIN_X_PCT,
-            y=round(band_bar_y - 0.4, 1),
+            y=info_y,
             width=MAX_TEXT_WIDTH_PCT,
             height=0.35,
             fill_color=ColorSpec(ink),
@@ -1809,100 +1832,135 @@ def _create_collage_showbill_pasteup(
     text_els: list[TextElement] = [
         TextElement(
             content=venue.upper(),
-            x=TEXT_MARGIN_X_PCT,
-            y=venue_text_y,
-            width=MAX_TEXT_WIDTH_PCT,
-            font_size=TYPE_LG,
-            font_family=_DISPLAY_VENUE_FONT,
-            font_weight=FontWeight.BLACK,
-            alignment=TextAlignment.CENTER,
-            all_caps=True,
-            color=ColorSpec(paper),
-            line_height=1.05,
-        ),
-        TextElement(
-            content=month_line,
-            x=type_x,
-            y=month_y,
-            width=type_w,
-            font_size=TYPE_SM,
+            x=panel_x,
+            y=venue_y,
+            width=panel_w,
+            font_size=TYPE_MD,
             font_family=FONT_BODY_CONDENSED,
-            font_weight=FontWeight.BOLD,
+            font_weight=FontWeight.BLACK,
             alignment=TextAlignment.LEFT,
-            color=ColorSpec(ink),
+            all_caps=True,
+            color=ColorSpec(accent),
             letter_spacing=0.06,
         ),
         TextElement(
-            content=day_line,
-            x=type_x,
-            y=day_y,
-            width=type_w,
-            font_size=TYPE_XXL,
-            font_family=_DISPLAY_BAND_FONT,
+            content=band1_content,
+            x=panel_x,
+            y=band1_y,
+            width=panel_w,
+            font_size=band1_size,
+            font_family=_DISPLAY_BAND_FONT if not house else FONT_BODY_CONDENSED,
             font_weight=FontWeight.BLACK,
             alignment=TextAlignment.LEFT,
-            color=ColorSpec(ink),
-            line_height=0.92,
-        ),
-        TextElement(
-            content=time.upper() if time else "TBA",
-            x=type_x,
-            y=time_y,
-            width=type_w,
-            font_size=TYPE_LG,
-            font_family=FONT_BODY_CONDENSED,
-            font_weight=FontWeight.BLACK,
-            alignment=TextAlignment.LEFT,
-            color=ColorSpec(accent),
-        ),
-        TextElement(
-            content=band_line.upper() if not house else band_line,
-            x=TEXT_MARGIN_X_PCT,
-            y=band_text_y,
-            width=MAX_TEXT_WIDTH_PCT,
-            font_size=TYPE_XL,
-            font_family=_DISPLAY_BAND_FONT,
-            font_weight=FontWeight.BLACK,
-            alignment=TextAlignment.CENTER,
-            all_caps=not house,
-            color=ColorSpec(paper),
-        ),
-        TextElement(
-            content=footer_line,
-            x=TEXT_MARGIN_X_PCT,
-            y=footer_text_y,
-            width=MAX_TEXT_WIDTH_PCT,
-            font_size=TYPE_XS,
-            font_family=FONT_BODY_CONDENSED,
-            font_weight=FontWeight.BOLD,
-            alignment=TextAlignment.CENTER,
-            color=ColorSpec(paper),
+            all_caps=True,
+            color=ColorSpec(paper if not house else accent, opacity=0.9 if house else 1.0),
+            line_height=0.82,
         ),
     ]
+    if (house or band_line2) and band2_content:
+        text_els.append(
+            TextElement(
+                content=band2_content,
+                x=panel_x,
+                y=band2_y,
+                width=panel_w,
+                font_size=band2_size,
+                font_family=_DISPLAY_BAND_FONT,
+                font_weight=FontWeight.BLACK,
+                alignment=TextAlignment.LEFT,
+                all_caps=True,
+                color=ColorSpec(paper),
+                line_height=0.82,
+            )
+        )
+    if house and band3_content:
+        text_els.append(
+            TextElement(
+                content=band3_content,
+                x=panel_x,
+                y=band3_y,
+                width=panel_w,
+                font_size=band3_size,
+                font_family=_DISPLAY_BAND_FONT,
+                font_weight=FontWeight.BLACK,
+                alignment=TextAlignment.LEFT,
+                all_caps=True,
+                color=ColorSpec(paper),
+                line_height=0.82,
+            )
+        )
+    text_els.extend(
+        [
+            TextElement(
+                content=month_line,
+                x=panel_x,
+                y=month_y,
+                width=panel_w,
+                font_size=TYPE_SM,
+                font_family=FONT_BODY_CONDENSED,
+                font_weight=FontWeight.BOLD,
+                alignment=TextAlignment.LEFT,
+                color=ColorSpec(paper, opacity=0.85),
+            ),
+            TextElement(
+                content=day_line,
+                x=panel_x,
+                y=day_y,
+                width=panel_w,
+                font_size=TYPE_HERO,
+                font_family=_DISPLAY_BAND_FONT,
+                font_weight=FontWeight.BLACK,
+                alignment=TextAlignment.LEFT,
+                color=ColorSpec(accent),
+                line_height=0.85,
+            ),
+            TextElement(
+                content=time.upper() if time else "TBA",
+                x=panel_x,
+                y=time_y,
+                width=panel_w,
+                font_size=TYPE_XL,
+                font_family=_DISPLAY_BAND_FONT,
+                font_weight=FontWeight.BLACK,
+                alignment=TextAlignment.LEFT,
+                color=ColorSpec(paper),
+            ),
+            TextElement(
+                content=info_line,
+                x=TEXT_MARGIN_X_PCT,
+                y=footer_y,
+                width=MAX_TEXT_WIDTH_PCT,
+                font_size=TYPE_XS,
+                font_family=FONT_BODY_CONDENSED,
+                font_weight=FontWeight.BOLD,
+                alignment=TextAlignment.LEFT,
+                color=ColorSpec(ink),
+            ),
+        ]
+    )
 
     layout = LayoutSpec(
         design_style=DesignStyle.COLLAGE,
-        style_notes="Creative showbill_pasteup — club broadside grid, venue bar, band slab, footer fill",
+        style_notes="Creative showbill vertical split — tall photo left, poster type right, no ink bars",
         background=BackgroundSpec(
             color=ColorSpec(paper),
             texture="paper",
-            texture_strength=_rf(0.10, 0.16, rng),
-            grain_strength=min(arch.grain_strength, 0.012),
+            texture_strength=_rf(0.08, 0.14, rng),
+            grain_strength=min(arch.grain_strength, 0.010),
         ),
         photo_frame=PhotoFrame(
             x=photo_x,
             y=photo_y,
             width=photo_w,
             height=photo_h,
-            placement=PhotoPlacement.RIGHT,
-            rotation=_rf(-0.4, 0.6, rng),
-            film_grain=0.006,
+            placement=PhotoPlacement.LEFT,
+            rotation=_rf(-0.6, 0.6, rng),
+            film_grain=0.005,
             paper_texture=0.0,
-            border_width=4,
-            border_color=ColorSpec(paper),
+            border_width=0,
             brightness=1.01,
-            contrast=_rf(1.04, 1.08, rng),
-            saturation=_rf(0.96, 1.0, rng),
+            contrast=_rf(1.03, 1.07, rng),
+            saturation=1.0,
             opacity=1.0,
         ),
         text_elements=text_els,
