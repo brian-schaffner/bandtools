@@ -332,6 +332,7 @@ def _render_boutique(facts: dict, photo: Path, recipe: GraphicRecipe) -> Image.I
 def _render_neon_bar(facts: dict, photo: Path, recipe: GraphicRecipe) -> Image.Image:
     pal = recipe.palette
     img = Image.new("RGBA", CANVAS, (*pal.paper, 255))
+    draw = ImageDraw.Draw(img)
     draw_diagonal_band(img, color=(*pal.ink, 40), y_center=200, height=220, angle=-6)
 
     venue_font = load_font(78, "display")
@@ -360,6 +361,7 @@ def _render_neon_bar(facts: dict, photo: Path, recipe: GraphicRecipe) -> Image.I
 def _render_pasteup_zine(facts: dict, photo: Path, recipe: GraphicRecipe) -> Image.Image:
     pal = recipe.palette
     img = Image.new("RGBA", CANVAS, (*pal.paper, 255))
+    draw = ImageDraw.Draw(img)
     draw_diagonal_band(img, color=(*pal.accent, 200), y_center=120, height=140, angle=-10)
 
     venue_font = load_font(64, "display")
