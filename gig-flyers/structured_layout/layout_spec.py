@@ -580,6 +580,19 @@ def _has_event_date(text: str, event: Any) -> bool:
     return month in lower and day in lower and year in lower
 
 
+def _has_compact_event_date(layout: LayoutSpec, event: Any) -> bool:
+    """True when month abbreviation + day appear in layout (showbill date stack)."""
+    month_abbr = event.event_date.strftime("%b").lower()
+    day = str(event.event_date.day)
+    combined = " ".join(t.content for t in layout.text_elements).lower()
+    graphic_text = " ".join(
+        str(g.properties.get("text", ""))
+        for g in layout.graphic_elements
+    ).lower()
+    haystack = f"{combined} {graphic_text}"
+    return month_abbr in haystack and day in haystack
+
+
 def _layout_has_starburst_date(layout: LayoutSpec) -> bool:
     """True when a starburst graphic carries the compact date badge."""
     return any(g.element_type == "starburst" for g in layout.graphic_elements)
@@ -626,7 +639,7 @@ def ensure_prominent_date_time(
             layout = _inject_time_below_photo(layout, time)
         return layout
 
-    if _has_event_date(all_text, event):
+    if _has_event_date(all_text, event) or _has_compact_event_date(layout, event):
         return layout
 
     date_str = event.event_date.strftime("%A, %B %d, %Y")

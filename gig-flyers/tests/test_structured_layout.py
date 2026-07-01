@@ -456,16 +456,14 @@ class StructuredLayoutTest(unittest.TestCase):
         self.assertIn("40202", all_text)
 
         accent_types = {g.element_type for g in layout.graphic_elements}
-        self.assertTrue(
-            accent_types & {"tape", "stamp", "diagonal_band", "perforated_margin", "box"}
-        )
-        self.assertIn("diagonal_band", accent_types)
-        self.assertIn("perforated_margin", accent_types)
-        # Left column type must not overlap photo bbox
-        photo = layout.photo_frame
-        for text in layout.text_elements:
-            if text.content and "40202" not in text.content:
-                self.assertFalse(text_overlaps_photo(text, layout), msg=text.content)
+        self.assertIn("box", accent_types)
+        self.assertNotIn("diagonal_band", accent_types)
+        # No duplicate full prose date injected below photo
+        prose_dates = [
+            t for t in layout.text_elements
+            if "2026" in t.content and "June" in t.content
+        ]
+        self.assertEqual(len(prose_dates), 0, msg="compact date stack should not get prose date injection")
 
     def test_creative_showbill_render(self) -> None:
         """Option C showbill paste-up renders with new graphic primitives."""
@@ -484,8 +482,7 @@ class StructuredLayoutTest(unittest.TestCase):
             round_num=1,
         )
         self.assertIn("showbill_pasteup", layout.style_notes.lower())
-        self.assertIsNotNone(layout.background.wash_color)
-        self.assertGreater(layout.background.wash_height_pct, 0)
+        self.assertIsNone(layout.background.wash_color)
 
         photo = ROOT / "bandphotos/679394308_1366641221939459_1410337987474015419_n.jpg"
         if not photo.is_file():

@@ -1727,10 +1727,10 @@ def _create_collage_showbill_pasteup(
     archetype: TierArchetype,
     rng: random.Random,
 ) -> LayoutSpec:
-    """West Coast club showbill — split-ink wash, diagonal date band, asymmetric photo paste-up.
+    """Club broadside — tight typographic grid, no sticker clutter.
 
-    Inspired by Troubadour/Roxy handbills: left type column, right photo breaking the grid,
-    inverted band-name slab, ticket perforation margin. Distinct from A (stack) and B (paste-up accent).
+    Full-width venue bar → date/time column + photo row → band slab → address footer.
+    One accent only; photo stays natural (no heavy duotone).
     """
     arch = archetype
     top_y = _safe_y_pct()
@@ -1741,54 +1741,44 @@ def _create_collage_showbill_pasteup(
     paper = arch.paper_color
     ink = arch.ink_primary
     accent = arch.ink_accent
-    wash = arch.ink_muted
     month_line, day_line = _month_day_stack(date)
 
-    # Left info column stays clear of photo (photo starts ~41%)
-    type_x = TEXT_MARGIN_X_PCT
-    type_w = snap_pct(34.0)
-    venue_y = round(top_y + 1.0, 1)
-    month_y = round(venue_y + 9.5, 1)
-    day_y = round(month_y + 5.0, 1)
-    time_y = round(day_y + 9.0, 1)
+    venue_bar_h = snap_pct(8.0)
+    venue_text_y = round(top_y + 1.2, 1)
 
-    photo_x = snap_pct(40.0)
-    photo_y = round(top_y + 1.5, 1)
-    photo_w = snap_pct(56.0)
-    photo_h = snap_pct(44.0)
+    content_y = round(top_y + venue_bar_h + gap + 0.5, 1)
+    type_x = TEXT_MARGIN_X_PCT
+    type_w = snap_pct(36.0)
+    month_y = content_y
+    day_y = round(content_y + 4.5, 1)
+    time_y = round(day_y + 10.0, 1)
+
+    photo_x = snap_pct(41.0)
+    photo_y = content_y
+    photo_w = snap_pct(53.5)
+    photo_h = snap_pct(41.0)
     photo_bottom = round(photo_y + photo_h, 1)
 
-    band_bar_y = round(photo_bottom + gap + 0.5, 1)
-    band_bar_h = snap_pct(11.0)
-    band_text_y = round(band_bar_y + 2.0, 1)
+    band_bar_y = round(photo_bottom + gap + 1.0, 1)
+    band_bar_h = snap_pct(10.5)
+    band_text_y = round(band_bar_y + 2.2, 1)
+
+    footer_bar_y = round(band_bar_y + band_bar_h + gap + 0.5, 1)
+    footer_bar_h = snap_pct(9.0)
+    footer_text_y = round(footer_bar_y + 2.0, 1)
+
+    footer_line = address.strip() if address else venue
+    if time and time.upper() not in footer_line.upper():
+        footer_line = f"{footer_line}  ·  {time.upper()}"
 
     graphic_els: list[GraphicElement] = [
         GraphicElement(
-            element_type="perforated_margin",
-            x=0,
-            y=0,
-            width=snap_pct(3.5),
-            height=100,
-            properties={"edge": "left", "cut_color": paper},
-        ),
-        GraphicElement(
-            element_type="diagonal_band",
-            x=type_x,
-            y=round(top_y - 0.5, 1),
-            width=snap_pct(38.0),
-            height=snap_pct(5.5),
-            fill_color=ColorSpec(accent),
-            rotation=_rf(-10, -6, rng),
-            properties={"text": _date_band_label(date), "skew_pct": 8},
-        ),
-        GraphicElement(
             element_type="box",
-            x=type_x - 0.5,
-            y=round(venue_y - 1.0, 1),
-            width=type_w + 1.0,
-            height=snap_pct(28.0),
-            fill_color=ColorSpec(paper, opacity=0.55),
-            properties={"drop_shadow": True, "shadow_offset": 3, "shadow_color": "#2A2A2A"},
+            x=TEXT_MARGIN_X_PCT,
+            y=top_y,
+            width=MAX_TEXT_WIDTH_PCT,
+            height=venue_bar_h,
+            fill_color=ColorSpec(ink),
         ),
         GraphicElement(
             element_type="box",
@@ -1796,49 +1786,38 @@ def _create_collage_showbill_pasteup(
             y=band_bar_y,
             width=MAX_TEXT_WIDTH_PCT,
             height=band_bar_h,
+            fill_color=ColorSpec(accent),
+        ),
+        GraphicElement(
+            element_type="box",
+            x=TEXT_MARGIN_X_PCT,
+            y=footer_bar_y,
+            width=MAX_TEXT_WIDTH_PCT,
+            height=footer_bar_h,
+            fill_color=ColorSpec(ink, opacity=0.92),
+        ),
+        GraphicElement(
+            element_type="box",
+            x=TEXT_MARGIN_X_PCT,
+            y=round(band_bar_y - 0.4, 1),
+            width=MAX_TEXT_WIDTH_PCT,
+            height=0.35,
             fill_color=ColorSpec(ink),
-        ),
-        GraphicElement(
-            element_type="tape",
-            x=round(photo_x + photo_w * 0.62, 1),
-            y=round(photo_y - 1.0, 1),
-            width=snap_pct(14.0),
-            height=snap_pct(2.8),
-            rotation=_rf(4, 10, rng),
-        ),
-        GraphicElement(
-            element_type="tape",
-            x=round(photo_x + photo_w * 0.08, 1),
-            y=round(photo_y + photo_h - 2.0, 1),
-            width=snap_pct(11.0),
-            height=snap_pct(2.5),
-            rotation=_rf(-12, -5, rng),
-        ),
-        GraphicElement(
-            element_type="stamp",
-            x=round(photo_x + photo_w - 17, 1),
-            y=round(photo_y + photo_h - 11, 1),
-            width=15,
-            height=9,
-            stroke_color=ColorSpec(accent),
-            stroke_width=2,
-            rotation=_rf(8, 14, rng),
-            properties={"text": "LIVE"},
         ),
     ]
 
     text_els: list[TextElement] = [
         TextElement(
             content=venue.upper(),
-            x=type_x,
-            y=venue_y,
-            width=type_w,
+            x=TEXT_MARGIN_X_PCT,
+            y=venue_text_y,
+            width=MAX_TEXT_WIDTH_PCT,
             font_size=TYPE_LG,
             font_family=_DISPLAY_VENUE_FONT,
             font_weight=FontWeight.BLACK,
-            alignment=TextAlignment.LEFT,
+            alignment=TextAlignment.CENTER,
             all_caps=True,
-            color=ColorSpec(accent),
+            color=ColorSpec(paper),
             line_height=1.05,
         ),
         TextElement(
@@ -1851,7 +1830,7 @@ def _create_collage_showbill_pasteup(
             font_weight=FontWeight.BOLD,
             alignment=TextAlignment.LEFT,
             color=ColorSpec(ink),
-            letter_spacing=0.08,
+            letter_spacing=0.06,
         ),
         TextElement(
             content=day_line,
@@ -1863,15 +1842,15 @@ def _create_collage_showbill_pasteup(
             font_weight=FontWeight.BLACK,
             alignment=TextAlignment.LEFT,
             color=ColorSpec(ink),
-            line_height=0.95,
+            line_height=0.92,
         ),
         TextElement(
             content=time.upper() if time else "TBA",
             x=type_x,
             y=time_y,
             width=type_w,
-            font_size=TYPE_XL,
-            font_family=_DISPLAY_BAND_FONT,
+            font_size=TYPE_LG,
+            font_family=FONT_BODY_CONDENSED,
             font_weight=FontWeight.BLACK,
             alignment=TextAlignment.LEFT,
             color=ColorSpec(accent),
@@ -1881,32 +1860,34 @@ def _create_collage_showbill_pasteup(
             x=TEXT_MARGIN_X_PCT,
             y=band_text_y,
             width=MAX_TEXT_WIDTH_PCT,
-            font_size=TYPE_XXL,
+            font_size=TYPE_XL,
             font_family=_DISPLAY_BAND_FONT,
             font_weight=FontWeight.BLACK,
             alignment=TextAlignment.CENTER,
             all_caps=not house,
             color=ColorSpec(paper),
         ),
+        TextElement(
+            content=footer_line,
+            x=TEXT_MARGIN_X_PCT,
+            y=footer_text_y,
+            width=MAX_TEXT_WIDTH_PCT,
+            font_size=TYPE_XS,
+            font_family=FONT_BODY_CONDENSED,
+            font_weight=FontWeight.BOLD,
+            alignment=TextAlignment.CENTER,
+            color=ColorSpec(paper),
+        ),
     ]
-
-    sepia_tint = {
-        "blues_bar": "#3D5A80",
-        "country_bar": "#8B6914",
-    }.get(arch.venue_type, "#6B5344")
 
     layout = LayoutSpec(
         design_style=DesignStyle.COLLAGE,
-        style_notes="Creative showbill_pasteup — split-ink wash, diagonal date band, asymmetric paste-up",
+        style_notes="Creative showbill_pasteup — club broadside grid, venue bar, band slab, footer fill",
         background=BackgroundSpec(
             color=ColorSpec(paper),
-            texture="photocopy",
-            texture_strength=_rf(0.18, 0.28, rng),
-            grain_strength=arch.grain_strength + 0.01,
-            margin_grain_only=True,
-            wash_color=ColorSpec(wash),
-            wash_height_pct=_rf(22.0, 26.0, rng),
-            wash_bleed_pct=1.4,
+            texture="paper",
+            texture_strength=_rf(0.10, 0.16, rng),
+            grain_strength=min(arch.grain_strength, 0.012),
         ),
         photo_frame=PhotoFrame(
             x=photo_x,
@@ -1914,15 +1895,14 @@ def _create_collage_showbill_pasteup(
             width=photo_w,
             height=photo_h,
             placement=PhotoPlacement.RIGHT,
-            rotation=_rf(1.2, 2.0, rng),
-            film_grain=_rf(0.006, 0.010, rng),
+            rotation=_rf(-0.4, 0.6, rng),
+            film_grain=0.006,
             paper_texture=0.0,
-            border_width=7,
+            border_width=4,
             border_color=ColorSpec(paper),
-            brightness=1.02,
-            contrast=_rf(1.10, 1.18, rng),
-            saturation=_rf(0.72, 0.88, rng),
-            color_tint=ColorSpec(sepia_tint),
+            brightness=1.01,
+            contrast=_rf(1.04, 1.08, rng),
+            saturation=_rf(0.96, 1.0, rng),
             opacity=1.0,
         ),
         text_elements=text_els,
