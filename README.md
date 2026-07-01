@@ -52,7 +52,7 @@ FLY_CONFIG=fly.toml ./scripts/fly-deploy.sh
 
 ## Required secrets
 
-Set via `.env` (deploy script pushes to Fly):
+Set via `.env` (deploy script pushes to Fly for **both** `bandtools` and `bandtools-test`):
 
 - `SECRET` / `NEXT_PUBLIC_API_SECRET`
 - `OPENAI_API_KEY`
@@ -60,3 +60,8 @@ Set via `.env` (deploy script pushes to Fly):
 - `BRIDGE_SECRET` (defaults to `SECRET`)
 
 OAuth redirect URI is set automatically per app: `https://{app}.fly.dev/auth/google/callback`
+
+Add **both** redirect URIs in [Google Cloud Console](https://console.cloud.google.com/) → Credentials → your OAuth client:
+
+- `https://bandtools.fly.dev/auth/google/callback`
+- `https://bandtools-test.fly.dev/auth/google/callback`

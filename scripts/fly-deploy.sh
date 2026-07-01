@@ -47,8 +47,11 @@ if [[ -f "$ENV_FILE" ]]; then
     BAND_TOOLS_URL="https://${APP}.fly.dev"
 fi
 
+BUILD_SECRET="${NEXT_PUBLIC_API_SECRET:-${SECRET:-change-me}}"
+
 echo "Deploying..."
-fly deploy -a "$APP" -c "$CONFIG" --ha=false
+fly deploy -a "$APP" -c "$CONFIG" --ha=false \
+  --build-arg "NEXT_PUBLIC_API_SECRET=${BUILD_SECRET}"
 
 echo ""
 echo "Done: https://${APP}.fly.dev/"
@@ -57,5 +60,6 @@ echo "  /setlist-loader"
 echo "  /flyers/       Gig Flyers"
 echo "  /api/health    Setloader API health"
 echo ""
-echo "Add to Google OAuth authorized redirect URIs:"
-echo "  https://${APP}.fly.dev/auth/google/callback"
+echo "Add to Google OAuth authorized redirect URIs (if not already):"
+echo "  https://bandtools.fly.dev/auth/google/callback"
+echo "  https://bandtools-test.fly.dev/auth/google/callback"

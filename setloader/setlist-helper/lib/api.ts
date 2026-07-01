@@ -250,11 +250,15 @@ class ApiService {
       },
     });
 
+    const data = await response.json().catch(() => ({}));
+
     if (!response.ok) {
-      throw new Error(`Failed to login: ${response.status}`);
+      return {
+        ok: false,
+        error: data.detail || `HTTP ${response.status}`,
+      };
     }
 
-    const data = await response.json();
     return {
       ok: true,
       data,

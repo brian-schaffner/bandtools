@@ -64,35 +64,37 @@ export function GoogleAuth({ onAuthChange }: GoogleAuthProps) {
   const handleGoogleLogin = async () => {
     setError(null)
     try {
-      // First, try to get Google OAuth URL
       const response = await fetch(`${apiService.getBaseUrl()}/auth/google`, {
         method: 'GET',
         headers: getApiAuthHeaders(),
       })
-      
-      if (response.ok) {
-        const data = await response.json()
-        if (data.authorization_url) {
-          window.location.href = data.authorization_url
-          return
-        }
+
+      const data = await response.json().catch(() => ({}))
+
+      if (response.ok && data.authorization_url) {
+        window.location.href = data.authorization_url
+        return
       }
-      
-      // Fallback to development login if Google OAuth is not configured
+
+      if (response.status === 503 && data.configured === false) {
+        // Server has no Google OAuth credentials — use dev fallback below.
+        console.warn('Google OAuth not configured on server, using development login')
+      } else if (!response.ok) {
+        setError(data.detail || `Google sign-in unavailable (HTTP ${response.status})`)
+        return
+      }
+
       const loginResponse = await apiService.login()
       if (loginResponse.ok && loginResponse.data) {
         const { user_id, session_token, user_email, user_name } = loginResponse.data
-        
-        // Store session token for future requests
+
         if (session_token) {
           localStorage.setItem('session_token', session_token)
         }
-        
-        // Re-check authentication status
+
         const authResponse = await apiService.getUserStatus()
         if (authResponse.ok && authResponse.data?.authenticated) {
-          setIsAuthenticated(true)
-          setUser({
+          const loggedInUser: UserInfo = {
             user_id: authResponse.data.user_id || user_id,
             google_id: authResponse.data.user_id || user_id,
             email: authResponse.data.user_email || user_email,
@@ -100,15 +102,17 @@ export function GoogleAuth({ onAuthChange }: GoogleAuthProps) {
             picture: '',
             created_at: authResponse.data.session_created || new Date().toISOString(),
             last_login: new Date().toISOString()
-          })
-          if (onAuthChange) {
-            onAuthChange(true, user)
           }
+          setIsAuthenticated(true)
+          setUser(loggedInUser)
+          onAuthChange?.(true, loggedInUser)
         }
+      } else {
+        setError('Sign-in failed. If using Google OAuth, ensure the redirect URI is registered in Google Cloud Console.')
       }
     } catch (error) {
       console.error('Login failed:', error)
-      setError('Login failed')
+      setError(error instanceof Error ? error.message : 'Login failed')
     }
   }
 

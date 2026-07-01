@@ -175,29 +175,33 @@ async def auth_google_callback(code: str, state: str = None):
 @app.post("/auth/login")
 async def auth_login(request: Request):
     """Login endpoint that creates a session (fallback for development)."""
-    # For development, use hardcoded user if Google OAuth is not configured
     try:
-        from oauth_config import validate_config
-        if not validate_config():
-            # Fallback to hardcoded user for development
-            user = db.get_user_by_email("brian@schaffner.net")
-            if not user:
-                user = db.create_user(
-                    email="brian@schaffner.net",
-                    name="Brian Schaffner"
-                )
-            
-            # Create session
-            session_token = create_session_token()
-            session = db.create_session(user['id'], session_token)
-            
-            return {
-                "message": "Login successful (development mode)",
-                "user_id": user['id'],
-                "session_token": session_token,
-                "user_email": user['email'],
-                "user_name": user['name']
-            }
+        from oauth_config import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+        if GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET:
+            raise HTTPException(
+                status_code=400,
+                detail="Google OAuth is configured. Use /auth/google to sign in.",
+            )
+
+        user = db.get_user_by_email("brian@schaffner.net")
+        if not user:
+            user = db.create_user(
+                email="brian@schaffner.net",
+                name="Brian Schaffner"
+            )
+
+        session_token = create_session_token()
+        db.create_session(user['id'], session_token)
+
+        return {
+            "message": "Login successful (development mode)",
+            "user_id": user['id'],
+            "session_token": session_token,
+            "user_email": user['email'],
+            "user_name": user['name']
+        }
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"Development login error: {e}")
         raise HTTPException(status_code=500, detail="Login failed")

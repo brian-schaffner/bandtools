@@ -6,7 +6,9 @@ COPY setloader/setlist-helper/package.json setloader/setlist-helper/package-lock
 RUN npm ci
 
 COPY setloader/setlist-helper/ ./
+ARG NEXT_PUBLIC_API_SECRET=change-me
 ENV NEXT_PUBLIC_API_URL=/api
+ENV NEXT_PUBLIC_API_SECRET=${NEXT_PUBLIC_API_SECRET}
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
@@ -42,9 +44,9 @@ RUN python3 -m venv /opt/flyers-venv \
 COPY setloader/ ./setloader/
 COPY gig-flyers/ ./gig-flyers/
 
-# Next.js standalone output
+# Next.js standalone output (static assets must live under standalone/.next/static)
 COPY --from=frontend-build /app/setloader/setlist-helper/.next/standalone ./setlist-helper/.next/standalone/
-COPY --from=frontend-build /app/setloader/setlist-helper/.next/static ./setlist-helper/.next/static/
+COPY --from=frontend-build /app/setloader/setlist-helper/.next/static ./setlist-helper/.next/standalone/.next/static/
 COPY --from=frontend-build /app/setloader/setlist-helper/public ./setlist-helper/.next/standalone/public/
 
 COPY nginx.conf /app/nginx.conf
