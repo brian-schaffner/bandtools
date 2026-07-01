@@ -14,7 +14,6 @@ CANVAS = (1024, 1536)
 
 FONT_DISPLAY = (
     ASSET_FONTS / "BebasNeue-Regular.ttf",
-    "/usr/share/fonts/truetype/oswald/Oswald-Bold.ttf",
     "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
     "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
 )
