@@ -21,6 +21,8 @@ echo "Smoke testing ${BASE}"
 check /health 200
 check /api/health 200
 check /flyers/health 200
+check /flyers 301
+check /flyers/ 200
 check /flyers/pick 200
 check / 200
 check /setlist-loader 200
