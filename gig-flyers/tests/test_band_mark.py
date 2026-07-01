@@ -17,6 +17,11 @@ class BandMarkTest(unittest.TestCase):
     def test_find_band_logo_missing(self) -> None:
         self.assertIsNone(find_band_logo("Nonexistent Band Name"))
 
+    def test_find_lindsey_lane_logo(self) -> None:
+        path = find_band_logo("Lindsey Lane Band", paper=(240, 235, 225))
+        self.assertIsNotNone(path)
+        self.assertTrue(path.name.endswith(".png"))
+
 
 if __name__ == "__main__":
     unittest.main()

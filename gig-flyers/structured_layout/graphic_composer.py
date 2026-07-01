@@ -262,10 +262,9 @@ def _finish_creative(
     time: str,
     band: str = "",
     grain_strength: float = 0.08,
+    skip_logo: bool = False,
 ) -> Image.Image:
-    _apply_primary_accent(img, recipe, date=date, time=time)
-    _apply_creative_layers(img, recipe)
-    if band.strip():
+    if band.strip() and not skip_logo and recipe.archetype != "xerox_punk":
         from structured_layout.band_mark import draw_band_mark
 
         pal = recipe.palette
@@ -278,12 +277,21 @@ def _finish_creative(
             paper=pal.paper,
             seed=recipe.seed,
         )
+    _apply_primary_accent(img, recipe, date=date, time=time)
+    _apply_creative_layers(img, recipe)
     return grain(img, grain_strength, seed=recipe.seed)
 
 
 def _render_xerox_punk(facts: dict, photo: Path, recipe: GraphicRecipe) -> Image.Image:
     pal = recipe.palette
     img = Image.new("RGBA", CANVAS, (*pal.paper, 255))
+    if facts.get("band", "").strip():
+        from structured_layout.band_mark import draw_band_mark
+
+        draw_band_mark(
+            img, facts["band"], style="xerox_punk",
+            ink=pal.ink, accent=pal.accent, paper=pal.paper, seed=recipe.seed,
+        )
     ht = halftone_dots(CANVAS, bg=pal.paper, dot=pal.ink, spacing=18, seed=recipe.seed)
     img = Image.alpha_composite(img, ht)
     draw = ImageDraw.Draw(img)
@@ -311,7 +319,10 @@ def _render_xerox_punk(facts: dict, photo: Path, recipe: GraphicRecipe) -> Image
     draw_stroked_text_layer(
         img, (48, 1360), facts["address"], load_font(24, "body"), (*pal.footer_fg, 200),
     )
-    return _finish_creative(img, recipe, date=facts["date"], time=facts["time"], band=facts["band"], grain_strength=0.1)
+    return _finish_creative(
+        img, recipe, date=facts["date"], time=facts["time"], band=facts["band"],
+        grain_strength=0.1, skip_logo=True,
+    )
 
 
 def _render_duotone(facts: dict, photo: Path, recipe: GraphicRecipe) -> Image.Image:

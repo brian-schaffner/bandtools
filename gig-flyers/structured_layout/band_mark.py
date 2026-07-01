@@ -1,11 +1,11 @@
-"""Band logo / name mark for Option C — asset file or procedural lockup."""
+"""Band logo / name mark — asset files + archetype-aware placement."""
 
 from __future__ import annotations
 
 import re
 from pathlib import Path
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter
 
 from structured_layout.graphic_primitives import (
     CANVAS,
@@ -22,14 +22,25 @@ def band_slug(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", name.strip().lower()).strip("-")
 
 
-def find_band_logo(band: str) -> Path | None:
-    """Return bundled logo PNG/WebP if present under assets/logos/."""
+def _luminance(rgb: tuple[int, int, int]) -> float:
+    r, g, b = rgb
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def find_band_logo(band: str, *, paper: tuple[int, int, int] | None = None) -> Path | None:
+    """Return logo PNG for band — light or dark variant matched to background."""
     slug = band_slug(band)
-    for stem in (slug, slug.replace("-band", "")):
-        for ext in (".png", ".webp", ".jpg"):
-            path = LOGO_DIR / f"{stem}{ext}"
+    if paper is not None and _luminance(paper) < 128:
+        for name in (f"{slug}-light.png", f"{slug}-light.webp", "lindsey-lane-band-light.png"):
+            path = LOGO_DIR / name
             if path.is_file():
                 return path
+    for stem in (slug, slug.replace("-band", "")):
+        for suffix in ("", "-dark"):
+            for ext in (".png", ".webp"):
+                path = LOGO_DIR / f"{stem}{suffix}{ext}"
+                if path.is_file():
+                    return path
     return None
 
 
@@ -37,16 +48,6 @@ def band_initials(band: str) -> str:
     skip = {"the", "band", "at", "featuring", "feat", "presents"}
     words = [w for w in re.split(r"\s+", band.strip()) if w.lower() not in skip]
     return "".join(w[0].upper() for w in words[:3]) or "?"
-
-
-def _split_band_name(band: str) -> tuple[str, str]:
-    """'Lindsey Lane Band' → ('LINDSEY LANE', 'BAND')."""
-    words = band.strip().split()
-    if len(words) >= 3 and words[-1].lower() == "band":
-        return " ".join(words[:-1]).upper(), words[-1].upper()
-    if len(words) >= 2:
-        return " ".join(words[:-1]).upper(), words[-1].upper()
-    return band.upper(), ""
 
 
 def draw_band_mark(
@@ -59,30 +60,120 @@ def draw_band_mark(
     paper: tuple[int, int, int],
     seed: int = 0,
 ) -> None:
-    """Graphical band identity — logo file or procedural lockup."""
-    logo = find_band_logo(band)
+    """Place real logo asset or procedural fallback."""
+    logo = find_band_logo(band, paper=paper)
     if logo is not None:
-        _paste_logo_mark(canvas, logo, style=style, seed=seed)
+        _paste_logo_mark(canvas, logo, style=style, seed=seed, paper=paper, accent=accent)
         return
-    if style in ("monogram", "xerox_punk", "pasteup_zine"):
-        _draw_monogram(canvas, band, ink=ink, accent=accent, paper=paper)
-    elif style in ("neon_bar", "psychedelic"):
-        _draw_neon_lockup(canvas, band, accent=accent, ink=ink)
-    elif style in ("boutique", "country_fair", "broadside"):
-        _draw_serif_lockup(canvas, band, ink=ink, accent=accent)
-    else:
-        _draw_display_lockup(canvas, band, ink=ink, accent=accent, paper=paper)
+    _draw_monogram(canvas, band, ink=ink, accent=accent, paper=paper)
 
 
-def _paste_logo_mark(canvas: Image.Image, logo_path: Path, *, style: str, seed: int) -> None:
-    logo = Image.open(logo_path).convert("RGBA")
-    max_w = 280 if style == "neon_bar" else 220
-    ratio = min(max_w / logo.width, 120 / logo.height)
+def _load_logo_rgba(path: Path) -> Image.Image:
+    return Image.open(path).convert("RGBA")
+
+
+def _tint_logo(logo: Image.Image, color: tuple[int, int, int]) -> Image.Image:
+    """Recolor opaque logo pixels (keeps alpha)."""
+    gray = logo.convert("L")
+    tinted = Image.new("RGBA", logo.size, (*color, 255))
+    tinted.putalpha(logo.split()[3])
+    return tinted
+
+
+def _placement(style: str, seed: int, nw: int, nh: int, paper: tuple[int, int, int]) -> tuple[int, int, float, float]:
+    """Return x, y, scale, opacity for archetype."""
+    dark_field = _luminance(paper) < 100
+    placements: dict[str, tuple[float, float, float, float]] = {
+        "xerox_punk": (0.06, 0.04, 0.42, 0.92),
+        "duotone_modern": (0.52, 0.03, 0.48, 1.0),
+        "psychedelic": (0.28, 0.02, 0.44, 0.88),
+        "boutique": (0.22, 0.05, 0.38, 0.95),
+        "neon_bar": (0.08, 0.05, 0.52, 1.0),
+        "pasteup_zine": (0.05, 0.06, 0.40, 0.90),
+        "broadside": (0.06, 0.52, 0.36, 0.95),
+        "country_fair": (0.30, 0.12, 0.40, 1.0),
+    }
+    px, py, scale, opacity = placements.get(style, (0.06, 0.04, 0.40, 0.95))
+    if seed % 3 == 0 and style not in ("broadside", "neon_bar"):
+        px = 1.0 - px - (nw * scale / CANVAS[0])
+    return int(CANVAS[0] * px), int(CANVAS[1] * py), scale, opacity
+
+
+def _paste_logo_mark(
+    canvas: Image.Image,
+    logo_path: Path,
+    *,
+    style: str,
+    seed: int,
+    paper: tuple[int, int, int],
+    accent: tuple[int, int, int],
+) -> None:
+    logo = _load_logo_rgba(logo_path)
+    max_w = 420 if style in ("neon_bar", "broadside", "country_fair") else 340
+    ratio = min(max_w / logo.width, 130 / logo.height)
     nw, nh = max(1, int(logo.width * ratio)), max(1, int(logo.height * ratio))
     logo = logo.resize((nw, nh), Image.Resampling.LANCZOS)
-    x = CANVAS[0] - nw - 48 if seed % 2 else 48
-    y = 36 if style != "broadside" else CANVAS[1] - nh - 160
+
+    if style == "xerox_punk":
+        logo = _to_grayscale_logo(logo)
+    elif style == "neon_bar":
+        logo = _tint_logo(logo, accent)
+        glow = logo.filter(ImageFilter.GaussianBlur(radius=3))
+        logo = Image.alpha_composite(glow, logo)
+    elif style == "duotone_modern" and _luminance(paper) > 128:
+        logo = _tint_logo(logo, (15, 15, 15))
+
+    x, y, scale, opacity = _placement(style, seed, nw, nh, paper)
+    if scale != 1.0:
+        nw2, nh2 = int(nw * scale), int(nh * scale)
+        logo = logo.resize((nw2, nh2), Image.Resampling.LANCZOS)
+        nw, nh = nw2, nh2
+
+    if style == "xerox_punk":
+        # Watermark behind content — large, centered upper
+        nw, nh = int(nw * 1.15), int(nh * 1.15)
+        logo = logo.resize((nw, nh), Image.Resampling.LANCZOS)
+        x = (CANVAS[0] - nw) // 2
+        y = 200
+        opacity = 0.18
+
+    if opacity < 1.0:
+        r, g, b, a = logo.split()
+        a = a.point(lambda v: int(v * opacity))
+        logo = Image.merge("RGBA", (r, g, b, a))
+
+    if style == "pasteup_zine":
+        logo = logo.rotate(-4, expand=True, resample=Image.Resampling.BICUBIC)
+
     canvas.alpha_composite(logo, (x, y))
+
+
+def _to_grayscale_logo(logo: Image.Image) -> Image.Image:
+    gray = ImageEnhance.Contrast(logo.convert("L")).enhance(1.4)
+    return Image.merge("RGBA", (gray, gray, gray, logo.split()[3]))
+
+
+def draw_band_logo_badge(
+    canvas: Image.Image,
+    band: str,
+    *,
+    box: tuple[int, int, int, int],
+    paper: tuple[int, int, int],
+) -> bool:
+    """Option B — compact logo in a layout region. Returns True if placed."""
+    logo_path = find_band_logo(band, paper=paper)
+    if logo_path is None:
+        return False
+    x1, y1, x2, y2 = box
+    bw, bh = x2 - x1, y2 - y1
+    logo = _load_logo_rgba(logo_path)
+    ratio = min(bw / logo.width, bh / logo.height)
+    nw, nh = max(1, int(logo.width * ratio)), max(1, int(logo.height * ratio))
+    logo = logo.resize((nw, nh), Image.Resampling.LANCZOS)
+    ox = x1 + (bw - nw) // 2
+    oy = y1 + (bh - nh) // 2
+    canvas.alpha_composite(logo, (ox, oy))
+    return True
 
 
 def _draw_monogram(
@@ -99,77 +190,8 @@ def _draw_monogram(
     draw = ImageDraw.Draw(layer)
     draw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(*paper, 240), outline=(*ink, 255), width=4)
     font = load_font(52, "display")
-    iw, ih = text_size(initials, font)
     draw_stroked_text_layer(
         layer, (cx, cy), initials, font, (*ink, 255),
         stroke=(*accent, 255), stroke_width=2, anchor="mm",
     )
     canvas.alpha_composite(layer)
-
-
-def _draw_neon_lockup(
-    canvas: Image.Image,
-    band: str,
-    *,
-    accent: tuple[int, int, int],
-    ink: tuple[int, int, int],
-) -> None:
-    line1, line2 = _split_band_name(band)
-    font = load_font(36, "display")
-    y = 1180
-    draw_stroked_text_layer(
-        canvas, (48, y), line1, font, (*accent, 255),
-        stroke=(255, 255, 255, 60), stroke_width=2,
-    )
-    if line2:
-        draw_stroked_text_layer(
-            canvas, (48, y + 44), line2, load_font(28, "display"), (*accent, 200),
-            stroke=(0, 0, 0, 180), stroke_width=2,
-        )
-
-
-def _draw_serif_lockup(
-    canvas: Image.Image,
-    band: str,
-    *,
-    ink: tuple[int, int, int],
-    accent: tuple[int, int, int],
-) -> None:
-    line1, line2 = _split_band_name(band)
-    font = load_font(42, "serif")
-    cx = CANVAS[0] - 160
-    cy = 150
-    draw_stroked_text_layer(canvas, (cx, cy), line1, font, (*ink, 255), anchor="mm")
-    if line2:
-        draw_stroked_text_layer(
-            canvas, (cx, cy + 38), line2, load_font(22, "typewriter"), (*accent, 255), anchor="mm",
-        )
-
-
-def _draw_display_lockup(
-    canvas: Image.Image,
-    band: str,
-    *,
-    ink: tuple[int, int, int],
-    accent: tuple[int, int, int],
-    paper: tuple[int, int, int] = (255, 255, 255),
-) -> None:
-    words = band.upper().split()
-    if len(words) <= 2:
-        text = band.upper()
-        font = load_font(48, "display")
-        draw_stroked_text_layer(
-            canvas, (CANVAS[0] - 48, 120), text, font, (*accent, 255),
-            stroke=(*ink, 255), stroke_width=2, anchor="rm",
-        )
-        return
-    line1 = " ".join(words[:-1])
-    line2 = words[-1]
-    draw_stroked_text_layer(
-        canvas, (CANVAS[0] - 48, 100), line1, load_font(40, "display"), (*ink, 255),
-        stroke=(*paper, 255), stroke_width=1, anchor="rm",
-    )
-    draw_stroked_text_layer(
-        canvas, (CANVAS[0] - 48, 148), line2, load_font(56, "display"), (*accent, 255),
-        stroke=(*ink, 255), stroke_width=3, anchor="rm",
-    )

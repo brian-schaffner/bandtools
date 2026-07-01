@@ -1,13 +1,21 @@
-# Band logos (Option C)
+# Band logos (Option C + optional B)
 
-Drop a transparent PNG or WebP here to use the real band logo as a compositional
-element. Filename should match the band slug:
+Official Lindsey Lane Band nested-L lockup. Replace these PNGs with your
+master files (transparent background recommended):
 
-- `lindsey-lane-band.png` — Lindsey Lane Band
-- `{band-name-slug}.png` — other acts
+| File | Use |
+|------|-----|
+| `lindsey-lane-band-dark.png` | Dark ink on transparent — light/paper flyers |
+| `lindsey-lane-band-light.png` | Light ink on transparent — dark/neon flyers |
+| `lindsey-lane-band-on-black.png` | White lockup on black rectangle |
+| `lindsey-lane-band-on-white.png` | Black lockup on white rectangle |
 
-If no file is present, Option C falls back to a **procedural band mark**
-(monogram circle, display-type lockup, or neon sign treatment) derived from the
-band name in `structured_layout/band_mark.py`.
+`find_band_logo()` picks light vs dark automatically from flyer background.
 
-Supported formats: PNG (preferred), WebP, JPG.
+Regenerate approximations from the lockup script:
+
+```bash
+python3 scripts/render_band_logo_assets.py
+```
+
+Other bands: add `{band-slug}-dark.png` and `{band-slug}-light.png`.
