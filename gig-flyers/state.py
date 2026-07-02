@@ -10,9 +10,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
+from output_paths import get_output_dir, output_relative
+
 ROOT = Path(__file__).resolve().parent
 STATE_PATH = ROOT / "state.json"
-APPROVED_DIR = ROOT / "output" / "approved"
 _state_lock = threading.Lock()
 
 
@@ -107,10 +108,16 @@ def append_feedback(gig_id: str, action: str, option: str, feedback: str, raw_te
 
 
 def mark_approved(gig_id: str, option: str, source_path: Path) -> Path:
-    APPROVED_DIR.mkdir(parents=True, exist_ok=True)
-    dest = APPROVED_DIR / f"{gig_id}_{option}.png"
+    approved_dir = get_output_dir() / "approved"
+    approved_dir.mkdir(parents=True, exist_ok=True)
+    dest = approved_dir / f"{gig_id}_{option}.png"
     shutil.copy2(source_path, dest)
-    upsert_gig(gig_id, status="approved", approved_option=option, approved_path=str(dest))
+    upsert_gig(
+        gig_id,
+        status="approved",
+        approved_option=option,
+        approved_path=output_relative(dest),
+    )
     return dest
 
 
