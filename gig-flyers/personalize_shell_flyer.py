@@ -15,7 +15,12 @@ from PIL import Image, ImageDraw, ImageFont
 
 from gig_calendar import GigEvent
 from output_paths import get_output_dir, output_relative
-from shell_asset_integrate import compose_integrated_assets, integration_summary
+from shell_asset_integrate import (
+    ShellPass2Compose,
+    compose_integrated_assets,
+    enforce_shell_photo,
+    integration_summary,
+)
 from shell_references import ShellReference, get_shell
 from structured_layout.band_mark import find_band_logo
 
@@ -79,7 +84,7 @@ def build_personalize_prompt(
         "The canvas contains:\n"
         "  • PASS 1 DESIGN SHELL as the full background — preserve its art, palette, "
         "and layout quality\n"
-        "  • BAND PHOTO pre-composited with poster-matched duotone, feathered edges, "
+        "  • BAND PHOTO pre-composited with a subtle poster-matched grade, feathered edges, "
         "and a mat/frame — LOCKED (do not redraw faces or add a white box)\n"
         "  • BAND LOGO on a tinted badge matching the shell palette — LOCKED\n\n"
         "Your job:\n"
@@ -103,8 +108,8 @@ def build_personalize_canvas(
     *,
     shell: ShellReference | None = None,
     size: tuple[int, int] = (1024, 1536),
-) -> tuple[Path, Path, tuple[int, int, int, int], tuple[int, int, int, int]]:
-    """Paste shell + styled photo/logo; return canvas, mask, bboxes."""
+) -> tuple[Path, Path, tuple[int, int, int, int], tuple[int, int, int, int], ShellPass2Compose | None]:
+    """Paste shell + styled photo/logo; return canvas, mask, bboxes, compose context."""
     w, h = size
     shell_img = Image.open(shell_image_path).convert("RGB")
     shell_fit = _fit(shell_img, w, h)
@@ -150,7 +155,15 @@ def build_personalize_canvas(
         )
     mask_path = out_dir / "pass2_mask.png"
     mask.save(mask_path, format="PNG")
-    return canvas_path, mask_path, photo_bbox, logo_bbox
+
+    compose: ShellPass2Compose | None = None
+    if shell is not None:
+        compose = ShellPass2Compose(
+            photo_bbox=photo_bbox,
+            photo_layer=photo_layer.copy(),
+            canvas_size=size,
+        )
+    return canvas_path, mask_path, photo_bbox, logo_bbox, compose
 
 
 def personalize_shell_openai(
@@ -173,7 +186,7 @@ def personalize_shell_openai(
     quality = os.getenv("OPENAI_IMAGE_QUALITY", "high")
 
     with tempfile.TemporaryDirectory(prefix="shell-pass2-") as tmp:
-        canvas_path, mask_path, _, _ = build_personalize_canvas(
+        canvas_path, mask_path, _, _, compose = build_personalize_canvas(
             shell_image_path, photo_path, logo_path, Path(tmp), shell=shell,
         )
         with canvas_path.open("rb") as image_f, mask_path.open("rb") as mask_f:
@@ -196,6 +209,8 @@ def personalize_shell_openai(
                 output_path.write_bytes(resp.read())
         else:
             raise RuntimeError("OpenAI returned no image data")
+        if compose is not None:
+            enforce_shell_photo(output_path, compose)
     return output_path
 
 
@@ -233,7 +248,7 @@ def personalize_design_shell(
     )
 
     # Save pass-2 canvas preview for eval
-    c_path, _, _, _ = build_personalize_canvas(
+    c_path, _, _, _, _ = build_personalize_canvas(
         shell_image_path, photo, logo, output_dir / f".{stem}_work", shell=shell,
     )
     canvas_preview.write_bytes(c_path.read_bytes())

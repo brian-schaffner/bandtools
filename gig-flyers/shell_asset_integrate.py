@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter
@@ -9,6 +11,29 @@ from PIL import Image, ImageDraw, ImageEnhance, ImageFilter
 from shell_references import ShellReference
 from structured_layout.band_mark import _luminance, _tint_logo
 from structured_layout.graphic_primitives import duotone_photo
+
+CANVAS_BACKGROUND = (242, 235, 220)
+
+# Partial duotone keeps faces readable while still matching the shell palette.
+_DUOTONE_STRENGTH: dict[str, float] = {
+    "letterpress_handbill": 0.28,
+    "type_only": 0.28,
+    "xerox": 0.38,
+    "psychedelic_illustrative": 0.48,
+    "folk_illustrative": 0.48,
+    "mixed_indie": 0.50,
+}
+_DEFAULT_DUOTONE_STRENGTH = 0.52
+
+
+@dataclass
+class ShellPass2Compose:
+    """Photo layer + placement for post-OpenAI fidelity restore."""
+
+    photo_bbox: tuple[int, int, int, int]
+    photo_layer: Image.Image
+    canvas_size: tuple[int, int]
+    canvas_rgb: tuple[int, int, int] = CANVAS_BACKGROUND
 
 
 def _hex_rgb(value: str) -> tuple[int, int, int]:
@@ -56,11 +81,29 @@ def _sample_zone_mean(img: Image.Image, box: tuple[int, int, int, int]) -> tuple
     return (r, g, b)
 
 
+def blend_duotone_photo(
+    photo: Image.Image,
+    *,
+    shadow: tuple[int, int, int],
+    highlight: tuple[int, int, int],
+    strength: float,
+) -> Image.Image:
+    """Mix original photo with duotone so facial detail survives grading."""
+    layer = photo.convert("RGBA")
+    strength = max(0.0, min(1.0, strength))
+    if strength <= 0.01:
+        return layer
+    toned = duotone_photo(layer, shadow=shadow, highlight=highlight)
+    if strength >= 0.99:
+        return toned
+    return Image.blend(layer, toned, strength)
+
+
 def knockout_studio_background(
     photo: Image.Image,
     *,
     target: tuple[int, int, int],
-    threshold: int = 225,
+    threshold: int = 238,
 ) -> Image.Image:
     """Replace near-white studio backdrop with transparency + target tint."""
     layer = photo.convert("RGBA")
@@ -71,12 +114,12 @@ def knockout_studio_background(
             r, g, b, a = pixels[x, y]
             if a < 16:
                 continue
-            if min(r, g, b) > threshold and max(r, g, b) - min(r, g, b) < 20:
+            if min(r, g, b) > threshold and max(r, g, b) - min(r, g, b) < 28:
                 t = min(1.0, (min(r, g, b) - threshold) / max(1, 255 - threshold))
                 nr = int(r * (1 - t) + target[0] * t)
                 ng = int(g * (1 - t) + target[1] * t)
                 nb = int(b * (1 - t) + target[2] * t)
-                na = int(a * (1 - t * 0.95))
+                na = int(a * (1 - t * 0.65))
                 pixels[x, y] = (nr, ng, nb, na)
     return layer
 
@@ -121,26 +164,30 @@ def add_photo_mat(
     return framed
 
 
+def _duotone_strength(style: str) -> float:
+    return _DUOTONE_STRENGTH.get(style, _DEFAULT_DUOTONE_STRENGTH)
+
+
 def integrate_band_photo(
     photo: Image.Image,
     shell: ShellReference,
     *,
     backdrop: tuple[int, int, int],
 ) -> Image.Image:
-    """Grade, knock out studio white, duotone, feather — ready to paste on shell."""
+    """Grade, knock out studio white, light duotone blend, feather — ready to paste on shell."""
     roles = _pick_roles(shell_palette_rgb(shell))
     shadow, highlight = roles["shadow"], roles["highlight"]
     style = shell.style
 
-    layer = knockout_studio_background(photo, target=backdrop, threshold=222)
-    layer = ImageEnhance.Contrast(layer).enhance(1.12)
-    layer = ImageEnhance.Color(layer).enhance(0.85 if style in {"letterpress_handbill", "type_only"} else 0.95)
-
-    if style in {"letterpress_handbill", "type_only", "xerox"}:
-        gray = layer.convert("L")
-        layer = Image.merge("RGBA", (gray, gray, gray, layer.split()[3]))
-    else:
-        layer = duotone_photo(layer, shadow=shadow, highlight=highlight)
+    layer = knockout_studio_background(photo, target=backdrop)
+    layer = ImageEnhance.Contrast(layer).enhance(1.04)
+    layer = ImageEnhance.Color(layer).enhance(0.94 if style in {"letterpress_handbill", "type_only", "xerox"} else 0.97)
+    layer = blend_duotone_photo(
+        layer,
+        shadow=shadow,
+        highlight=highlight,
+        strength=_duotone_strength(style),
+    )
 
     if style in {"psychedelic_illustrative", "folk_illustrative", "mixed_indie"}:
         mask = _oval_mask(layer.size)
@@ -149,7 +196,7 @@ def integrate_band_photo(
         layer = Image.merge("RGBA", (r, g, b, a))
         mat_style = "oval"
     else:
-        layer = soften_photo_edges(layer, radius=8)
+        layer = soften_photo_edges(layer, radius=6)
         mat_style = "rounded"
 
     return add_photo_mat(layer, accent=roles["accent"], paper=roles["paper"], style=mat_style)
@@ -201,8 +248,8 @@ def _load_logo_from_image(logo: Image.Image) -> Image.Image:
 
 def placement_zones(canvas_size: tuple[int, int]) -> dict[str, tuple[int, int, int, int]]:
     w, h = canvas_size
-    photo_w, photo_h = int(w * 0.36), int(h * 0.22)
-    px, py = int(w * 0.06), int(h * 0.64)
+    photo_w, photo_h = int(w * 0.42), int(h * 0.26)
+    px, py = int(w * 0.05), int(h * 0.60)
     photo_box = (px, py, px + photo_w, py + photo_h)
     logo_w, logo_h = int(w * 0.38), int(h * 0.11)
     lx = w - logo_w - int(w * 0.06)
@@ -251,5 +298,23 @@ def integration_summary(shell: ShellReference) -> dict[str, Any]:
     return {
         "style": shell.style,
         "design_family": shell.design_family,
+        "duotone_strength": _duotone_strength(shell.style),
         "roles": {k: "#{:02x}{:02x}{:02x}".format(*v) for k, v in roles.items()},
     }
+
+
+def enforce_shell_photo(output_path: Path, compose: ShellPass2Compose) -> bool:
+    """Restore the pre-integrated photo layer after OpenAI pass 2."""
+    if not output_path.is_file():
+        return False
+
+    model = Image.open(output_path).convert("RGBA")
+    orig_w, orig_h = compose.canvas_size
+    if model.size != (orig_w, orig_h):
+        model = model.resize((orig_w, orig_h), Image.Resampling.LANCZOS)
+
+    left, top, _, _ = compose.photo_bbox
+    result = model.copy()
+    result.alpha_composite(compose.photo_layer, (left, top))
+    result.convert("RGB").save(output_path, format="PNG")
+    return True

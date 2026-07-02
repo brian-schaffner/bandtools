@@ -204,7 +204,7 @@ def run_shell_pipeline(
             progress=48,
             log=True,
         )
-        c_path, _, _, _ = build_personalize_canvas(
+        c_path, _, _, _, _ = build_personalize_canvas(
             shell_path, photo, logo, output_dir / f".{pass_stem}_work", shell=shell,
         )
         canvas_preview.write_bytes(c_path.read_bytes())
