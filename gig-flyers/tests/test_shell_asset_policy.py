@@ -61,6 +61,11 @@ class ShellAssetPolicyTest(unittest.TestCase):
         assert shell is not None
         self.assertEqual(asset_mode_for_route(shell, "photo_logo"), "photo_inset")
 
+    def test_hendrix_suggest_photo_logo(self) -> None:
+        shell = get_shell("hendrix_sicks_stadium_1970")
+        assert shell is not None
+        self.assertEqual(suggest_final_route(shell), "photo_logo")
+
     def test_final_route_label(self) -> None:
         self.assertIn("text-only", final_route_label("text_only").lower())
 

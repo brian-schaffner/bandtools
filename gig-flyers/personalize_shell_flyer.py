@@ -39,6 +39,8 @@ from shell_pass2_mask import build_personalize_mask, build_slot_mask, enforce_sh
 from shell_model_policy import ShellModelChoice, ShellStep, model_choice_for_step, select_model_for_step
 from shell_openai_edit import shell_images_edit
 from shell_references import PLACEHOLDER_LABELS, ShellReference, get_shell
+from shell_deterministic_text import apply_deterministic_text
+from shell_render_registry import get_render_spec
 from shell_text_slots import placeholder_values, slot_prompt, typography_text_zones
 from structured_layout.band_mark import find_band_logo
 from text_validation import footer_prompt_lines, typography_hierarchy_prompt_lines
@@ -129,6 +131,7 @@ def build_personalize_prompt(
 ) -> str:
     slot = photo_slot_for_shell(shell)
     mode = asset_mode or asset_mode_for_shell(shell)
+    spec = get_render_spec(shell) if shell is not None else None
     slot_desc = photo_slot_label(slot)
     mode_desc = asset_mode_label(mode)
     typo_lines: list[str] = []
@@ -144,6 +147,13 @@ def build_personalize_prompt(
             f"  • Replace HEADLINER with the band name \"{band}\" rendered in the SAME "
             "hand-lettered / psychedelic / wood-type style as the shell — the band name IS the visual hero\n"
             "  • Do not add a separate logo badge — the typography carries the band identity\n\n"
+        )
+    elif spec is not None and spec.photo_style == "hero_illustration":
+        asset_block = (
+            f"RENDER SPEC: hero illustration (printed artwork, not a photo frame)\n"
+            "  • Band artwork is pre-composited as high-contrast printed illustration — LOCKED\n"
+            "  • Do NOT add borders, mats, drop shadows, or a second band image\n"
+            "  • Change ONLY placeholder text in the editable bands\n\n"
         )
     else:
         asset_block = (
@@ -202,6 +212,7 @@ def build_personalize_canvas(
     raw_photo = Image.open(photo_path)
     raw_logo = Image.open(logo_path)
     mode = asset_mode or (asset_mode_for_shell(shell) if shell is not None else "photo_inset")
+    spec = get_render_spec(shell) if shell is not None else None
     empty_layer = Image.new("RGBA", (1, 1), (0, 0, 0, 0))
     photo_layer = empty_layer
     logo_layer = empty_layer
@@ -219,7 +230,7 @@ def build_personalize_canvas(
         photo_layer, logo_layer, (px, py), (lx, ly) = compose_integrated_assets(
             shell_rgba, raw_photo, raw_logo, shell, size,
         )
-    elif shell is not None and uses_band_logo(mode):
+    elif shell is not None and spec is not None and spec.uses_band_logo():
         zones = placement_zones(size, shell)
         logo_zone = zones["logo"]
         logo_backdrop = _sample_zone_mean(shell_rgba, logo_zone)
@@ -251,7 +262,7 @@ def build_personalize_canvas(
         )
         canvas_rgba.alpha_composite(photo_layer, (px, py))
         canvas_rgba.alpha_composite(logo_layer, (lx, ly))
-    if shell is not None and uses_band_logo(mode):
+    if shell is not None and spec is not None and spec.uses_band_logo():
         canvas_rgba.alpha_composite(logo_layer, (lx, ly))
     canvas = canvas_rgba.convert("RGB")
 
@@ -331,18 +342,37 @@ def personalize_shell_typography_sequential(
     model_choice: ShellModelChoice,
 ) -> Path:
     """Replace each placeholder in a tight mask, restoring pass-1 art after every step."""
+    spec = get_render_spec(shell)
     canvas_size = _parse_canvas_size(model_choice.size)
     shell_layer = _shell_canvas_rgba(shell_image_path, canvas_size)
     zones = typography_text_zones(canvas_size, shell)
     values = placeholder_values(band=band, venue=venue, date=date, time=time)
     empty = Image.new("RGBA", (1, 1), (0, 0, 0, 0))
+    openai_labels = set(spec.openai_text_slots())
 
     with tempfile.TemporaryDirectory(prefix="shell-pass2-typo-") as tmp:
         work = Path(tmp) / "work.png"
         shell_layer.convert("RGB").save(work, format="PNG")
 
+        if spec.text_engine in {"deterministic", "hybrid"}:
+            det_labels = tuple(
+                label for label in PLACEHOLDER_LABELS if label not in openai_labels
+            )
+            if det_labels:
+                apply_deterministic_text(
+                    work,
+                    shell,
+                    band=band,
+                    venue=venue,
+                    date=date,
+                    time=time,
+                    labels=det_labels,
+                )
+
         edited_zones: list[tuple[int, int, int, int]] = []
         for label, zone in zip(PLACEHOLDER_LABELS, zones):
+            if label not in openai_labels:
+                continue
             value = values.get(label, "").strip()
             if not value:
                 continue
@@ -370,6 +400,98 @@ def personalize_shell_typography_sequential(
                 asset_mode="typography_only",
             )
             enforce_shell_design(work, compose)
+
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_bytes(work.read_bytes())
+    return output_path
+
+
+def personalize_shell_photo_registry(
+    shell: ShellReference,
+    shell_image_path: Path,
+    photo_path: Path,
+    logo_path: Path,
+    output_path: Path,
+    *,
+    band: str,
+    venue: str,
+    date: str,
+    time: str,
+    client: Any,
+    model_choice: ShellModelChoice,
+    asset_mode: AssetMode | None = None,
+) -> Path:
+    """Photo pass 2 driven by render spec — deterministic facts + tight OpenAI slots."""
+    spec = get_render_spec(shell)
+    compose_mode = asset_mode or asset_mode_for_shell(shell)
+    canvas_size = _parse_canvas_size(model_choice.size)
+    zones = typography_text_zones(canvas_size, shell)
+    values = placeholder_values(band=band, venue=venue, date=date, time=time)
+    openai_labels = set(spec.openai_text_slots())
+
+    with tempfile.TemporaryDirectory(prefix="shell-pass2-photo-") as tmp:
+        canvas_path, _, _, _, compose = build_personalize_canvas(
+            shell_image_path,
+            photo_path,
+            logo_path,
+            Path(tmp),
+            shell=shell,
+            size=canvas_size,
+            asset_mode=compose_mode,
+        )
+        work = Path(tmp) / "work.png"
+        work.write_bytes(canvas_path.read_bytes())
+        assert compose is not None
+
+        if spec.text_engine in {"deterministic", "hybrid"}:
+            det_labels = tuple(
+                label for label in PLACEHOLDER_LABELS if label not in openai_labels
+            )
+            if det_labels:
+                apply_deterministic_text(
+                    work,
+                    shell,
+                    band=band,
+                    venue=venue,
+                    date=date,
+                    time=time,
+                    labels=det_labels,
+                )
+
+        edited_zones: list[tuple[int, int, int, int]] = []
+        for label, zone in zip(PLACEHOLDER_LABELS, zones):
+            if label not in openai_labels:
+                continue
+            value = values.get(label, "").strip()
+            if not value:
+                continue
+            mask_path = Path(tmp) / f"mask_{label.replace(' ', '_')}.png"
+            build_slot_mask(canvas_size, zone).save(mask_path, format="PNG")
+            with work.open("rb") as image_f, mask_path.open("rb") as mask_f:
+                response = shell_images_edit(
+                    client,
+                    image=image_f,
+                    mask=mask_f,
+                    prompt=slot_prompt(label, value, shell),
+                    choice=model_choice,
+                )
+            _write_openai_image(response.data[0], work)
+            edited_zones.append(zone)
+            step_compose = ShellPass2Compose(
+                photo_bbox=compose.photo_bbox,
+                photo_clear_bbox=compose.photo_clear_bbox,
+                photo_layer=compose.photo_layer.copy(),
+                logo_bbox=compose.logo_bbox,
+                logo_layer=compose.logo_layer.copy(),
+                shell_layer=compose.shell_layer.copy(),
+                text_edit_zones=tuple(edited_zones),
+                canvas_size=canvas_size,
+                asset_mode=compose_mode,
+                backdrop_rgb=compose.backdrop_rgb,
+            )
+            enforce_shell_design(work, step_compose)
+            enforce_shell_photo(work, step_compose)
+            enforce_shell_logo(work, step_compose)
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_bytes(work.read_bytes())
@@ -432,9 +554,27 @@ def personalize_shell_openai(
         )
 
     compose_mode = asset_mode or asset_mode_for_shell(shell)
+    spec = get_render_spec(shell)
     photo_choice = choice if choice.step == "final_photo" else select_model_for_step(
         shell, "final_photo", route=final_mode or "photo_logo",
     )
+
+    if spec.text_engine in {"hybrid", "deterministic"}:
+        return personalize_shell_photo_registry(
+            shell,
+            shell_image_path,
+            photo_path,
+            logo_path,
+            output_path,
+            band=band,
+            venue=venue,
+            date=date,
+            time=time,
+            client=client,
+            model_choice=photo_choice,
+            asset_mode=compose_mode,
+        )
+
     with tempfile.TemporaryDirectory(prefix="shell-pass2-") as tmp:
         canvas_path, mask_path, _, _, compose = build_personalize_canvas(
             shell_image_path,

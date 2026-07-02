@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from shell_references import PLACEHOLDER_LABELS, ShellReference
+from shell_render_registry import get_render_spec
+from shell_render_spec import frac_boxes_to_pixels
 
 # Fractional boxes (x1, y1, x2, y2) per design_family, in placeholder order where present.
 _FAMILY_SLOTS: dict[str, tuple[tuple[float, float, float, float], ...]] = {
@@ -42,13 +44,9 @@ def typography_text_zones(
     size: tuple[int, int],
     shell: ShellReference,
 ) -> list[tuple[int, int, int, int]]:
-    """Small placeholder-sized edit zones — never the illustration band."""
-    w, h = size
-    fracs = _FAMILY_SLOTS.get(shell.design_family, _DEFAULT_TYPOGRAPHY_SLOTS)
-    zones: list[tuple[int, int, int, int]] = []
-    for x1, y1, x2, y2 in fracs[: len(PLACEHOLDER_LABELS)]:
-        zones.append((int(w * x1), int(h * y1), int(w * x2), int(h * y2)))
-    return zones
+    """Editable regions from authoritative shell render spec."""
+    spec = get_render_spec(shell)
+    return list(frac_boxes_to_pixels(size, spec.editable_regions))
 
 
 def slot_prompt(placeholder: str, value: str, shell: ShellReference) -> str:

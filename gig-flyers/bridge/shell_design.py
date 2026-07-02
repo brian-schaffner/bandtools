@@ -7,7 +7,8 @@ from typing import Any, Optional
 
 from bridge.review import asset_url, pick_page_path, route_path
 from bridge.shell_runner import VENUE_TYPES, demo_event_for_venue_type, load_job_summary
-from shell_asset_policy import asset_mode_label, final_route_label
+from shell_asset_policy import final_route_label, photo_style_label
+from shell_render_registry import get_render_spec
 from bridge.ui import page_close, page_head, progress_css, review_css, site_nav
 from gig_calendar import get_future_gigs, get_local_today
 from shell_references import ShellReference, all_shells, get_shell
@@ -780,10 +781,12 @@ def render_shell_review_page(job_id: str, summary: dict[str, Any]) -> str:
         )
 
     shell = get_shell(shell_id) if shell_id else None
+    render_spec = summary.get("render_spec") or (get_render_spec(shell).to_dict() if shell else {})
     suggested_label = final_route_label(suggested)
     if shell is not None:
-        mode = "typography_only" if suggested == "text_only" else "photo_inset"
-        hint = asset_mode_label(mode)
+        hint = photo_style_label(get_render_spec(shell))
+        if suggested == "text_only":
+            hint = f"{hint} — text-only route suggested"
     else:
         hint = suggested_label
 
@@ -791,6 +794,20 @@ def render_shell_review_page(job_id: str, summary: dict[str, Any]) -> str:
     photo_rec = ' recommended' if suggested == "photo_logo" else ""
     text_badge = '<span class="shell-route-badge">Suggested</span>' if suggested == "text_only" else ""
     photo_badge = '<span class="shell-route-badge">Suggested</span>' if suggested == "photo_logo" else ""
+    if render_spec:
+        rs_lines = [
+            f"photo_style: {render_spec.get('photo_style', '—')}",
+            f"text_engine: {render_spec.get('text_engine', '—')}",
+            f"logo_policy: {render_spec.get('logo_policy', '—')}",
+        ]
+        render_html = (
+            "<section class=\"panel\"><h2>Render spec</h2>"
+            "<ul class=\"layout-rules\">"
+            + "".join(f"<li>{html.escape(line)}</li>" for line in rs_lines)
+            + "</ul></section>"
+        )
+    else:
+        render_html = ""
     route_url = html.escape(shell_job_route_action(job_id))
     studio = html.escape(shell_studio_path())
     browse = html.escape(shell_detail_path(shell_id)) if shell_id else studio
@@ -809,6 +826,7 @@ def render_shell_review_page(job_id: str, summary: dict[str, Any]) -> str:
 
     <div class="shell-compare-grid">{''.join(compare_panels)}</div>
     {_model_plan_html(summary)}
+    {render_html}
 
     <section class="panel">
       <h2>Choose final path</h2>

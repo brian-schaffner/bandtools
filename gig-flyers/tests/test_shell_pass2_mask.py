@@ -28,7 +28,10 @@ class ShellPass2MaskTest(unittest.TestCase):
         alpha = mask.split()[3]
         cx, cy = (photo_clear[0] + photo_clear[2]) // 2, (photo_clear[1] + photo_clear[3]) // 2
         self.assertGreater(alpha.getpixel((cx, cy)), 200)
-        self.assertLess(alpha.getpixel((512, 40)), 32)
+        headliner = typography_text_zones(size, shell)[0]
+        hx = (headliner[0] + headliner[2]) // 2
+        hy = (headliner[1] + headliner[3]) // 2
+        self.assertLess(alpha.getpixel((hx, hy)), 32)
 
     def test_typography_slots_avoid_illustration_band(self) -> None:
         shell = get_shell("fillmore_jefferson_airplane_1966")

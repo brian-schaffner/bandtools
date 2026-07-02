@@ -46,7 +46,7 @@ from shell_model_policy import (
     model_choice_for_step,
     select_model_for_step,
 )
-from shell_pre_pass import build_prepass_mockup
+from shell_render_registry import get_render_spec
 from shell_references import ShellReference, get_shell
 from text_validation import resolve_venue_address
 
@@ -432,6 +432,7 @@ def run_shell_pipeline(
         output_dir = OUT_DIR
         output_dir.mkdir(parents=True, exist_ok=True)
         model_plan = build_run_model_plan(shell)
+        render_spec = get_render_spec(shell)
         pass1, shell_path = _run_pass1(
             job_id, shell, output_dir, progress, model_plan=model_plan,
         )
@@ -444,6 +445,7 @@ def run_shell_pipeline(
             "pass1_only": pass1_only,
             "skip_prepass": skip_prepass,
             "model_plan": model_plan,
+            "render_spec": render_spec.to_dict(),
             "pass1": pass1,
         }
 

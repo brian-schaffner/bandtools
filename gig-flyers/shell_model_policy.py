@@ -7,6 +7,7 @@ from dataclasses import asdict, dataclass
 from typing import Any, Literal
 
 from shell_asset_policy import FinalRoute, asset_mode_for_shell
+from shell_render_registry import get_render_spec
 from shell_references import ShellReference
 
 ShellStep = Literal["pass1", "prepass", "final_text", "final_photo"]
@@ -170,7 +171,7 @@ def _score_for_step(profile: ModelProfile, step: ShellStep, shell: ShellReferenc
 
     if step == "final_text":
         score = profile.text_score + profile.masked_edit_score * 0.25
-        if asset_mode_for_shell(shell) == "typography_only":
+        if not get_render_spec(shell).uses_band_photo():
             score += 8
         if shell.style == "psychedelic_illustrative":
             score += 6

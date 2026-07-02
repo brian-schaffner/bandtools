@@ -10,6 +10,8 @@ from PIL import Image, ImageDraw, ImageEnhance, ImageFilter
 
 from shell_references import ShellReference
 from shell_asset_policy import AssetMode, asset_mode_for_shell, uses_band_logo, uses_band_photo
+from shell_render_registry import get_render_spec
+from shell_render_spec import frac_boxes_to_pixels
 from structured_layout.band_mark import _luminance, _tint_logo
 from structured_layout.graphic_primitives import duotone_photo
 
@@ -258,42 +260,11 @@ def integrate_band_photo(
     backdrop: tuple[int, int, int],
     hero: bool = False,
 ) -> Image.Image:
-    """Grade, knock out studio white, light duotone blend, feather — ready to paste on shell."""
-    roles = _pick_roles(shell_palette_rgb(shell))
-    shadow, highlight = roles["shadow"], roles["highlight"]
-    style = shell.style
+    """Process band photo per shell render spec — no decorative frames."""
+    from shell_hero_illustration import process_photo_for_spec
 
-    layer = knockout_studio_background(photo, target=backdrop)
-    contrast = 1.02 if hero else 1.04
-    color = 0.98 if hero else (0.94 if style in {"letterpress_handbill", "type_only", "xerox"} else 0.97)
-    layer = ImageEnhance.Contrast(layer).enhance(contrast)
-    layer = ImageEnhance.Color(layer).enhance(color)
-    strength = _duotone_strength(style) * (0.55 if hero else 1.0)
-    layer = blend_duotone_photo(
-        layer,
-        shadow=shadow,
-        highlight=highlight,
-        strength=strength,
-    )
-
-    if style in {"psychedelic_illustrative", "folk_illustrative", "mixed_indie"}:
-        mask = _oval_mask(layer.size)
-        r, g, b, a = layer.split()
-        a = Image.composite(a, Image.new("L", layer.size, 0), mask)
-        layer = Image.merge("RGBA", (r, g, b, a))
-        mat_style = "oval"
-    else:
-        layer = soften_photo_edges(layer, radius=4 if hero else 6)
-        mat_style = "rounded"
-
-    mat_pad = 8 if hero else 14
-    return add_photo_mat(
-        layer,
-        accent=roles["accent"],
-        paper=roles["paper"],
-        style=mat_style,
-        pad=mat_pad,
-    )
+    spec = get_render_spec(shell)
+    return process_photo_for_spec(photo, shell, spec, backdrop=backdrop, hero=hero)
 
 
 def integrate_band_logo(
@@ -341,22 +312,17 @@ def _load_logo_from_image(logo: Image.Image) -> Image.Image:
 
 
 def photo_slot_for_shell(shell: ShellReference) -> str:
-    """Return placement slot id: center_hero, footer_inset, or lower_left."""
-    mode = asset_mode_for_shell(shell)
-    if mode == "typography_only":
+    """Return placement slot id from render spec."""
+    spec = get_render_spec(shell)
+    if spec.photo_style == "none":
         return "none"
-    family = shell.design_family
-    if family in _LOWER_LEFT_FAMILIES:
-        return "lower_left"
-    if family in _FOOTER_INSET_FAMILIES:
-        return "footer_inset"
-    if family in _CENTER_HERO_FAMILIES or shell.style == "photographic":
+    x1, y1, x2, y2 = spec.photo_slot
+    if x2 - x1 > 0.65 and y2 - y1 > 0.35:
         return "center_hero"
-    prompt = shell.personalize_prompt.lower()
-    if "lower-left" in prompt or "lower left" in prompt:
-        return "lower_left"
-    if "footer inset" in prompt:
+    if y1 > 0.65:
         return "footer_inset"
+    if x2 < 0.55:
+        return "lower_left"
     return "center_hero"
 
 
@@ -374,22 +340,17 @@ def placement_zones(
     shell: ShellReference | None = None,
 ) -> dict[str, tuple[int, int, int, int]]:
     w, h = canvas_size
-    slot = photo_slot_for_shell(shell) if shell is not None else "lower_left"
-    mode = asset_mode_for_shell(shell) if shell is not None else "photo_inset"
-
-    if slot == "none":
-        photo_box = (0, 0, 0, 0)
-    elif slot == "center_hero":
-        photo_w, photo_h = int(w * 0.78), int(h * 0.44)
-        px, py = (w - photo_w) // 2, int(h * 0.26)
-    elif slot == "footer_inset":
-        photo_w, photo_h = int(w * 0.50), int(h * 0.16)
-        px, py = (w - photo_w) // 2, int(h * 0.72)
+    if shell is None:
+        photo_box = (int(w * 0.05), int(h * 0.60), int(w * 0.47), int(h * 0.86))
+        slot = "lower_left"
     else:
-        photo_w, photo_h = int(w * 0.42), int(h * 0.26)
-        px, py = int(w * 0.05), int(h * 0.60)
+        spec = get_render_spec(shell)
+        slot = photo_slot_for_shell(shell)
+        if spec.photo_style == "none":
+            photo_box = (0, 0, 0, 0)
+        else:
+            photo_box = frac_boxes_to_pixels((w, h), (spec.photo_slot,))[0]
 
-    photo_box = (px, py, px + photo_w, py + photo_h)
     logo_w, logo_h = int(w * 0.34), int(h * 0.10)
     lx = w - logo_w - int(w * 0.05)
     ly = int(h * 0.52) if slot == "center_hero" else int(h * 0.76)
@@ -425,38 +386,54 @@ def compose_integrated_assets(
     canvas_size: tuple[int, int],
 ) -> tuple[Image.Image, Image.Image, tuple[int, int], tuple[int, int]]:
     """Return integrated photo layer, logo layer, and paste positions."""
+    spec = get_render_spec(shell)
     zones = placement_zones(canvas_size, shell)
     photo_zone = zones["photo"]
     logo_zone = zones["logo"]
     backdrop = _sample_zone_mean(shell_img, photo_zone)
     hero = zones.get("photo_slot") == "center_hero"
 
-    photo_layer = integrate_band_photo(photo, shell, backdrop=backdrop, hero=hero)
-    photo_layer = fit_layer_in_box(photo_layer, photo_zone, cover=hero)
-    if hero:
+    empty = Image.new("RGBA", (1, 1), (0, 0, 0, 0))
+    if spec.uses_band_photo():
+        photo_layer = integrate_band_photo(photo, shell, backdrop=backdrop, hero=hero)
+        photo_layer = fit_layer_in_box(
+            photo_layer,
+            photo_zone,
+            cover=hero or spec.photo_style in {"hero_illustration", "background_photo"},
+        )
         px, py = photo_zone[0], photo_zone[1]
+        if not hero and spec.photo_style == "inset_photo":
+            py = photo_zone[1] + (photo_zone[3] - photo_zone[1] - photo_layer.height) // 2
     else:
-        px = photo_zone[0]
-        py = photo_zone[1] + (photo_zone[3] - photo_zone[1] - photo_layer.height) // 2
+        photo_layer = empty
+        px, py = 0, 0
 
-    logo_backdrop = _sample_zone_mean(shell_img, logo_zone)
-    logo_layer = integrate_band_logo(logo, shell, zone_color=logo_backdrop)
-    logo_layer = fit_layer_in_box(logo_layer, logo_zone)
-    lx = logo_zone[2] - logo_layer.width
-    ly = logo_zone[1] + (logo_zone[3] - logo_zone[1] - logo_layer.height) // 2
+    if spec.uses_band_logo():
+        logo_backdrop = _sample_zone_mean(shell_img, logo_zone)
+        logo_layer = integrate_band_logo(logo, shell, zone_color=logo_backdrop)
+        logo_layer = fit_layer_in_box(logo_layer, logo_zone)
+        lx = logo_zone[2] - logo_layer.width
+        ly = logo_zone[1] + (logo_zone[3] - logo_zone[1] - logo_layer.height) // 2
+    else:
+        logo_layer = empty
+        lx, ly = 0, 0
 
     return photo_layer, logo_layer, (px, py), (lx, ly)
 
 
 def integration_summary(shell: ShellReference) -> dict[str, Any]:
+    spec = get_render_spec(shell)
     roles = _pick_roles(shell_palette_rgb(shell))
     slot = photo_slot_for_shell(shell)
     return {
         "style": shell.style,
         "design_family": shell.design_family,
+        "photo_style": spec.photo_style,
+        "logo_policy": spec.logo_policy,
+        "text_engine": spec.text_engine,
+        "photo_processing": list(spec.photo_processing),
         "asset_mode": asset_mode_for_shell(shell),
         "photo_slot": slot,
-        "duotone_strength": _duotone_strength(shell.style),
         "roles": {k: "#{:02x}{:02x}{:02x}".format(*v) for k, v in roles.items()},
     }
 
