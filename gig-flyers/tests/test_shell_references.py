@@ -5,6 +5,7 @@ from __future__ import annotations
 import unittest
 
 from shell_references import (
+    BUNDLED_SHELL_REFS,
     SHELL_REFERENCES,
     get_shell,
     pick_shell_for_research,
@@ -51,6 +52,15 @@ class ShellReferenceRegistryTest(unittest.TestCase):
         self.assertIn("count", summary)
         self.assertIn("shells", summary)
         self.assertGreaterEqual(summary["count"], 23)
+
+    def test_bundled_assets_cover_all_shells(self) -> None:
+        self.assertTrue(BUNDLED_SHELL_REFS.is_dir(), msg="missing assets/shell_references")
+        missing = []
+        for shell in SHELL_REFERENCES:
+            bundled = BUNDLED_SHELL_REFS / shell.image_filename
+            if not bundled.is_file() or bundled.stat().st_size < 5000:
+                missing.append(shell.id)
+        self.assertEqual(missing, [], msg=f"missing bundled refs: {missing}")
 
 
 if __name__ == "__main__":

@@ -13,25 +13,31 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from shell_references import SHELL_CACHE, SHELL_REFERENCES, registry_summary
+from shell_references import BUNDLED_SHELL_REFS, SHELL_CACHE, SHELL_REFERENCES, registry_summary
 
 UA = "bandtools-shell-ref/1.0 (educational research; github.com/brian-schaffner/bandtools)"
 
 
-def _download(url: str, dest: Path) -> bool:
+def _download(url: str, dest: Path, *, retries: int = 4) -> bool:
     dest.parent.mkdir(parents=True, exist_ok=True)
-    req = urllib.request.Request(url, headers={"User-Agent": UA})
-    try:
-        with urllib.request.urlopen(req, timeout=120) as resp:
-            data = resp.read()
-    except Exception as exc:
-        print(f"  FAIL download: {exc}")
-        return False
-    if len(data) < 5000:
-        print(f"  FAIL tiny payload ({len(data)} bytes)")
-        return False
-    dest.write_bytes(data)
-    return True
+    for attempt in range(retries):
+        req = urllib.request.Request(url, headers={"User-Agent": UA})
+        try:
+            with urllib.request.urlopen(req, timeout=120) as resp:
+                data = resp.read()
+        except Exception as exc:
+            wait = 2 ** attempt
+            print(f"  FAIL download (attempt {attempt + 1}/{retries}): {exc}")
+            if attempt + 1 >= retries:
+                return False
+            time.sleep(wait)
+            continue
+        if len(data) < 5000:
+            print(f"  FAIL tiny payload ({len(data)} bytes)")
+            return False
+        dest.write_bytes(data)
+        return True
+    return False
 
 
 def _wikimedia_file_path_url(title: str) -> str | None:
@@ -45,8 +51,12 @@ def _wikimedia_file_path_url(title: str) -> str | None:
         }
     )
     req = urllib.request.Request(f"https://commons.wikimedia.org/w/api.php?{q}", headers={"User-Agent": UA})
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        pages = json.load(resp).get("query", {}).get("pages", {})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            pages = json.load(resp).get("query", {}).get("pages", {})
+    except Exception as exc:
+        print(f"  FAIL wikimedia API: {exc}")
+        return None
     for pid, page in pages.items():
         if pid == "-1":
             return None
@@ -67,9 +77,15 @@ def ensure_shell_image(shell_id: str | None = None) -> dict[str, str]:
     status: dict[str, str] = {}
     for shell in targets:
         dest = SHELL_CACHE / shell.image_filename
+        bundled = BUNDLED_SHELL_REFS / shell.image_filename
         if shell.has_image():
             status[shell.id] = "skip"
             print(f"skip {shell.id} ({shell.image_path()})")
+            continue
+        if bundled.is_file() and bundled.stat().st_size > 5000:
+            dest.write_bytes(bundled.read_bytes())
+            status[shell.id] = "ok"
+            print(f"copy {shell.id} from bundled assets")
             continue
 
         url = shell.image_url

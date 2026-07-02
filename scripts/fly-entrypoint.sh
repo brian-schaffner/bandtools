@@ -39,15 +39,22 @@ fi
 
 echo "[fly-entrypoint] APP_URL=${APP_URL:-unset} DATA_DIR=$DATA"
 
-# Shell reference images live on the persistent volume (cache/ is symlinked to $DATA/cache).
-if command -v /opt/flyers-venv/bin/python3 >/dev/null 2>&1; then
+# Seed shell reference images from bundled assets (avoids Wikimedia rate limits on Fly).
+if [[ -d "$FLYERS/assets/shell_references" ]]; then
   mkdir -p "$DATA/cache/shell_references"
-  ref_count="$(find "$DATA/cache/shell_references" -type f 2>/dev/null | wc -l | tr -d ' ')"
-  if [[ "${ref_count:-0}" -lt 10 ]]; then
-    echo "[fly-entrypoint] warming shell reference cache (${ref_count} files)…"
-    /opt/flyers-venv/bin/python3 "$FLYERS/scripts/download_shell_references.py" \
-      >>"$DATA/cache/shell_download.log" 2>&1 &
-  fi
+  for src in "$FLYERS/assets/shell_references"/*; do
+    [[ -f "$src" ]] || continue
+    dest="$DATA/cache/shell_references/$(basename "$src")"
+    dest_size=0
+    if [[ -f "$dest" ]]; then
+      dest_size="$(wc -c < "$dest" | tr -d ' ')"
+    fi
+    if [[ "${dest_size:-0}" -lt 5000 ]]; then
+      cp "$src" "$dest"
+    fi
+  done
+  seeded="$(find "$DATA/cache/shell_references" -type f 2>/dev/null | wc -l | tr -d ' ')"
+  echo "[fly-entrypoint] shell reference cache: ${seeded} files"
 fi
 
 exec "$@"

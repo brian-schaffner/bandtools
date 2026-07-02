@@ -13,6 +13,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent
 SHELL_CACHE = ROOT / "cache" / "shell_references"
 LEGACY_CACHE = ROOT / "cache" / "visual_studies"
+BUNDLED_SHELL_REFS = ROOT / "assets" / "shell_references"
 
 PLACEHOLDER_LABELS = (
     "HEADLINER",
@@ -43,17 +44,18 @@ class ShellReference:
     venue_types: tuple[str, ...] = ()
 
     def image_path(self) -> Path:
+        cached = SHELL_CACHE / self.image_filename
+        if cached.is_file() and cached.stat().st_size > 5000:
+            return cached
+        bundled = BUNDLED_SHELL_REFS / self.image_filename
+        if bundled.is_file() and bundled.stat().st_size > 5000:
+            return bundled
         if self.legacy_image_path:
             p = Path(self.legacy_image_path)
             if not p.is_absolute():
                 p = ROOT / p
-            if p.is_file():
+            if p.is_file() and p.stat().st_size > 5000:
                 return p
-        cached = SHELL_CACHE / self.image_filename
-        if cached.is_file():
-            return cached
-        if self.legacy_image_path:
-            return ROOT / self.legacy_image_path
         return cached
 
     def has_image(self) -> bool:
