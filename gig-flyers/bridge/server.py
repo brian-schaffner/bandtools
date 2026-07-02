@@ -41,6 +41,7 @@ from bridge.job_status import (  # noqa: E402
     get_job_status,
     is_job_active,
     report_progress,
+    resume_job,
     start_job,
 )
 from bridge.routing import add_get, add_post  # noqa: E402
@@ -800,6 +801,8 @@ async def _run_shell_design_job(
     event: Optional[Any],
     *,
     pass1_only: bool,
+    skip_prepass: bool = False,
+    final_route: Optional[str] = None,
 ) -> None:
     from bridge.shell_runner import run_shell_pipeline
     from shell_references import get_shell
@@ -826,12 +829,20 @@ async def _run_shell_design_job(
                     message="Pass 1 · OpenAI creating design shell (placeholders only)",
                     log=False,
                 )
+            elif step == "prepass" and substep == "api":
+                report_progress(
+                    job_id,
+                    step=step,
+                    substep=substep,
+                    message="Pre-pass · fast text-only mockup with your gig details",
+                    log=False,
+                )
             elif step == "pass2" and substep == "api":
                 report_progress(
                     job_id,
                     step=step,
                     substep=substep,
-                    message="Pass 2 · OpenAI personalizing with your gig details",
+                    message="Final pass · OpenAI personalizing with your gig details",
                     log=False,
                 )
             await asyncio.sleep(2)
@@ -844,10 +855,51 @@ async def _run_shell_design_job(
             shell,
             event,
             pass1_only=pass1_only,
+            skip_prepass=skip_prepass,
+            final_route=final_route,  # type: ignore[arg-type]
             on_progress=callback,
         )
     except Exception as exc:  # noqa: BLE001
         _log_bridge_error(f"shell design error for {job_id}: {exc}")
+    finally:
+        stop.set()
+        heartbeat.cancel()
+        _shell_in_flight.discard(job_id)
+
+
+async def _run_shell_final_job(job_id: str, route: str) -> None:
+    from bridge.shell_runner import run_shell_final
+
+    callback = _progress_callback(job_id)
+    stop = asyncio.Event()
+
+    async def _shell_heartbeat() -> None:
+        while not stop.is_set():
+            snap = get_job_status(job_id)
+            if snap.get("status") != "running":
+                break
+            step = snap.get("step") or ""
+            substep = snap.get("substep") or ""
+            if step == "pass2" and substep == "api":
+                report_progress(
+                    job_id,
+                    step=step,
+                    substep=substep,
+                    message="Final pass · OpenAI personalizing with your gig details",
+                    log=False,
+                )
+            await asyncio.sleep(2)
+
+    heartbeat = asyncio.create_task(_shell_heartbeat())
+    try:
+        await asyncio.to_thread(
+            run_shell_final,
+            job_id,
+            route,  # type: ignore[arg-type]
+            on_progress=callback,
+        )
+    except Exception as exc:  # noqa: BLE001
+        _log_bridge_error(f"shell final pass error for {job_id}: {exc}")
     finally:
         stop.set()
         heartbeat.cancel()
@@ -905,7 +957,7 @@ async def shell_job_status_stream(job_id: str) -> StreamingResponse:
             if fp != last_fp:
                 yield f"data: {json.dumps(snap)}\n\n"
                 last_fp = fp
-            if snap.get("status") in ("done", "error"):
+            if snap.get("status") in ("done", "error", "awaiting_route"):
                 break
             if snap.get("status") == "idle":
                 idle_ticks += 1
@@ -924,6 +976,41 @@ async def shell_job_status_stream(job_id: str) -> StreamingResponse:
     )
 
 
+@add_post(app, "/shell/job/{job_id}/route")
+async def shell_job_route(job_id: str, route: str = Form("")) -> Response:
+    from bridge.shell_design import render_shell_generating_page, render_shell_results_page
+    from bridge.shell_runner import load_job_summary
+
+    cleaned = (route or "").strip().lower()
+    if cleaned not in {"text_only", "photo_logo"}:
+        raise HTTPException(status_code=400, detail="Route must be text_only or photo_logo")
+
+    summary = load_job_summary(job_id)
+    if summary is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if summary.get("status") != "awaiting_route":
+        return HTMLResponse(render_shell_results_page(job_id))
+
+    if job_id in _shell_in_flight:
+        raise HTTPException(status_code=409, detail="Shell job already running")
+
+    shell_title = summary.get("shell_title") or "Shell design"
+    event = summary.get("event") or {}
+    venue = event.get("venue") or ""
+    resume_job(job_id, detail=f"{venue} · {cleaned}", message="Starting final pass…")
+    _shell_in_flight.add(job_id)
+    asyncio.create_task(_run_shell_final_job(job_id, cleaned))
+    return HTMLResponse(
+        render_shell_generating_page(
+            job_id,
+            shell_title=shell_title,
+            detail=f"{venue} · final pass",
+            venue=venue,
+            final_only=True,
+        )
+    )
+
+
 @add_get(app, "/shell/{shell_id}", response_class=HTMLResponse)
 async def shell_detail_page(shell_id: str) -> HTMLResponse:
     from bridge.shell_design import render_shell_detail_page
@@ -937,6 +1024,7 @@ async def shell_run(
     gig_id: str = Form(""),
     venue_type: str = Form("regional_club"),
     pass1_only: str = Form(""),
+    skip_mockup: str = Form(""),
 ) -> Response:
     from bridge.shell_design import render_shell_generating_page
     from bridge.shell_runner import demo_event_for_venue_type, new_shell_job_id
@@ -948,6 +1036,7 @@ async def shell_run(
         raise HTTPException(status_code=404, detail=f"Unknown shell: {shell_id}")
 
     only_pass1 = pass1_only in ("1", "on", "true", "yes")
+    skip_prepass = skip_mockup in ("1", "on", "true", "yes") and not only_pass1
     event = None
     cleaned_gig = (gig_id or "").strip()
     if cleaned_gig and not only_pass1:
@@ -970,13 +1059,21 @@ async def shell_run(
         raise HTTPException(status_code=409, detail="Shell job already running")
 
     detail = "Pass 1 only" if only_pass1 else (
-        f"{event.venue} · two-pass" if event else "Two-pass shell design"
+        f"{event.venue} · mockup → choose path" if event and not skip_prepass else (
+            f"{event.venue} · auto final" if event else "Shell design"
+        )
     )
     title = shell.title[:60]
     start_job(job_id, "shell_design", title=title, detail=detail)
     _shell_in_flight.add(job_id)
     asyncio.create_task(
-        _run_shell_design_job(job_id, shell_id, event, pass1_only=only_pass1)
+        _run_shell_design_job(
+            job_id,
+            shell_id,
+            event,
+            pass1_only=only_pass1,
+            skip_prepass=skip_prepass,
+        )
     )
     return HTMLResponse(
         render_shell_generating_page(

@@ -7,6 +7,7 @@ from typing import Literal
 from shell_references import ShellReference
 
 AssetMode = Literal["typography_only", "photo_inset", "photo_hero"]
+FinalRoute = Literal["text_only", "photo_logo"]
 
 # Shells where HEADLINER should become stylized band name — no photo overlay.
 _TYPOGRAPHY_ONLY_FAMILIES = frozenset(
@@ -88,3 +89,27 @@ def asset_mode_label(mode: AssetMode) -> str:
         "photo_inset": "Small photo inset",
         "photo_hero": "Large hero photo",
     }[mode]
+
+
+def suggest_final_route(shell: ShellReference) -> FinalRoute:
+    """Heuristic recommendation for pre-pass review."""
+    if asset_mode_for_shell(shell) == "typography_only":
+        return "text_only"
+    return "photo_logo"
+
+
+def asset_mode_for_route(shell: ShellReference, route: FinalRoute) -> AssetMode:
+    """Map a user-chosen final route to pass-2 asset integration mode."""
+    if route == "text_only":
+        return "typography_only"
+    mode = asset_mode_for_shell(shell)
+    if mode == "typography_only":
+        return "photo_inset"
+    return mode
+
+
+def final_route_label(route: FinalRoute) -> str:
+    return {
+        "text_only": "Finalize text-only (no photo or logo)",
+        "photo_logo": "Finalize with photo & logo",
+    }[route]

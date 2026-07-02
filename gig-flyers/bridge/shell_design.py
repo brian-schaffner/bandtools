@@ -7,6 +7,7 @@ from typing import Any, Optional
 
 from bridge.review import asset_url, pick_page_path, route_path
 from bridge.shell_runner import VENUE_TYPES, demo_event_for_venue_type, load_job_summary
+from shell_asset_policy import asset_mode_label, final_route_label
 from bridge.ui import page_close, page_head, progress_css, review_css, site_nav
 from gig_calendar import get_future_gigs, get_local_today
 from shell_references import ShellReference, all_shells, get_shell
@@ -41,6 +42,14 @@ def shell_job_status_path(job_id: str) -> str:
 
 def shell_job_status_stream_path(job_id: str) -> str:
     return route_path(f"/shell/job/{job_id}/status/stream")
+
+
+def shell_job_route_action(job_id: str) -> str:
+    return route_path(f"/shell/job/{job_id}/route")
+
+
+def shell_job_final_path(job_id: str) -> str:
+    return route_path(f"/shell/job/{job_id}/final")
 
 
 def _shell_css() -> str:
@@ -171,6 +180,44 @@ def _shell_css() -> str:
       height: 1.75rem;
       border-radius: 4px;
       border: 1px solid var(--border);
+    }
+    .shell-review-layout {
+      display: grid;
+      gap: 1.25rem;
+    }
+    @media (min-width: 800px) {
+      .shell-review-layout { grid-template-columns: 1fr 1fr; }
+    }
+    .shell-review-mockup img {
+      width: 100%;
+      border-radius: 12px;
+      border: 2px solid var(--accent);
+    }
+    .shell-route-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem 1.15rem;
+      margin-bottom: 0.75rem;
+    }
+    .shell-route-card.recommended { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(99,102,241,0.12); }
+    .shell-route-card h3 { margin: 0 0 0.35rem; font-size: 1rem; }
+    .shell-route-card p { margin: 0 0 0.75rem; font-size: 0.9rem; color: var(--muted); }
+    .shell-route-badge {
+      display: inline-block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--accent);
+      background: #eef2ff;
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+      margin-bottom: 0.5rem;
+    }
+    .shell-compare-grid {
+      display: grid;
+      gap: 1rem;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      margin-bottom: 1rem;
     }
     """
 
@@ -321,9 +368,13 @@ def render_shell_detail_page(shell_id: str) -> str:
             <p class="muted">Leave gig blank to use the demo event for the venue type above.</p>
             <div class="checkbox-row">
               <input type="checkbox" name="pass1_only" id="pass1_only" value="1" />
-              <label for="pass1_only">Pass 1 only (design shell with placeholders — no band assets)</label>
+              <label for="pass1_only">Pass 1 only (design shell with placeholders — no gig mockup)</label>
             </div>
-            <button type="submit" class="btn btn-purple btn-block">Start two-pass generation</button>
+            <div class="checkbox-row">
+              <input type="checkbox" name="skip_mockup" id="skip_mockup" value="1" />
+              <label for="skip_mockup">Skip mockup review (use suggested route automatically)</label>
+            </div>
+            <button type="submit" class="btn btn-purple btn-block">Start shell design</button>
           </form>
         </section>
       </div>
@@ -340,9 +391,10 @@ def render_shell_generating_page(
     shell_title: str,
     detail: str = "",
     pass1_only: bool = False,
+    final_only: bool = False,
     venue: str = "",
 ) -> str:
-    """Three-step progress UI for shell design jobs."""
+    """Progress UI for shell design jobs (full pipeline or final pass only)."""
     status_url = html.escape(shell_job_status_path(job_id))
     stream_url = html.escape(shell_job_status_stream_path(job_id))
     results_url = html.escape(shell_job_path(job_id))
@@ -354,6 +406,7 @@ def render_shell_generating_page(
         venue_line = f'<p class="gig-line">Gig: <strong>{html.escape(venue)}</strong></p>'
     detail_html = f'<p class="muted"><em>{html.escape(detail)}</em></p>' if detail else ""
     pass1_only_js = "true" if pass1_only else "false"
+    final_only_js = "true" if final_only else "false"
 
     extra_css = progress_css() + """
     .shell-progress-card { max-width: 42rem; }
@@ -422,8 +475,15 @@ def render_shell_generating_page(
     .shell-meta-row strong { color: var(--text); }
     """
 
+    step1_extra = ' class="shell-step done" id="step-pass1"' if final_only else ' class="shell-step" id="step-pass1"'
+    step_prepass_extra = ' class="shell-step skipped" id="step-prepass"' if pass1_only else ' class="shell-step" id="step-prepass"'
+    if final_only:
+        step_prepass_extra = ' class="shell-step done" id="step-prepass"'
     step2_extra = ' class="shell-step skipped" id="step-pass2"' if pass1_only else ' class="shell-step" id="step-pass2"'
     step3_extra = ' class="shell-step skipped" id="step-eval"' if pass1_only else ' class="shell-step" id="step-eval"'
+    if final_only:
+        step2_extra = ' class="shell-step" id="step-pass2"'
+        step3_extra = ' class="shell-step" id="step-eval"'
 
     return (
         page_head(heading, extra_css=extra_css)
@@ -443,28 +503,38 @@ def render_shell_generating_page(
     </div>
 
     <div class="shell-steps">
-      <article class="shell-step" id="step-pass1" data-step="pass1">
-        <div class="shell-step-badge" id="badge-pass1">1</div>
+      <article{step1_extra} data-step="pass1">
+        <div class="shell-step-badge" id="badge-pass1">{"✓" if final_only else "1"}</div>
         <div class="shell-step-body">
           <h3>Pass 1 — Design shell</h3>
           <p>Match the reference style with placeholder text only (HEADLINER, VENUE, DATE…)</p>
-          <div class="shell-step-phase" id="phase-pass1">Waiting</div>
+          <div class="shell-step-phase" id="phase-pass1">{"Complete" if final_only else "Waiting"}</div>
         </div>
-        <div class="shell-step-bar"><div class="shell-step-bar-fill" id="fill-pass1"></div></div>
+        <div class="shell-step-bar"><div class="shell-step-bar-fill" id="fill-pass1"{" style=\"width:100%\"" if final_only else ""}></div></div>
+      </article>
+
+      <article{step_prepass_extra} data-step="prepass">
+        <div class="shell-step-badge" id="badge-prepass">{"✓" if final_only else "2"}</div>
+        <div class="shell-step-body">
+          <h3>Pre-pass — Text mockup</h3>
+          <p>Fast preview with your gig details — no photo or logo</p>
+          <div class="shell-step-phase" id="phase-prepass">{"Complete" if final_only else ("Skipped" if pass1_only else "Waiting")}</div>
+        </div>
+        <div class="shell-step-bar"><div class="shell-step-bar-fill" id="fill-prepass"{" style=\"width:100%\"" if final_only else ""}></div></div>
       </article>
 
       <article{step2_extra} data-step="pass2">
-        <div class="shell-step-badge" id="badge-pass2">2</div>
+        <div class="shell-step-badge" id="badge-pass2">{"3" if not pass1_only else "2"}</div>
         <div class="shell-step-body">
-          <h3>Pass 2 — Personalize</h3>
-          <p>Swap placeholders for gig facts; band photo &amp; logo stay locked</p>
+          <h3>Final pass — Personalize</h3>
+          <p>High-quality flyer after you choose text-only or photo &amp; logo</p>
           <div class="shell-step-phase" id="phase-pass2">{"Skipped" if pass1_only else "Waiting"}</div>
         </div>
         <div class="shell-step-bar"><div class="shell-step-bar-fill" id="fill-pass2"></div></div>
       </article>
 
       <article{step3_extra} data-step="eval">
-        <div class="shell-step-badge" id="badge-eval3">3</div>
+        <div class="shell-step-badge" id="badge-eval3">{"4" if not pass1_only else "3"}</div>
         <div class="shell-step-body">
           <h3>Evaluation card</h3>
           <p>Side-by-side: reference · shell · personalized flyer</p>
@@ -483,13 +553,19 @@ def render_shell_generating_page(
     const streamUrl = "{stream_url}";
     const resultsUrl = "{results_url}";
     const pass1Only = {pass1_only_js};
-    const STEP_EST = {{ pass1: 75, pass2: 90, eval: 8 }};
-    const STEPS = pass1Only ? ["pass1"] : ["pass1", "pass2", "eval"];
+    const finalOnly = {final_only_js};
+    const STEP_ORDER = pass1Only ? ["pass1"] : ["pass1", "prepass", "pass2", "eval"];
+    const STEP_EST = {{ pass1: 75, prepass: 60, pass2: 90, eval: 8 }};
     let lastLogRevision = -1;
     let startedAt = Date.now();
     let stepStartedAt = Date.now();
-    let currentStep = "";
+    let currentStep = finalOnly ? "pass2" : "";
     let finished = false;
+
+    if (finalOnly) {{
+      currentStep = "pass2";
+      stepStartedAt = Date.now();
+    }}
 
     function fmtElapsed(ms) {{
       const s = Math.floor(ms / 1000);
@@ -500,19 +576,22 @@ def render_shell_generating_page(
     function stepState(step, substep, jobStatus) {{
       if (jobStatus === "error") {{
         if (step === currentStep) return "error";
-        const order = ["pass1", "pass2", "eval"];
-        const ci = order.indexOf(currentStep);
-        const si = order.indexOf(step);
+        const ci = STEP_ORDER.indexOf(currentStep);
+        const si = STEP_ORDER.indexOf(step);
         if (si < ci) return "done";
         return "pending";
       }}
-      if (jobStatus === "done") return step === "eval" || (pass1Only && step === "pass1") ? "done" : (pass1Only ? "skipped" : "done");
-      const order = ["pass1", "pass2", "eval"];
-      const activeIdx = order.indexOf(currentStep);
-      const idx = order.indexOf(step);
+      if (jobStatus === "awaiting_route") {{
+        if (step === "prepass") return "done";
+        if (step === "pass1") return "done";
+        return "pending";
+      }}
+      if (jobStatus === "done") return pass1Only && step !== "pass1" ? "skipped" : "done";
+      const activeIdx = STEP_ORDER.indexOf(currentStep);
+      const idx = STEP_ORDER.indexOf(step);
       if (substep === "saved") return "done";
       if (step === currentStep) return "active";
-      if (idx < activeIdx) return "done";
+      if (idx >= 0 && activeIdx >= 0 && idx < activeIdx) return "done";
       if (pass1Only && step !== "pass1") return "skipped";
       return "pending";
     }}
@@ -546,13 +625,14 @@ def render_shell_generating_page(
       const remaining = Math.max(0, Math.ceil(activeEst - stepElapsed));
       document.getElementById("eta").textContent = status === "running" ? ("~" + remaining + "s") : "—";
 
-      ["pass1", "pass2", "eval"].forEach((s) => {{
+      ["pass1", "prepass", "pass2", "eval"].forEach((s) => {{
         const el = document.getElementById("step-" + s);
         const phase = document.getElementById("phase-" + s);
         const fill = document.getElementById("fill-" + s);
-        const badge = document.getElementById("badge-" + (s === "eval" ? "eval3" : s));
+        const badgeId = s === "eval" ? "eval3" : s;
+        const badge = document.getElementById("badge-" + badgeId);
         if (!el || !phase || !fill) return;
-        const st = stepState(s, s === step ? substep : (s === "pass1" && step !== "pass1" ? "saved" : ""), status);
+        const st = stepState(s, s === step ? substep : (STEP_ORDER.indexOf(s) < STEP_ORDER.indexOf(currentStep) ? "saved" : ""), status);
         el.classList.remove("active", "done", "error", "skipped");
         el.classList.add(st);
         if (st === "done") {{
@@ -582,6 +662,11 @@ def render_shell_generating_page(
         panel.scrollTop = panel.scrollHeight;
       }}
 
+      if (status === "awaiting_route" && !finished) {{
+        finished = true;
+        document.getElementById("status-hint").textContent = "Mockup ready — choose text-only or photo & logo…";
+        setTimeout(() => {{ window.location.href = resultsUrl; }}, 600);
+      }}
       if (status === "done" && !finished) {{
         finished = true;
         document.getElementById("status-hint").textContent = "Done — opening results…";
@@ -634,6 +719,90 @@ def render_shell_generating_page(
     )
 
 
+def render_shell_review_page(job_id: str, summary: dict[str, Any]) -> str:
+    """Mockup review — user chooses text-only final vs photo/logo final."""
+    shell_title = html.escape(summary.get("shell_title") or "")
+    shell_id = summary.get("shell_id") or ""
+    pass1 = summary.get("pass1") or {}
+    prepass = summary.get("prepass") or {}
+    route_info = summary.get("route") or {}
+    event = summary.get("event") or {}
+    suggested = route_info.get("suggested") or prepass.get("suggested_route") or "text_only"
+
+    venue_line = ""
+    if event.get("venue"):
+        venue_line = (
+            f'<p class="gig-line"><strong>{html.escape(event.get("short_date") or event.get("date", ""))}</strong>'
+            f' @ <strong>{html.escape(event.get("venue", ""))}</strong></p>'
+        )
+
+    compare_panels: list[str] = []
+    if pass1.get("shell_rel"):
+        compare_panels.append(
+            _result_panel("Pass 1 — placeholders", pass1["shell_rel"], "Design shell")
+        )
+    if prepass.get("mockup_rel"):
+        compare_panels.append(
+            _result_panel("Pre-pass mockup", prepass["mockup_rel"], "Text-only preview — not final quality")
+        )
+
+    shell = get_shell(shell_id) if shell_id else None
+    suggested_label = final_route_label(suggested)
+    if shell is not None:
+        mode = "typography_only" if suggested == "text_only" else "photo_inset"
+        hint = asset_mode_label(mode)
+    else:
+        hint = suggested_label
+
+    text_only_rec = ' recommended' if suggested == "text_only" else ""
+    photo_rec = ' recommended' if suggested == "photo_logo" else ""
+    text_badge = '<span class="shell-route-badge">Suggested</span>' if suggested == "text_only" else ""
+    photo_badge = '<span class="shell-route-badge">Suggested</span>' if suggested == "photo_logo" else ""
+    route_url = html.escape(shell_job_route_action(job_id))
+    studio = html.escape(shell_studio_path())
+    browse = html.escape(shell_detail_path(shell_id)) if shell_id else studio
+
+    return (
+        page_head("Review mockup", extra_css=_shell_css())
+        + site_nav(active="shell", back_href=studio, back_label="All shells")
+        + f"""
+  <main class="page-main">
+    <h1>Pre-pass mockup</h1>
+    <p class="muted">{shell_title}</p>
+    {venue_line}
+    <p>Does this shell work well with your gig details as <strong>text only</strong> (no photo or logo)?
+       If yes, finalize typography-only. If not, try photo &amp; logo — or pick another shell.</p>
+    <p class="muted">System suggestion: <strong>{html.escape(hint)}</strong></p>
+
+    <div class="shell-compare-grid">{''.join(compare_panels)}</div>
+
+    <section class="panel">
+      <h2>Choose final path</h2>
+      <form method="post" action="{route_url}">
+        <div class="shell-route-card{text_only_rec}">
+          {text_badge}
+          <h3>Finalize text-only</h3>
+          <p>High-quality typography pass — no band photo, no logo overlay.</p>
+          <button type="submit" name="route" value="text_only" class="btn btn-purple">Text-only final</button>
+        </div>
+        <div class="shell-route-card{photo_rec}">
+          {photo_badge}
+          <h3>Add photo &amp; logo</h3>
+          <p>Style and lock band photo and logo into the shell layout.</p>
+          <button type="submit" name="route" value="photo_logo" class="btn btn-secondary">Photo &amp; logo final</button>
+        </div>
+      </form>
+      <p class="btn-row" style="margin-top:1rem">
+        <a class="btn btn-secondary" href="{browse}">Try another shell</a>
+        <a class="btn btn-secondary" href="{studio}">Browse all shells</a>
+      </p>
+    </section>
+  </main>
+"""
+        + page_close()
+    )
+
+
 def render_shell_results_page(job_id: str) -> str:
     summary = load_job_summary(job_id)
     job = get_job_status(job_id)
@@ -665,6 +834,10 @@ def render_shell_results_page(job_id: str) -> str:
             + page_close()
         )
 
+    job_status = job.get("status") or summary.get("status") or ""
+    if job_status == "awaiting_route" or summary.get("status") == "awaiting_route":
+        return render_shell_review_page(job_id, summary)
+
     shell_title = html.escape(summary.get("shell_title") or "")
     shell_id = summary.get("shell_id") or ""
     pass1 = summary.get("pass1") or {}
@@ -677,9 +850,16 @@ def render_shell_results_page(job_id: str) -> str:
         panels.append(
             _result_panel("Pass 1 — design shell", pass1["shell_rel"], "Placeholder text only")
         )
-    if pass2.get("personalized_rel"):
+    prepass = summary.get("prepass") or {}
+    if prepass.get("mockup_rel"):
         panels.append(
-            _result_panel("Pass 2 — personalized", pass2["personalized_rel"], event.get("venue", ""))
+            _result_panel("Pre-pass mockup", prepass["mockup_rel"], "Fast text-only preview")
+        )
+    if pass2.get("personalized_rel"):
+        route = pass2.get("route") or summary.get("route", {}).get("chosen") or ""
+        route_cap = final_route_label(route) if route else "Personalized"
+        panels.append(
+            _result_panel(f"Final — {route_cap}", pass2["personalized_rel"], event.get("venue", ""))
         )
     eval_rel = summary.get("evaluation_rel")
     eval_html = ""

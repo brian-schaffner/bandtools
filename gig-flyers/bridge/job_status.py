@@ -423,6 +423,35 @@ def update_progress(gig_id: str, step: str, message: str, progress: int) -> None
     report_progress(gig_id, step=step, message=message, progress=progress)
 
 
+def pause_job_for_route(job_id: str, message: str = "Review mockup and choose path") -> None:
+    """Pause a shell job after pre-pass mockup until the user picks a final route."""
+    with _lock:
+        job = _jobs.get(job_id)
+        if not job:
+            return
+        job["status"] = "awaiting_route"
+        job["step"] = "prepass"
+        job["substep"] = "review"
+        job["message"] = message
+        job["progress"] = 52
+        job["updated_at"] = _now_iso()
+        _append_log(job, message)
+
+
+def resume_job(job_id: str, *, detail: str = "", message: str = "Resuming final pass…") -> None:
+    """Resume a shell job after the user chose a final route."""
+    with _lock:
+        job = _jobs.get(job_id)
+        if not job:
+            return
+        job["status"] = "running"
+        job["message"] = message
+        if detail:
+            job["detail"] = detail
+        job["updated_at"] = _now_iso()
+        _append_log(job, message)
+
+
 def complete_job(gig_id: str, message: str = "Done") -> None:
     with _lock:
         job = _jobs.get(gig_id)

@@ -8,7 +8,7 @@ import os
 import tempfile
 import urllib.request
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from dotenv import load_dotenv
 from PIL import Image, ImageFont
@@ -32,7 +32,9 @@ from shell_asset_integrate import (
     photo_slot_label,
     placement_zones,
 )
-from shell_asset_policy import asset_mode_for_shell, asset_mode_label, uses_band_logo, uses_band_photo
+from shell_asset_policy import AssetMode, asset_mode_for_shell, asset_mode_label, uses_band_logo, uses_band_photo
+
+FinalRoute = Literal["text_only", "photo_logo"]
 from shell_pass2_mask import build_personalize_mask, build_slot_mask, enforce_shell_design, text_edit_zones
 from shell_references import PLACEHOLDER_LABELS, ShellReference, get_shell
 from shell_text_slots import placeholder_values, slot_prompt, typography_text_zones
@@ -121,9 +123,10 @@ def build_personalize_prompt(
     band: str,
     address: str = "",
     event: GigEvent | None = None,
+    asset_mode: AssetMode | None = None,
 ) -> str:
     slot = photo_slot_for_shell(shell)
-    mode = asset_mode_for_shell(shell)
+    mode = asset_mode or asset_mode_for_shell(shell)
     slot_desc = photo_slot_label(slot)
     mode_desc = asset_mode_label(mode)
     typo_lines: list[str] = []
@@ -181,6 +184,7 @@ def build_personalize_canvas(
     *,
     shell: ShellReference | None = None,
     size: tuple[int, int] = (1024, 1536),
+    asset_mode: AssetMode | None = None,
 ) -> tuple[Path, Path, tuple[int, int, int, int], tuple[int, int, int, int], ShellPass2Compose | None]:
     """Paste shell + styled photo/logo; return canvas, mask, bboxes, compose context."""
     w, h = size
@@ -195,7 +199,7 @@ def build_personalize_canvas(
 
     raw_photo = Image.open(photo_path)
     raw_logo = Image.open(logo_path)
-    mode = asset_mode_for_shell(shell) if shell is not None else "photo_inset"
+    mode = asset_mode or (asset_mode_for_shell(shell) if shell is not None else "photo_inset")
     empty_layer = Image.new("RGBA", (1, 1), (0, 0, 0, 0))
     photo_layer = empty_layer
     logo_layer = empty_layer
@@ -387,6 +391,8 @@ def personalize_shell_openai(
     venue: str = "",
     date: str = "",
     time: str = "",
+    final_mode: FinalRoute | None = None,
+    asset_mode: AssetMode | None = None,
 ) -> Path:
     from openai import OpenAI
 
@@ -399,7 +405,12 @@ def personalize_shell_openai(
     size = os.getenv("OPENAI_IMAGE_SIZE", "1024x1536")
     quality = os.getenv("OPENAI_IMAGE_QUALITY", "high")
 
-    if asset_mode_for_shell(shell) == "typography_only" and band:
+    use_typography = final_mode == "text_only" or (
+        final_mode is None
+        and (asset_mode or asset_mode_for_shell(shell)) == "typography_only"
+        and band
+    )
+    if use_typography:
         return personalize_shell_typography_sequential(
             shell,
             shell_image_path,
@@ -414,9 +425,15 @@ def personalize_shell_openai(
             quality=quality,
         )
 
+    compose_mode = asset_mode or asset_mode_for_shell(shell)
     with tempfile.TemporaryDirectory(prefix="shell-pass2-") as tmp:
         canvas_path, mask_path, _, _, compose = build_personalize_canvas(
-            shell_image_path, photo_path, logo_path, Path(tmp), shell=shell,
+            shell_image_path,
+            photo_path,
+            logo_path,
+            Path(tmp),
+            shell=shell,
+            asset_mode=compose_mode,
         )
         with canvas_path.open("rb") as image_f, mask_path.open("rb") as mask_f:
             response = client.images.edit(

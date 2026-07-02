@@ -56,7 +56,7 @@ class ShellDesignUiTest(unittest.TestCase):
         resp = self.client.get("/shell/woodstock_festival_1969")
         self.assertEqual(resp.status_code, 200)
         self.assertIn("Woodstock", resp.text)
-        self.assertIn("Start two-pass generation", resp.text)
+        self.assertIn("Start shell design", resp.text)
 
     def test_shell_reference_image(self) -> None:
         from shell_references import get_shell
@@ -84,9 +84,31 @@ class ShellDesignUiTest(unittest.TestCase):
             venue="Two Lane Tavern",
         )
         self.assertIn("Pass 1 — Design shell", page)
-        self.assertIn("Pass 2 — Personalize", page)
+        self.assertIn("Pre-pass — Text mockup", page)
+        self.assertIn("Final pass — Personalize", page)
         self.assertIn("id=\"step-pass1\"", page)
         self.assertIn("Elapsed:", page)
+
+    def test_shell_review_page_renders(self) -> None:
+        from bridge.shell_design import render_shell_review_page
+
+        summary = {
+            "shell_id": "fillmore_jefferson_airplane_1966",
+            "shell_title": "Fillmore poster",
+            "status": "awaiting_route",
+            "pass1": {"shell_rel": "output/shell_design/fillmore_jefferson_airplane_1966_design_shell.png"},
+            "prepass": {
+                "mockup_rel": "output/shell_design/demo_fillmore_jefferson_airplane_1966_prepass_mockup.png",
+                "suggested_route": "text_only",
+            },
+            "route": {"suggested": "text_only"},
+            "event": {"venue": "Test Venue", "date": "2026-07-04"},
+        }
+        page = render_shell_review_page("shell-test123", summary)
+        self.assertIn("Pre-pass mockup", page)
+        self.assertIn("Text-only final", page)
+        self.assertIn("Photo &amp; logo final", page)
+        self.assertIn('value="text_only"', page)
 
 
 if __name__ == "__main__":
