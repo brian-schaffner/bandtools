@@ -12,7 +12,13 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from design_explorer import enumerate_explore_specs  # noqa: E402
-from preference_model import apply_feedback_text, apply_rankings_to_preferences  # noqa: E402
+from preference_model import (  # noqa: E402
+    apply_feedback_text,
+    apply_rankings_to_preferences,
+    apply_rankings_to_weights,
+    copy_weights,
+    preference_weights,
+)
 from prototype_session import (  # noqa: E402
     FEEDBACK_KEYWORDS,
     _base_spec_id,
@@ -34,12 +40,28 @@ class PrototypeSessionTest(unittest.TestCase):
         ids = {s.spec_id.split("-r")[0] if "-r" in s.spec_id else s.spec_id for s in specs}
         self.assertEqual(len(ids), 3)
 
+    def test_three_distinct_archetypes_when_possible(self) -> None:
+        specs = select_prototype_specs(
+            "2026-07-04_american-legion",
+            round_num=1,
+            preferences={},
+            used_spec_ids=[],
+        )
+        archetypes = {s.tags.get("archetype") for s in specs if s.tags.get("archetype")}
+        self.assertEqual(len(archetypes), 3)
+
     def test_feedback_boosts_duotone(self) -> None:
-        weights = {"archetype": {}, "palette": {}, "accent": {}, "family": {}, "medium_variant": {}, "layers": {}}
+        weights = copy_weights(preference_weights({}))
         boosted = apply_feedback_text(weights, "love the duotone red handbill", FEEDBACK_KEYWORDS)
         self.assertGreater(boosted["archetype"].get("duotone_modern", 0), 0)
         self.assertGreater(boosted["palette"].get("red_cream", 0), 0)
         self.assertGreater(boosted["family"].get("B", 0), 0)
+
+    def test_negative_feedback_penalizes_tags(self) -> None:
+        weights = copy_weights({"archetype": {"duotone_modern": 5}})
+        penalized = apply_feedback_text(weights, "hate duotone, less red", FEEDBACK_KEYWORDS)
+        self.assertLess(penalized["archetype"].get("duotone_modern", 0), 5)
+        self.assertLess(penalized["palette"].get("red_cream", 0), 0)
 
     def test_rankings_update_preferences(self) -> None:
         prefs = apply_rankings_to_preferences(
@@ -58,6 +80,33 @@ class PrototypeSessionTest(unittest.TestCase):
         self.assertGreater(
             prefs["global"]["archetype"]["duotone_modern"],
             prefs["global"]["archetype"].get("xerox_punk", 0),
+        )
+
+    def test_rank_three_penalizes_tags(self) -> None:
+        weights = apply_rankings_to_weights(
+            copy_weights(preference_weights({})),
+            [{"rank": 3, "tags": {"archetype": "xerox_punk", "family": "C"}}],
+        )
+        self.assertLess(weights["archetype"].get("xerox_punk", 0), 0)
+
+    def test_feedback_steers_next_round(self) -> None:
+        session_weights = apply_feedback_text(
+            copy_weights(preference_weights({})),
+            "more psychedelic neon",
+            FEEDBACK_KEYWORDS,
+        )
+        specs = select_prototype_specs(
+            "2026-07-04_american-legion",
+            round_num=2,
+            preferences={},
+            used_spec_ids=[],
+            feedback_text="more psychedelic neon",
+            session_weights=session_weights,
+        )
+        archetypes = {s.tags.get("archetype") for s in specs}
+        self.assertTrue(
+            archetypes & {"psychedelic", "neon_bar"},
+            f"expected psychedelic/neon in {archetypes}",
         )
 
     def test_submit_forfeit(self) -> None:
@@ -82,7 +131,6 @@ class PrototypeSessionTest(unittest.TestCase):
                     action="forfeit",
                 )
                 self.assertEqual(result["status"], "forfeit")
-
 
     def test_default_pool_is_creative_only(self) -> None:
         specs = select_prototype_specs(

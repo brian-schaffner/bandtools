@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import random
 import re
 from dataclasses import asdict
 from pathlib import Path
@@ -25,6 +26,9 @@ from photo_selector import select_band_photo
 from preference_model import (
     apply_feedback_text,
     apply_rankings_to_preferences,
+    apply_rankings_to_weights,
+    copy_weights,
+    merge_session_weights,
     preference_weights,
 )
 from state import (
@@ -42,15 +46,20 @@ FEEDBACK_KEYWORDS: dict[str, tuple[str, str]] = {
     "psychedelic": ("archetype", "psychedelic"),
     "neon": ("archetype", "neon_bar"),
     "zine": ("archetype", "pasteup_zine"),
+    "pasteup": ("archetype", "pasteup_zine"),
     "broadside": ("medium_variant", "broadside"),
+    "boutique": ("archetype", "boutique"),
+    "country": ("archetype", "country_fair"),
     "paste": ("medium_variant", "paste_up"),
     "stamp": ("accent", "stamp"),
     "starburst": ("accent", "starburst"),
     "tape": ("accent", "tape"),
     "red": ("palette", "red_cream"),
     "yellow": ("palette", "yellow_black"),
+    "blue": ("palette", "blue_white"),
     "simple": ("family", "A"),
     "handbill": ("family", "B"),
+    "collage": ("family", "C"),
     "wild": ("family", "C"),
 }
 
@@ -71,6 +80,7 @@ def default_prototype_session() -> dict[str, Any]:
         "options": {},
         "round_history": [],
         "used_spec_ids": [],
+        "tag_weights": {},
         "winner_slot": None,
     }
 
@@ -86,9 +96,10 @@ def _base_spec_id(spec_id: str) -> str:
     return re.sub(r"-r\d+-s\d+$", "", spec_id)
 
 
-def _signatures_from_history(round_history: list[dict[str, Any]], *, last_n: int = 2) -> set[str]:
+def _signatures_from_history(round_history: list[dict[str, Any]], *, last_n: int | None = None) -> set[str]:
     sigs: set[str] = set()
-    for entry in round_history[-last_n:]:
+    entries = round_history if last_n is None else round_history[-last_n:]
+    for entry in entries:
         for opt in (entry.get("options") or {}).values():
             tags = opt.get("tags") or {}
             sigs.add(
@@ -114,23 +125,23 @@ def _spec_score(
     round_num: int,
     archetype_counts: dict[str, int],
 ) -> float:
-    score = float(round_num % 7) * 0.01  # tiny tie-breaker rotation
+    score = float(round_num % 7) * 0.05
     for key, value in spec.tags.items():
         if key in weights and value:
-            score += weights[key].get(value, 0) * 0.35  # soften preference pull
+            score += weights[key].get(value, 0) * 1.25
 
     arch = spec.tags.get("archetype", "")
     if arch:
-        score += max(0, 3 - archetype_counts.get(arch, 0)) * 2.5
+        score += max(0, 4 - archetype_counts.get(arch, 0)) * 3.0
 
     if spec.wild:
-        score += 1.5 + (round_num % 3) * 0.5
+        score += 2.0 + (round_num % 3) * 0.75
 
     base = _base_spec_id(spec.spec_id)
     if base in used_bases:
-        score -= 25
+        score -= 100
     if spec_signature(spec) in blocked_sigs:
-        score -= 40
+        score -= 60
 
     return score
 
@@ -168,28 +179,29 @@ def select_prototype_specs(
     used_spec_ids: list[str],
     feedback_text: str = "",
     round_history: list[dict[str, Any]] | None = None,
+    session_weights: dict[str, dict[str, int]] | None = None,
 ) -> list[ExploreSpec]:
-    """Pick 3 diverse approaches — prototype defaults to creative Style DNA unless you ask for handbill."""
-    import random
-
+    """Pick 3 diverse approaches — rankings + feedback steer the next batch."""
     full_pool = enumerate_explore_specs(gig_id, max_count=999)
     allow_handbill = _feedback_wants_handbill(feedback_text)
-    # Prototype = explore wild visuals; B/A only when feedback requests them.
     pool = [s for s in full_pool if s.family == "C"]
     if allow_handbill:
         pool = full_pool
     if len(pool) < 3:
         pool = full_pool
 
-    weights = preference_weights(preferences)
-    if feedback_text.strip():
-        weights = apply_feedback_text(weights, feedback_text, FEEDBACK_KEYWORDS)
+    weights = merge_session_weights(
+        base_preferences=preferences,
+        session_weights=session_weights,
+        feedback_text=feedback_text,
+        keywords=FEEDBACK_KEYWORDS,
+    )
 
     used_bases = {_base_spec_id(s) for s in used_spec_ids}
-    blocked_sigs = _signatures_from_history(round_history or [], last_n=1)
+    blocked_sigs = _signatures_from_history(round_history or [])
     recent_sigs = _signatures_from_history(round_history or [], last_n=3)
 
-    rng = random.Random(int(hashlib.sha256(f"proto-pick:{gig_id}:{round_num}".encode()).hexdigest()[:8], 16))
+    rng = random.Random(int(hashlib.sha256(f"proto-pick:{gig_id}:{round_num}:{feedback_text[:48]}".encode()).hexdigest()[:8], 16))
 
     archetype_counts: dict[str, int] = {}
     for sig in recent_sigs:
@@ -211,25 +223,28 @@ def select_prototype_specs(
 
     chosen: list[ExploreSpec] = []
     chosen_sigs: set[str] = set()
-    chosen_families: set[str] = set()
     chosen_archetypes: set[str] = set()
 
-    def _available(from_pool: list[ExploreSpec] | None = None) -> list[ExploreSpec]:
+    def _available(from_pool: list[ExploreSpec] | None = None, *, allow_used: bool = False) -> list[ExploreSpec]:
         src = from_pool if from_pool is not None else pool
         taken = {_base_spec_id(s.spec_id) for s in chosen}
         out: list[ExploreSpec] = []
         for spec in src:
-            if _base_spec_id(spec.spec_id) in taken:
+            base = _base_spec_id(spec.spec_id)
+            if base in taken:
+                continue
+            if not allow_used and base in used_bases:
                 continue
             sig = spec_signature(spec)
-            if sig in chosen_sigs:
+            if sig in chosen_sigs or sig in blocked_sigs:
                 continue
             out.append(spec)
+        if len(out) < 3 and not allow_used:
+            return _available(from_pool, allow_used=True)
         return out
 
     def _track(spec: ExploreSpec) -> None:
         chosen_sigs.add(spec_signature(spec))
-        chosen_families.add(spec.family)
         arch = spec.tags.get("archetype")
         if arch:
             chosen_archetypes.add(arch)
@@ -240,49 +255,44 @@ def select_prototype_specs(
             return None
         return _softmax_pick(rng, avail, scores, temperature=temp)
 
-    # When feedback asks for handbill, reserve one B layout first.
-    if allow_handbill:
-        b_pool = [s for s in full_pool if s.family == "B"]
-        pick = _pick(b_pool, 2.0)
-        if pick:
-            chosen.append(pick)
-            _track(pick)
-
-    # Remaining slots: creative Style DNA
-    avail = _available()
-    if avail:
-        pick = _softmax_pick(rng, avail, scores, temperature=2.2)
-        chosen.append(pick)
-        _track(pick)
-
-    # Slot 2: different archetype
-    avail = _available()
-    prefer = [
-        s for s in avail
-        if s.tags.get("archetype") and s.tags.get("archetype") not in chosen_archetypes
-    ]
-    if prefer:
-        pick = _softmax_pick(rng, prefer, scores, temperature=2.0)
-    elif avail:
-        pick = _softmax_pick(rng, avail, scores, temperature=2.0)
-    else:
-        pick = None
+    # Slot 1: strongest match to accumulated preferences / feedback.
+    top_archetypes = sorted(
+        {s.tags.get("archetype", "") for s in pool if s.tags.get("archetype")},
+        key=lambda arch: weights.get("archetype", {}).get(arch, 0),
+        reverse=True,
+    )
+    slot1_pool = pool
+    if top_archetypes and weights.get("archetype"):
+        lead = top_archetypes[0]
+        if weights["archetype"].get(lead, 0) > 0:
+            biased = [s for s in pool if s.tags.get("archetype") == lead]
+            if biased:
+                slot1_pool = biased
+    pick = _pick(slot1_pool, 1.4)
     if pick:
         chosen.append(pick)
         _track(pick)
 
-    # Slot 3: wild variant when available
+    if allow_handbill:
+        b_pool = [s for s in full_pool if s.family == "B"]
+        pick = _pick(b_pool, 1.8)
+        if pick and all(_base_spec_id(pick.spec_id) != _base_spec_id(s.spec_id) for s in chosen):
+            chosen.append(pick)
+            _track(pick)
+
+    # Slot 2+: force different archetypes when possible.
+    avail = _available()
+    prefer = [s for s in avail if s.tags.get("archetype") and s.tags.get("archetype") not in chosen_archetypes]
+    pick = _softmax_pick(rng, prefer or avail, scores, temperature=1.6) if (prefer or avail) else None
+    if pick:
+        chosen.append(pick)
+        _track(pick)
+
     avail = _available()
     wild = [s for s in avail if s.wild]
-    if wild:
-        pick = _softmax_pick(rng, wild, scores, temperature=1.8)
-    else:
-        underused = sorted(
-            avail,
-            key=lambda s: archetype_counts.get(s.tags.get("archetype", ""), 0),
-        )
-        pick_pool = underused[: max(3, len(underused) // 2)] or avail
-        pick = _softmax_pick(rng, pick_pool, scores, temperature=2.4) if pick_pool else None
+    prefer = [s for s in (wild or avail) if s.tags.get("archetype") not in chosen_archetypes]
+    pick_pool = prefer or wild or avail
+    pick = _softmax_pick(rng, pick_pool, scores, temperature=1.5) if pick_pool else None
     if pick:
         chosen.append(pick)
         _track(pick)
@@ -291,10 +301,11 @@ def select_prototype_specs(
         avail = _available()
         if not avail:
             break
-        pick = _softmax_pick(rng, avail, scores, temperature=2.5)
+        pick = _softmax_pick(rng, avail, scores, temperature=2.0)
         chosen.append(pick)
         _track(pick)
 
+    pref_dict = {"global": weights}
     result: list[ExploreSpec] = []
     for slot, spec in enumerate(chosen[:3], start=1):
         result.append(
@@ -303,7 +314,7 @@ def select_prototype_specs(
                 gig_id=gig_id,
                 round_num=round_num,
                 slot=slot,
-                preferences=preferences,
+                preferences=pref_dict,
             )
         )
     rng.shuffle(result)
@@ -324,6 +335,7 @@ def generate_prototype_round(
     session = get_prototype_session(gig_id)
     proto_round = round_num or int(session.get("round") or 0) + 1
     preferences = load_design_preferences()
+    session_weights = session.get("tag_weights") or None
 
     emit_progress(on_progress, step="prototype", substep="prep", message="Researching gig…", progress=5)
     research = research_gig(event, on_progress=on_progress)
@@ -339,6 +351,7 @@ def generate_prototype_round(
         used_spec_ids=list(session.get("used_spec_ids") or []),
         feedback_text=feedback_text,
         round_history=list(session.get("round_history") or []),
+        session_weights=session_weights if isinstance(session_weights, dict) else None,
     )
 
     out_dir = gig_output_dir(event) / "prototype"
@@ -477,6 +490,14 @@ def submit_prototype_turn(
     prefs = apply_rankings_to_preferences(load_design_preferences(), enriched)
     if feedback.strip():
         prefs = apply_feedback_text_to_preferences(prefs, feedback)
+
+    session_weights = copy_weights(
+        session.get("tag_weights") or preference_weights(load_design_preferences())
+    )
+    session_weights = apply_rankings_to_weights(session_weights, enriched)
+    if feedback.strip():
+        session_weights = apply_feedback_text(session_weights, feedback, FEEDBACK_KEYWORDS)
+
     save_design_preferences(prefs)
 
     append_feedback(
@@ -490,7 +511,7 @@ def submit_prototype_turn(
     history = _append_history(session, rankings, feedback)
     upsert_gig(
         gig_id,
-        prototype={**session, "round_history": history},
+        prototype={**session, "round_history": history, "tag_weights": session_weights},
     )
 
     manifest = generate_prototype_round(gig_id, feedback_text=feedback)
