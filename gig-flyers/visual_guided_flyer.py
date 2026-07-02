@@ -212,6 +212,18 @@ def generate_visual_guided_flyer(
         else None
     )
 
+    constraint_report = None
+    from visual_constraints import get_constraints, validate_layout_constraints
+
+    constraints = get_constraints(study.id)
+    if constraints and brief.medium_variant:
+        constraint_report = validate_layout_constraints(
+            layout,
+            constraints,
+            venue=event.venue,
+            band=band,
+        )
+
     manifest = {
         "gig_id": gig_id,
         "round": round_num,
@@ -221,6 +233,7 @@ def generate_visual_guided_flyer(
         "research_design_language": research.get("design_language"),
         "layout_score": layout_score,
         "validation": validation.to_dict() if validation else {},
+        "constraint_report": constraint_report.to_dict() if constraint_report else {},
     }
 
     manifest_path = out_dir / f"manifest_r{round_num}.json"
