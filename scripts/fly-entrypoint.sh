@@ -7,7 +7,7 @@ SETLOADER="/app/setloader"
 FLYERS="/app/gig-flyers"
 
 mkdir -p "$DATA"/{user_data,oauth_credentials,downloads,work,forensic,cache,flyers-output}
-mkdir -p "$FLYERS/output" "$FLYERS/cache" "$FLYERS/logs"
+mkdir -p "$FLYERS/logs"
 
 for d in user_data oauth_credentials downloads work forensic; do
   rm -rf "$SETLOADER/$d" 2>/dev/null || true
@@ -17,6 +17,8 @@ done
 touch "$DATA/setloader.db"
 ln -sfn "$DATA/setloader.db" "$SETLOADER/setloader.db"
 
+# Remove real dirs so ln creates symlinks (mkdir + ln into existing dir nests the link).
+rm -rf "$FLYERS/output" "$FLYERS/cache"
 ln -sfn "$DATA/flyers-output" "$FLYERS/output"
 ln -sfn "$DATA/cache" "$FLYERS/cache"
 if [[ ! -s "$DATA/flyers-state.json" ]]; then
