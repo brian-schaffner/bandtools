@@ -166,6 +166,36 @@ def can_regenerate(gig_id: str) -> bool:
     return has_existing_generation(gig_id)
 
 
+def load_design_preferences() -> dict[str, Any]:
+    state = load_state()
+    return dict(state.get("design_preferences") or {})
+
+
+def save_design_preferences(preferences: dict[str, Any]) -> None:
+    state = load_state()
+    state["design_preferences"] = preferences
+    save_state(state)
+
+
+def save_explore_batch(gig_id: str, manifest: dict[str, Any]) -> None:
+    record = get_gig_state(gig_id) or {}
+    batches = list(record.get("explore_batches") or [])
+    batches.append({**manifest, "saved_at": _now_iso()})
+    upsert_gig(gig_id, explore_batches=batches[-5:])
+
+
+def save_explore_rankings(gig_id: str, batch_id: str, rankings: list[dict[str, Any]]) -> dict[str, Any]:
+    from preference_model import apply_rankings_to_preferences
+
+    prefs = apply_rankings_to_preferences(load_design_preferences(), rankings)
+    save_design_preferences(prefs)
+    upsert_gig(
+        gig_id,
+        explore_rankings={batch_id: {"rankings": rankings, "at": _now_iso()}},
+    )
+    return prefs
+
+
 def get_last_poll_rowid() -> int:
     return int(load_state().get("last_poll_rowid", 0))
 

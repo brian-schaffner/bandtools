@@ -267,12 +267,13 @@ def render_job_progress_page(
     detail: str = "",
     back_href: Optional[str] = None,
     back_label: str = "Back to review",
+    redirect_href: Optional[str] = None,
     nav_current: str = "progress",
 ) -> str:
     """Processing page with per-option vessel progress (SSE + polling fallback)."""
     status_url = html.escape(job_status_path(gig_id))
     stream_url = html.escape(job_status_stream_path(gig_id))
-    review = html.escape(review_page_path(gig_id))
+    review = html.escape(redirect_href or review_page_path(gig_id))
     back = back_href or review_page_path(gig_id)
     nav = site_nav(active=nav_current, back_href=back, back_label=back_label)
     venue = html.escape(event.get("venue", "Venue TBA"))
@@ -969,6 +970,18 @@ def render_review_page(data: dict[str, Any]) -> str:
     """
 
     pick = pick_page_path()
+    from bridge.prototype import prototype_page_path
+
+    prototype_link = f"""
+    <section class="prototype-cta">
+      <p><a class="btn btn-purple btn-block" href="{html.escape(prototype_page_path(gig_id))}">
+        Rapid prototype mode (3 at a time, rank &amp; iterate)
+      </a></p>
+      <p class="muted" style="font-size:0.875rem;margin-top:0.35rem">
+        Not happy with A/B/C? Try ranking batches of 3 until something clicks or you call it.
+      </p>
+    </section>
+    """
     nav = site_nav(active="review", back_href=pick, back_label="Pick gig")
 
     return (
@@ -981,6 +994,7 @@ def render_review_page(data: dict[str, Any]) -> str:
     <p class="meta">{short_date} @ {venue} · status: {status}</p>
   </header>
   {approved_banner}
+  {prototype_link}
   {current_section}
   {regenerate_section}
   {research_section}

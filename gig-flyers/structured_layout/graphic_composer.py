@@ -119,11 +119,27 @@ def pick_creative_archetype(rng: random.Random) -> str:
     return ARCHETYPES[rng.randint(0, len(ARCHETYPES) - 1)]
 
 
-def build_recipe(rng: random.Random, archetype: str | None = None) -> GraphicRecipe:
-    arch = archetype or pick_creative_archetype(rng)
+def build_recipe(
+    rng: random.Random,
+    archetype: str | None = None,
+    *,
+    preferences: dict[str, dict[str, int]] | None = None,
+) -> GraphicRecipe:
+    prefs = preferences or {}
+    arch_pool = list(ARCHETYPES)
+    if archetype:
+        arch = archetype
+    else:
+        from preference_model import weighted_choice
+
+        arch = weighted_choice(rng, arch_pool, prefs.get("archetype", {}))
     options = PALETTES.get(arch, PALETTES["xerox_punk"])
-    palette_id, palette = options[rng.randint(0, len(options) - 1)]
-    accent = ACCENTS[rng.randint(0, len(ACCENTS) - 1)]
+    palette_ids = [pid for pid, _ in options]
+    from preference_model import weighted_choice
+
+    palette_id = weighted_choice(rng, palette_ids, prefs.get("palette", {}))
+    palette = next(p for pid, p in options if pid == palette_id)
+    accent = weighted_choice(rng, list(ACCENTS), prefs.get("accent", {}))
     if accent == "stamp" and arch not in ("xerox_punk", "pasteup_zine", "broadside"):
         accent = "starburst"
     layer_pool = [layer for layer in LAYER_ELEMENTS if not (layer == "tape_corner" and accent == "tape")]

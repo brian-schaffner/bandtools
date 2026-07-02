@@ -108,10 +108,21 @@ _DISPLAY_VENUE_FONT = FONT_DISPLAY
 _DISPLAY_BAND_FONT = FONT_DISPLAY_HEAVY
 
 
-def _select_medium_variant(arch: TierArchetype, rng: random.Random) -> str:
+def _select_medium_variant(
+    arch: TierArchetype,
+    rng: random.Random,
+    *,
+    preferences: dict[str, dict[str, int]] | None = None,
+) -> str:
     """Deterministic medium-tier layout pick; paste_up default for blues_bar."""
     if arch.venue_type == "blues_bar":
         return "paste_up"
+    prefs = preferences or {}
+    weights = prefs.get("medium_variant", {})
+    if weights:
+        from preference_model import weighted_choice
+
+        return weighted_choice(rng, list(MEDIUM_VARIANTS), weights)
     return MEDIUM_VARIANTS[rng.randint(0, len(MEDIUM_VARIANTS) - 1)]
 
 
@@ -1103,11 +1114,18 @@ def create_handbill_layout(
     event: Optional[Any] = None,
     archetype: Optional[TierArchetype] = None,
     rng: Optional[random.Random] = None,
+    medium_variant: Optional[str] = None,
 ) -> LayoutSpec:
     """Option B — paste-up handbill with venue accent and offset photo."""
     r = rng or _make_rng()
     arch = archetype or load_tier_archetype("medium", event=event)
-    variant = _select_medium_variant(arch, r)
+    if medium_variant and medium_variant in MEDIUM_VARIANTS:
+        variant = medium_variant
+    else:
+        from state import load_design_preferences
+        from preference_model import preference_weights
+
+        variant = _select_medium_variant(arch, r, preferences=preference_weights(load_design_preferences()))
     kwargs = {
         "venue": venue,
         "band": band,
@@ -1789,7 +1807,10 @@ def create_collage_layout(
 
     r = rng or _make_rng()
     _ = archetype or load_tier_archetype("creative", event=event)
-    recipe = build_recipe(r)
+    from state import load_design_preferences
+    from preference_model import preference_weights
+
+    recipe = build_recipe(r, preferences=preference_weights(load_design_preferences()))
     seed = recipe.seed
     date_line = _compact_date_upper(date)
 
