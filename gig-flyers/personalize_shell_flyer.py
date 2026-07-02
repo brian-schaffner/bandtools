@@ -1,0 +1,240 @@
+"""Pass 2: personalize a design shell with band photo, logo, and gig facts."""
+
+from __future__ import annotations
+
+import base64
+import json
+import os
+import tempfile
+import urllib.request
+from pathlib import Path
+from typing import Any
+
+from dotenv import load_dotenv
+from PIL import Image, ImageDraw, ImageFont
+
+from gig_calendar import GigEvent
+from output_paths import get_output_dir, output_relative
+from shell_references import ShellReference, get_shell
+from structured_layout.band_mark import find_band_logo
+
+ROOT = Path(__file__).resolve().parent
+load_dotenv(ROOT / ".env")
+DEFAULT_PHOTO = ROOT / "bandphotos" / "475779793_1030489528887965_3935557413007700748_n.jpg"
+OUT_DIR = get_output_dir() / "shell_design"
+
+
+def _event_facts_block(*, venue: str, date: str, time: str, band: str, address: str = "") -> str:
+    lines = [
+        "EVENT FACTS (copy exactly — replace all placeholders):",
+        f"  Band / headliner: {band}",
+        f"  Venue: {venue}",
+        f"  Date: {date}",
+        f"  Time: {time}",
+    ]
+    if address:
+        lines.append(f"  Address: {address}")
+    return "\n".join(lines)
+
+
+def _load_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    for path in (
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+    ):
+        if Path(path).is_file():
+            return ImageFont.truetype(path, size)
+    return ImageFont.load_default()
+
+
+def _fit(img: Image.Image, max_w: int, max_h: int) -> Image.Image:
+    ratio = min(max_w / img.width, max_h / img.height)
+    nw, nh = max(1, int(img.width * ratio)), max(1, int(img.height * ratio))
+    out = img.resize((nw, nh), Image.Resampling.LANCZOS)
+    if img.mode == "RGBA":
+        return out
+    return out.convert("RGB")
+
+
+def _resolve_logo(band: str, paper: tuple[int, int, int]) -> Path:
+    logo = find_band_logo(band, paper=paper)
+    if logo is not None and logo.is_file():
+        return logo
+    name = "lindsey-lane-band-light.png" if sum(paper) / 3 < 128 else "lindsey-lane-band-dark.png"
+    return ROOT / "assets/logos" / name
+
+
+def build_personalize_prompt(
+    shell: ShellReference,
+    *,
+    venue: str,
+    date: str,
+    time: str,
+    band: str,
+    address: str = "",
+) -> str:
+    return (
+        "You are personalizing an APPROVED DESIGN SHELL for a real gig.\n\n"
+        "The canvas contains:\n"
+        "  • PASS 1 DESIGN SHELL as the full background — preserve its art, palette, "
+        "and layout quality\n"
+        "  • BAND PHOTO pre-pasted in the footer — LOCKED, do not redraw or move\n"
+        "  • BAND LOGO pre-pasted in the footer — LOCKED, must remain visible\n\n"
+        "Your job:\n"
+        "  • Replace ALL placeholder text (HEADLINER, VENUE NAME, DATE, TIME, etc.) "
+        "with the exact event facts below\n"
+        "  • Refine typography only in editable zones — do not repaint the hero illustration\n"
+        "  • Do not add a second band photo or omit the logo\n\n"
+        f"{shell.personalize_prompt}\n\n"
+        f"{_event_facts_block(venue=venue, date=date, time=time, band=band, address=address)}\n\n"
+        "Output one complete personalized gig flyer."
+    )
+
+
+def build_personalize_canvas(
+    shell_image_path: Path,
+    photo_path: Path,
+    logo_path: Path,
+    out_dir: Path,
+    size: tuple[int, int] = (1024, 1536),
+) -> tuple[Path, Path, tuple[int, int, int, int], tuple[int, int, int, int]]:
+    """Paste shell + locked photo/logo; return canvas, mask, bboxes."""
+    w, h = size
+    shell_img = Image.open(shell_image_path).convert("RGB")
+    shell_fit = _fit(shell_img, w, h)
+    canvas = Image.new("RGB", size, (242, 235, 220))
+    ox = (w - shell_fit.width) // 2
+    oy = (h - shell_fit.height) // 2
+    canvas.paste(shell_fit, (ox, oy))
+
+    photo = Image.open(photo_path).convert("RGBA")
+    photo_fit = _fit(photo, int(w * 0.38), int(h * 0.20))
+    px, py = 40, int(h * 0.62)
+    canvas.paste(photo_fit, (px, py), photo_fit)
+    photo_bbox = (px, py, px + photo_fit.width, py + photo_fit.height)
+
+    logo = Image.open(logo_path).convert("RGBA")
+    logo_fit = _fit(logo, int(w * 0.42), int(h * 0.12))
+    lx = w - logo_fit.width - 40
+    ly = int(h * 0.78)
+    canvas.paste(logo_fit, (lx, ly), logo_fit)
+    logo_bbox = (lx, ly, lx + logo_fit.width, ly + logo_fit.height)
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    canvas_path = out_dir / "pass2_canvas.png"
+    canvas.save(canvas_path, format="PNG")
+
+    mask = Image.new("RGBA", size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(mask)
+    pad = 32
+    for bbox in (photo_bbox, logo_bbox):
+        draw.rectangle(
+            [bbox[0] - pad, bbox[1] - pad, bbox[2] + pad, bbox[3] + pad],
+            fill=(255, 255, 255, 255),
+        )
+    mask_path = out_dir / "pass2_mask.png"
+    mask.save(mask_path, format="PNG")
+    return canvas_path, mask_path, photo_bbox, logo_bbox
+
+
+def personalize_shell_openai(
+    shell: ShellReference,
+    shell_image_path: Path,
+    photo_path: Path,
+    logo_path: Path,
+    prompt: str,
+    output_path: Path,
+) -> Path:
+    from openai import OpenAI
+
+    api_key = (os.getenv("OPENAI_API_KEY") or "").strip()
+    if not api_key:
+        raise RuntimeError("OPENAI_API_KEY required")
+
+    client = OpenAI(api_key=api_key)
+    model = os.getenv("OPENAI_IMAGE_MODEL", "gpt-image-1")
+    size = os.getenv("OPENAI_IMAGE_SIZE", "1024x1536")
+    quality = os.getenv("OPENAI_IMAGE_QUALITY", "high")
+
+    with tempfile.TemporaryDirectory(prefix="shell-pass2-") as tmp:
+        canvas_path, mask_path, _, _ = build_personalize_canvas(
+            shell_image_path, photo_path, logo_path, Path(tmp),
+        )
+        with canvas_path.open("rb") as image_f, mask_path.open("rb") as mask_f:
+            response = client.images.edit(
+                model=model,
+                image=image_f,
+                mask=mask_f,
+                prompt=prompt,
+                size=size,
+                quality=quality,
+                input_fidelity="high",
+                n=1,
+            )
+        item = response.data[0]
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        if item.b64_json:
+            output_path.write_bytes(base64.b64decode(item.b64_json))
+        elif item.url:
+            with urllib.request.urlopen(item.url, timeout=120) as resp:
+                output_path.write_bytes(resp.read())
+        else:
+            raise RuntimeError("OpenAI returned no image data")
+    return output_path
+
+
+def personalize_design_shell(
+    event: GigEvent,
+    shell_id: str,
+    shell_image_path: Path,
+    *,
+    band: str = "Lindsey Lane Band",
+    photo_path: Path | None = None,
+    logo_path: Path | None = None,
+    address: str = "",
+    output_dir: Path | None = None,
+) -> dict[str, Any]:
+    shell = get_shell(shell_id)
+    if shell is None:
+        raise ValueError(f"Unknown shell: {shell_id}")
+
+    photo = photo_path or DEFAULT_PHOTO
+    logo = logo_path or _resolve_logo(band, paper=(242, 235, 220))
+    for label, path in [("shell", shell_image_path), ("photo", photo), ("logo", logo)]:
+        if not path.is_file():
+            raise FileNotFoundError(f"Missing {label}: {path}")
+
+    output_dir = output_dir or OUT_DIR
+    output_dir.mkdir(parents=True, exist_ok=True)
+    stem = f"{event.gig_id}_{shell_id}"
+    out_path = output_dir / f"{stem}_personalized.png"
+    canvas_preview = output_dir / f"{stem}_pass2_canvas.png"
+
+    date_str = event.event_date.strftime("%A, %B %d, %Y")
+    time_str = event.time_label or "TBA"
+    prompt = build_personalize_prompt(
+        shell, venue=event.venue, date=date_str, time=time_str, band=band, address=address,
+    )
+
+    # Save pass-2 canvas preview for eval
+    c_path, _, _, _ = build_personalize_canvas(
+        shell_image_path, photo, logo, output_dir / f".{stem}_work",
+    )
+    canvas_preview.write_bytes(c_path.read_bytes())
+
+    personalize_shell_openai(shell, shell_image_path, photo, logo, prompt, out_path)
+
+    manifest = {
+        "gig_id": event.gig_id,
+        "shell_id": shell.id,
+        "shell_title": shell.title,
+        "shell_image": str(shell_image_path),
+        "photo": str(photo),
+        "logo": str(logo),
+        "personalized_rel": output_relative(out_path),
+        "pass2_canvas_rel": output_relative(canvas_preview),
+        "prompt": prompt,
+    }
+    manifest_path = output_dir / f"{stem}_pass2_manifest.json"
+    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    return manifest
