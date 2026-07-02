@@ -89,6 +89,39 @@ def _wild_recipe(base: GraphicRecipe, rng: random.Random) -> GraphicRecipe:
     )
 
 
+def _layers_for_rng(rng: random.Random, accent: str) -> tuple[str, ...]:
+    layer_pool = [layer for layer in LAYER_ELEMENTS if not (layer == "tape_corner" and accent == "tape")]
+    rng.shuffle(layer_pool)
+    count = rng.randint(2, min(3, len(layer_pool)))
+    return tuple(layer_pool[:count])
+
+
+def _recipe_for_tags(
+    arch: str,
+    palette_id: str,
+    palette: tuple[int, int, int],
+    rng: random.Random,
+    *,
+    wild: bool = False,
+) -> GraphicRecipe:
+    accent = ACCENTS[rng.randint(0, len(ACCENTS) - 1)]
+    if accent == "stamp" and arch not in ("xerox_punk", "pasteup_zine", "broadside"):
+        accent = "starburst"
+    layers = _layers_for_rng(rng, accent)
+    recipe = GraphicRecipe(
+        archetype=arch,
+        palette_id=palette_id,
+        palette=palette,
+        accent=accent,
+        layers=layers,
+        mirror=rng.random() < 0.35,
+        seed=rng.randint(1, 2**31 - 1),
+    )
+    if wild:
+        return _wild_recipe(recipe, rng)
+    return recipe
+
+
 def enumerate_explore_specs(gig_id: str, *, max_count: int | None = None) -> list[ExploreSpec]:
     limit = max_count or explore_max_variants()
     specs: list[ExploreSpec] = []
@@ -115,72 +148,119 @@ def enumerate_explore_specs(gig_id: str, *, max_count: int | None = None) -> lis
 
     for arch in ARCHETYPES:
         palettes = PALETTES.get(arch, PALETTES["xerox_punk"])
-        palette_id, palette = palettes[0]
-        rng = _explore_rng(gig_id, f"c-{arch}")
-        base = build_recipe(rng, archetype=arch)
-        recipe = GraphicRecipe(
-            archetype=arch,
-            palette_id=palette_id,
-            palette=palette,
-            accent=base.accent,
-            layers=base.layers,
-            mirror=base.mirror,
-            seed=base.seed,
-        )
-        specs.append(
-            ExploreSpec(
-                spec_id=f"c-{arch}",
-                family="C",
-                label=f"Style DNA · {arch.replace('_', ' ')}",
-                tags={
-                    "family": "C",
-                    "archetype": arch,
-                    "palette": palette_id,
-                    "accent": base.accent,
-                    "layers": ",".join(base.layers) or "none",
-                    "tier": "creative",
-                },
-                recipe=recipe,
+        for palette_id, palette in palettes:
+            rng = _explore_rng(gig_id, f"c-{arch}-{palette_id}")
+            recipe = _recipe_for_tags(arch, palette_id, palette, rng, wild=False)
+            specs.append(
+                ExploreSpec(
+                    spec_id=f"c-{arch}-{palette_id}",
+                    family="C",
+                    label=f"Style DNA · {arch.replace('_', ' ')} · {palette_id.replace('_', ' ')}",
+                    tags={
+                        "family": "C",
+                        "archetype": arch,
+                        "palette": palette_id,
+                        "accent": recipe.accent,
+                        "layers": ",".join(recipe.layers) or "none",
+                        "tier": "creative",
+                    },
+                    recipe=recipe,
+                )
             )
-        )
+            wild_rng = _explore_rng(gig_id, f"wild-{arch}-{palette_id}")
+            wild = _recipe_for_tags(arch, palette_id, palette, wild_rng, wild=True)
+            specs.append(
+                ExploreSpec(
+                    spec_id=f"wild-{arch}-{palette_id}",
+                    family="C",
+                    label=f"Wild · {arch.replace('_', ' ')} · {palette_id.replace('_', ' ')}",
+                    tags={
+                        "family": "C",
+                        "archetype": arch,
+                        "palette": palette_id,
+                        "accent": wild.accent,
+                        "layers": ",".join(wild.layers) or "none",
+                        "tier": "creative",
+                        "wild": "1",
+                    },
+                    wild=True,
+                    recipe=wild,
+                )
+            )
 
-    for arch in ARCHETYPES:
+    return specs[:limit] if limit else specs
+
+
+def spec_signature(spec: ExploreSpec) -> str:
+    tags = spec.tags
+    return "|".join(
+        [
+            spec.family,
+            tags.get("archetype", ""),
+            tags.get("palette", ""),
+            tags.get("medium_variant", ""),
+            tags.get("accent", ""),
+        ]
+    )
+
+
+def materialize_spec_for_round(
+    spec: ExploreSpec,
+    *,
+    gig_id: str,
+    round_num: int,
+    slot: int,
+    preferences: dict[str, Any] | None = None,
+) -> ExploreSpec:
+    """Fresh seeds and C recipe accents/layers each round — same approach, new execution."""
+    from preference_model import preference_weights
+
+    seed_material = f"{gig_id}:{round_num}:{slot}:{spec.spec_id}"
+    digest = int(hashlib.sha256(seed_material.encode()).hexdigest()[:8], 16)
+    rng = random.Random(digest)
+    prefs = preference_weights(preferences)
+
+    recipe = spec.recipe
+    if spec.family == "C":
+        arch = spec.tags.get("archetype") or "xerox_punk"
+        palette_id = spec.tags.get("palette") or "cream_black"
         palettes = PALETTES.get(arch, PALETTES["xerox_punk"])
-        if len(palettes) < 2:
-            continue
-        palette_id, palette = palettes[1]
-        rng = _explore_rng(gig_id, f"wild-{arch}")
-        base = build_recipe(rng, archetype=arch)
-        base = GraphicRecipe(
-            archetype=arch,
-            palette_id=palette_id,
-            palette=palette,
-            accent=base.accent,
-            layers=base.layers,
-            mirror=base.mirror,
-            seed=base.seed,
-        )
-        wild = _wild_recipe(base, rng)
-        specs.append(
-            ExploreSpec(
-                spec_id=f"wild-{arch}",
-                family="C",
-                label=f"Wild · {arch.replace('_', ' ')}",
-                tags={
-                    "family": "C",
-                    "archetype": arch,
-                    "palette": palette_id,
-                    "accent": wild.accent,
-                    "layers": ",".join(wild.layers) or "none",
-                    "tier": "creative",
-                    "wild": "1",
-                },
-                wild=True,
-                recipe=wild,
+        palette = next(p for pid, p in palettes if pid == palette_id)
+        if spec.wild:
+            recipe = _recipe_for_tags(arch, palette_id, palette, rng, wild=True)
+        else:
+            built = build_recipe(rng, archetype=arch, preferences=prefs)
+            recipe = GraphicRecipe(
+                archetype=arch,
+                palette_id=palette_id,
+                palette=palette,
+                accent=built.accent,
+                layers=built.layers,
+                mirror=built.mirror,
+                seed=digest,
             )
+        tags = dict(spec.tags)
+        tags["accent"] = recipe.accent
+        tags["layers"] = ",".join(recipe.layers) or "none"
+        return ExploreSpec(
+            spec_id=f"{spec.spec_id}-r{round_num}-s{slot}",
+            family=spec.family,
+            label=spec.label,
+            tags=tags,
+            wild=spec.wild,
+            recipe=recipe,
+            medium_variant=spec.medium_variant,
         )
 
-    return specs[:limit]
+    return ExploreSpec(
+        spec_id=f"{spec.spec_id}-r{round_num}-s{slot}",
+        family=spec.family,
+        label=spec.label,
+        tags=dict(spec.tags),
+        wild=spec.wild,
+        recipe=recipe,
+        medium_variant=spec.medium_variant,
+    )
 
 
 def _facts(event: GigEvent, band: str) -> dict[str, str]:

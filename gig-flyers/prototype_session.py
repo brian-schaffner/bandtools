@@ -15,6 +15,8 @@ from design_explorer import (
     ROOT,
     _render_explore_spec,
     enumerate_explore_specs,
+    materialize_spec_for_round,
+    spec_signature,
 )
 from flyer_generator import gig_output_dir, resolve_gig_event
 from gig_research import research_gig
@@ -79,16 +81,77 @@ def get_prototype_session(gig_id: str) -> dict[str, Any]:
     return session
 
 
-def _spec_score(spec: ExploreSpec, weights: dict[str, dict[str, int]], used: set[str]) -> float:
-    score = 0.0
+def _base_spec_id(spec_id: str) -> str:
+    return re.sub(r"-r\d+-s\d+$", "", spec_id)
+
+
+def _signatures_from_history(round_history: list[dict[str, Any]], *, last_n: int = 2) -> set[str]:
+    sigs: set[str] = set()
+    for entry in round_history[-last_n:]:
+        for opt in (entry.get("options") or {}).values():
+            tags = opt.get("tags") or {}
+            sigs.add(
+                "|".join(
+                    [
+                        tags.get("family", opt.get("family", "")),
+                        tags.get("archetype", ""),
+                        tags.get("palette", ""),
+                        tags.get("medium_variant", ""),
+                        tags.get("accent", ""),
+                    ]
+                )
+            )
+    return {s for s in sigs if s.strip("|")}
+
+
+def _spec_score(
+    spec: ExploreSpec,
+    weights: dict[str, dict[str, int]],
+    *,
+    used_bases: set[str],
+    blocked_sigs: set[str],
+    round_num: int,
+    archetype_counts: dict[str, int],
+) -> float:
+    score = float(round_num % 7) * 0.01  # tiny tie-breaker rotation
     for key, value in spec.tags.items():
         if key in weights and value:
-            score += weights[key].get(value, 0)
+            score += weights[key].get(value, 0) * 0.35  # soften preference pull
+
+    arch = spec.tags.get("archetype", "")
+    if arch:
+        score += max(0, 3 - archetype_counts.get(arch, 0)) * 2.5
+
     if spec.wild:
-        score += weights.get("family", {}).get("C", 0) * 0.25
-    if spec.spec_id in used:
-        score -= 8
+        score += 1.5 + (round_num % 3) * 0.5
+
+    base = _base_spec_id(spec.spec_id)
+    if base in used_bases:
+        score -= 25
+    if spec_signature(spec) in blocked_sigs:
+        score -= 40
+
     return score
+
+
+def _softmax_pick(
+    rng: random.Random,
+    candidates: list[ExploreSpec],
+    scores: dict[str, float],
+    *,
+    temperature: float = 2.0,
+) -> ExploreSpec:
+    import math
+
+    weights = [math.exp(scores.get(spec.spec_id, 0.0) / max(0.5, temperature)) for spec in candidates]
+    total = sum(weights)
+    pick = rng.random() * total
+    acc = 0.0
+    for spec, w in zip(candidates, weights):
+        acc += w
+        if pick <= acc:
+            return spec
+    return candidates[-1]
 
 
 def select_prototype_specs(
@@ -98,8 +161,9 @@ def select_prototype_specs(
     preferences: dict[str, Any],
     used_spec_ids: list[str],
     feedback_text: str = "",
+    round_history: list[dict[str, Any]] | None = None,
 ) -> list[ExploreSpec]:
-    """Pick 3 diverse approaches for this prototype round."""
+    """Pick 3 diverse approaches — stochastic, anti-repeat, preference-informed."""
     import random
 
     pool = enumerate_explore_specs(gig_id, max_count=999)
@@ -107,77 +171,113 @@ def select_prototype_specs(
     if feedback_text.strip():
         weights = apply_feedback_text(weights, feedback_text, FEEDBACK_KEYWORDS)
 
-    recent = set(used_spec_ids[-9:])
-    rng = random.Random(int(hashlib.sha256(f"proto:{gig_id}:{round_num}".encode()).hexdigest()[:8], 16))
-    scored = sorted(pool, key=lambda s: _spec_score(s, weights, recent), reverse=True)
+    used_bases = {_base_spec_id(s) for s in used_spec_ids}
+    blocked_sigs = _signatures_from_history(round_history or [], last_n=1)
+    recent_sigs = _signatures_from_history(round_history or [], last_n=3)
+
+    rng = random.Random(int(hashlib.sha256(f"proto-pick:{gig_id}:{round_num}".encode()).hexdigest()[:8], 16))
+
+    archetype_counts: dict[str, int] = {}
+    for sig in recent_sigs:
+        parts = sig.split("|")
+        if len(parts) > 1 and parts[1]:
+            archetype_counts[parts[1]] = archetype_counts.get(parts[1], 0) + 1
+
+    scores = {
+        spec.spec_id: _spec_score(
+            spec,
+            weights,
+            used_bases=used_bases,
+            blocked_sigs=blocked_sigs,
+            round_num=round_num,
+            archetype_counts=archetype_counts,
+        )
+        for spec in pool
+    }
 
     chosen: list[ExploreSpec] = []
-    families_seen: set[str] = set()
+    chosen_sigs: set[str] = set()
+    chosen_families: set[str] = set()
+    chosen_archetypes: set[str] = set()
 
-    # Best weighted pick
-    for spec in scored:
-        if spec.spec_id not in {c.spec_id for c in chosen}:
-            chosen.append(spec)
-            families_seen.add(spec.family)
-            break
+    def _available() -> list[ExploreSpec]:
+        taken = {_base_spec_id(s.spec_id) for s in chosen}
+        out: list[ExploreSpec] = []
+        for spec in pool:
+            if _base_spec_id(spec.spec_id) in taken:
+                continue
+            sig = spec_signature(spec)
+            if sig in chosen_sigs:
+                continue
+            out.append(spec)
+        return out
 
-    # Different family when possible
-    for spec in scored:
-        if len(chosen) >= 2:
-            break
-        if spec.spec_id in {c.spec_id for c in chosen}:
-            continue
-        if spec.family not in families_seen or len(families_seen) >= 3:
-            chosen.append(spec)
-            families_seen.add(spec.family)
+    def _track(spec: ExploreSpec) -> None:
+        chosen_sigs.add(spec_signature(spec))
+        chosen_families.add(spec.family)
+        arch = spec.tags.get("archetype")
+        if arch:
+            chosen_archetypes.add(arch)
 
-    # Wild or exploratory third
-    wild_pool = [s for s in scored if s.wild and s.spec_id not in {c.spec_id for c in chosen}]
-    if wild_pool and round_num <= 2:
-        chosen.append(wild_pool[0])
+    # Slot 1: stochastic preference pick
+    avail = _available()
+    if avail:
+        pick = _softmax_pick(rng, avail, scores, temperature=2.2)
+        chosen.append(pick)
+        _track(pick)
+
+    # Slot 2: different family or archetype when possible
+    avail = _available()
+    prefer = [
+        s for s in avail
+        if s.family not in chosen_families
+        or (s.tags.get("archetype") and s.tags.get("archetype") not in chosen_archetypes)
+    ]
+    if prefer:
+        pick = _softmax_pick(rng, prefer, scores, temperature=2.0)
+    elif avail:
+        pick = _softmax_pick(rng, avail, scores, temperature=2.0)
     else:
-        for spec in scored:
-            if len(chosen) >= 3:
-                break
-            if spec.spec_id not in {c.spec_id for c in chosen}:
-                chosen.append(spec)
+        pick = None
+    if pick:
+        chosen.append(pick)
+        _track(pick)
 
-    while len(chosen) < 3 and len(chosen) < len(pool):
-        for spec in scored:
-            if spec not in chosen:
-                chosen.append(spec)
-                if len(chosen) >= 3:
-                    break
+    # Slot 3: wild or least-seen archetype
+    avail = _available()
+    wild = [s for s in avail if s.wild]
+    if wild and round_num % 2 == 0:
+        pick = _softmax_pick(rng, wild, scores, temperature=1.8)
+    else:
+        underused = sorted(
+            avail,
+            key=lambda s: archetype_counts.get(s.tags.get("archetype", ""), 0),
+        )
+        pick_pool = underused[: max(3, len(underused) // 2)] or avail
+        pick = _softmax_pick(rng, pick_pool, scores, temperature=2.4) if pick_pool else None
+    if pick:
+        chosen.append(pick)
+        _track(pick)
 
-    # Round-specific seeds for C recipes so repeats look different
+    while len(chosen) < 3:
+        avail = _available()
+        if not avail:
+            break
+        pick = _softmax_pick(rng, avail, scores, temperature=2.5)
+        chosen.append(pick)
+        _track(pick)
+
     result: list[ExploreSpec] = []
-    for idx, spec in enumerate(chosen[:3]):
-        if spec.recipe is not None:
-            from structured_layout.graphic_composer import GraphicRecipe
-
-            seed = int(
-                hashlib.sha256(f"{gig_id}:{round_num}:{idx}:{spec.spec_id}".encode()).hexdigest()[:8],
-                16,
+    for slot, spec in enumerate(chosen[:3], start=1):
+        result.append(
+            materialize_spec_for_round(
+                spec,
+                gig_id=gig_id,
+                round_num=round_num,
+                slot=slot,
+                preferences=preferences,
             )
-            recipe = GraphicRecipe(
-                archetype=spec.recipe.archetype,
-                palette_id=spec.recipe.palette_id,
-                palette=spec.recipe.palette,
-                accent=spec.recipe.accent,
-                layers=spec.recipe.layers,
-                mirror=spec.recipe.mirror,
-                seed=seed,
-            )
-            spec = ExploreSpec(
-                spec_id=f"{spec.spec_id}-r{round_num}-{idx + 1}",
-                family=spec.family,
-                label=spec.label,
-                tags=dict(spec.tags),
-                wild=spec.wild,
-                recipe=recipe,
-                medium_variant=spec.medium_variant,
-            )
-        result.append(spec)
+        )
     rng.shuffle(result)
     return result
 
@@ -210,6 +310,7 @@ def generate_prototype_round(
         preferences=preferences,
         used_spec_ids=list(session.get("used_spec_ids") or []),
         feedback_text=feedback_text,
+        round_history=list(session.get("round_history") or []),
     )
 
     out_dir = gig_output_dir(event) / "prototype"
@@ -243,8 +344,7 @@ def generate_prototype_round(
 
     used = list(session.get("used_spec_ids") or [])
     for spec in specs:
-        base_id = re.sub(r"-r\d+-\d+$", "", spec.spec_id)
-        used.append(base_id)
+        used.append(_base_spec_id(spec.spec_id))
 
     manifest = {
         "gig_id": gig_id,

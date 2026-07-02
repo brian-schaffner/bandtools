@@ -15,6 +15,7 @@ from design_explorer import enumerate_explore_specs  # noqa: E402
 from preference_model import apply_feedback_text, apply_rankings_to_preferences  # noqa: E402
 from prototype_session import (  # noqa: E402
     FEEDBACK_KEYWORDS,
+    _base_spec_id,
     default_prototype_session,
     select_prototype_specs,
     submit_prototype_turn,
@@ -81,6 +82,32 @@ class PrototypeSessionTest(unittest.TestCase):
                     action="forfeit",
                 )
                 self.assertEqual(result["status"], "forfeit")
+
+
+    def test_rounds_avoid_repeat_signatures(self) -> None:
+        history = [
+            {
+                "round": 1,
+                "options": {
+                    "1": {"tags": {"family": "C", "archetype": "duotone_modern", "palette": "red_cream", "accent": "starburst"}},
+                    "2": {"tags": {"family": "B", "medium_variant": "paste_up", "accent": ""}},
+                    "3": {"tags": {"family": "C", "archetype": "xerox_punk", "palette": "cream_black", "accent": "stamp"}},
+                },
+            }
+        ]
+        r2 = select_prototype_specs(
+            "2026-07-04_american-legion",
+            round_num=2,
+            preferences={"global": {"archetype": {"duotone_modern": 10}}},
+            used_spec_ids=["c-duotone_modern-red_cream", "b-paste_up", "c-xerox_punk-cream_black"],
+            round_history=history,
+        )
+        r2_bases = {_base_spec_id(s.spec_id) for s in r2}
+        self.assertNotIn("c-duotone_modern-red_cream", r2_bases)
+
+    def test_pool_is_larger_than_before(self) -> None:
+        pool = enumerate_explore_specs("test-gig", max_count=999)
+        self.assertGreater(len(pool), 25)
 
 
 class ExplorePoolTest(unittest.TestCase):
