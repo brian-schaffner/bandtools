@@ -200,12 +200,12 @@ def run_shell_pipeline(
         progress(
             step="pass2",
             substep="canvas",
-            message="Pass 2 · compositing shell with locked band photo & logo",
+            message="Pass 2 · styling photo & logo to match shell palette",
             progress=48,
             log=True,
         )
         c_path, _, _, _ = build_personalize_canvas(
-            shell_path, photo, logo, output_dir / f".{pass_stem}_work",
+            shell_path, photo, logo, output_dir / f".{pass_stem}_work", shell=shell,
         )
         canvas_preview.write_bytes(c_path.read_bytes())
         progress(

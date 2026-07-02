@@ -15,6 +15,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 from gig_calendar import GigEvent
 from output_paths import get_output_dir, output_relative
+from shell_asset_integrate import compose_integrated_assets, integration_summary
 from shell_references import ShellReference, get_shell
 from structured_layout.band_mark import find_band_logo
 
@@ -78,13 +79,16 @@ def build_personalize_prompt(
         "The canvas contains:\n"
         "  • PASS 1 DESIGN SHELL as the full background — preserve its art, palette, "
         "and layout quality\n"
-        "  • BAND PHOTO pre-pasted in the footer — LOCKED, do not redraw or move\n"
-        "  • BAND LOGO pre-pasted in the footer — LOCKED, must remain visible\n\n"
+        "  • BAND PHOTO pre-composited with poster-matched duotone, feathered edges, "
+        "and a mat/frame — LOCKED (do not redraw faces or add a white box)\n"
+        "  • BAND LOGO on a tinted badge matching the shell palette — LOCKED\n\n"
         "Your job:\n"
         "  • Replace ALL placeholder text (HEADLINER, VENUE NAME, DATE, TIME, etc.) "
         "with the exact event facts below\n"
         "  • Refine typography only in editable zones — do not repaint the hero illustration\n"
-        "  • Do not add a second band photo or omit the logo\n\n"
+        "  • Optionally add subtle ornamental lines or texture in empty margins that "
+        "harmonize with the shell — never overpaint the photo or logo\n"
+        "  • Do not add a second band photo, white rectangle, or flat pasted-on logo\n\n"
         f"{shell.personalize_prompt}\n\n"
         f"{_event_facts_block(venue=venue, date=date, time=time, band=band, address=address)}\n\n"
         "Output one complete personalized gig flyer."
@@ -96,9 +100,11 @@ def build_personalize_canvas(
     photo_path: Path,
     logo_path: Path,
     out_dir: Path,
+    *,
+    shell: ShellReference | None = None,
     size: tuple[int, int] = (1024, 1536),
 ) -> tuple[Path, Path, tuple[int, int, int, int], tuple[int, int, int, int]]:
-    """Paste shell + locked photo/logo; return canvas, mask, bboxes."""
+    """Paste shell + styled photo/logo; return canvas, mask, bboxes."""
     w, h = size
     shell_img = Image.open(shell_image_path).convert("RGB")
     shell_fit = _fit(shell_img, w, h)
@@ -106,19 +112,29 @@ def build_personalize_canvas(
     ox = (w - shell_fit.width) // 2
     oy = (h - shell_fit.height) // 2
     canvas.paste(shell_fit, (ox, oy))
+    shell_rgba = canvas.convert("RGBA")
 
-    photo = Image.open(photo_path).convert("RGBA")
-    photo_fit = _fit(photo, int(w * 0.38), int(h * 0.20))
-    px, py = 40, int(h * 0.62)
-    canvas.paste(photo_fit, (px, py), photo_fit)
-    photo_bbox = (px, py, px + photo_fit.width, py + photo_fit.height)
+    raw_photo = Image.open(photo_path)
+    raw_logo = Image.open(logo_path)
 
-    logo = Image.open(logo_path).convert("RGBA")
-    logo_fit = _fit(logo, int(w * 0.42), int(h * 0.12))
-    lx = w - logo_fit.width - 40
-    ly = int(h * 0.78)
-    canvas.paste(logo_fit, (lx, ly), logo_fit)
-    logo_bbox = (lx, ly, lx + logo_fit.width, ly + logo_fit.height)
+    if shell is not None:
+        photo_layer, logo_layer, (px, py), (lx, ly) = compose_integrated_assets(
+            shell_rgba, raw_photo, raw_logo, shell, size,
+        )
+    else:
+        photo_layer = _fit(raw_photo.convert("RGBA"), int(w * 0.38), int(h * 0.20))
+        px, py = 40, int(h * 0.62)
+        logo_layer = _fit(raw_logo.convert("RGBA"), int(w * 0.42), int(h * 0.12))
+        lx = w - logo_layer.width - 40
+        ly = int(h * 0.78)
+
+    canvas_rgba = shell_rgba.copy()
+    canvas_rgba.alpha_composite(photo_layer, (px, py))
+    canvas_rgba.alpha_composite(logo_layer, (lx, ly))
+    canvas = canvas_rgba.convert("RGB")
+
+    photo_bbox = (px, py, px + photo_layer.width, py + photo_layer.height)
+    logo_bbox = (lx, ly, lx + logo_layer.width, ly + logo_layer.height)
 
     out_dir.mkdir(parents=True, exist_ok=True)
     canvas_path = out_dir / "pass2_canvas.png"
@@ -126,7 +142,7 @@ def build_personalize_canvas(
 
     mask = Image.new("RGBA", size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(mask)
-    pad = 32
+    pad = 24
     for bbox in (photo_bbox, logo_bbox):
         draw.rectangle(
             [bbox[0] - pad, bbox[1] - pad, bbox[2] + pad, bbox[3] + pad],
@@ -158,7 +174,7 @@ def personalize_shell_openai(
 
     with tempfile.TemporaryDirectory(prefix="shell-pass2-") as tmp:
         canvas_path, mask_path, _, _ = build_personalize_canvas(
-            shell_image_path, photo_path, logo_path, Path(tmp),
+            shell_image_path, photo_path, logo_path, Path(tmp), shell=shell,
         )
         with canvas_path.open("rb") as image_f, mask_path.open("rb") as mask_f:
             response = client.images.edit(
@@ -218,7 +234,7 @@ def personalize_design_shell(
 
     # Save pass-2 canvas preview for eval
     c_path, _, _, _ = build_personalize_canvas(
-        shell_image_path, photo, logo, output_dir / f".{stem}_work",
+        shell_image_path, photo, logo, output_dir / f".{stem}_work", shell=shell,
     )
     canvas_preview.write_bytes(c_path.read_bytes())
 
@@ -234,6 +250,7 @@ def personalize_design_shell(
         "personalized_rel": output_relative(out_path),
         "pass2_canvas_rel": output_relative(canvas_preview),
         "prompt": prompt,
+        "asset_integration": integration_summary(shell),
     }
     manifest_path = output_dir / f"{stem}_pass2_manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
