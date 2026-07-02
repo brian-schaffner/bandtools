@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
-# Deploy Band Tools to Fly.io (production or test via FLY_CONFIG).
+# Deploy Band Tools to Fly.io (production or staging via FLY_CONFIG).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
+
+# shellcheck source=deploy/lib.sh
+source "${ROOT}/scripts/deploy/lib.sh"
 
 CONFIG="${FLY_CONFIG:-fly.toml}"
 if [[ "$CONFIG" == *test* ]]; then
@@ -15,51 +18,20 @@ else
 fi
 REGION="${FLY_REGION:-ord}"
 
-echo "==> Band Tools Fly deploy (app: ${APP}, config: ${CONFIG})"
+print_deploy_context "Band Tools Fly deploy" "$APP" "https://${APP}.fly.dev" "$CONFIG"
 
-if ! fly apps list 2>/dev/null | awk '{print $1}' | grep -qx "$APP"; then
-  echo "Creating Fly app ${APP}..."
-  fly apps create "$APP"
-fi
-
-if ! fly volumes list -a "$APP" 2>/dev/null | grep -q "$VOLUME"; then
-  echo "Creating volume ${VOLUME} in ${REGION}..."
-  fly volumes create "$VOLUME" --region "$REGION" --size 1 -a "$APP" -y
-fi
+require_fly_cli
+ensure_fly_app "$APP"
+ensure_fly_volume "$APP" "$VOLUME" "$REGION"
 
 ENV_FILE="${ENV_FILE:-$ROOT/.env}"
-if [[ -f "$ENV_FILE" ]]; then
-  echo "Setting secrets from ${ENV_FILE}..."
-  # shellcheck disable=SC1090
-  set -a
-  source "$ENV_FILE"
-  set +a
-  fly secrets set -a "$APP" \
-    SECRET="${SECRET:-change-me}" \
-    OPENAI_API_KEY="${OPENAI_API_KEY:-}" \
-    GOOGLE_CLIENT_ID="${GOOGLE_CLIENT_ID:-}" \
-    GOOGLE_CLIENT_SECRET="${GOOGLE_CLIENT_SECRET:-}" \
-    GOOGLE_REDIRECT_URI="https://${APP}.fly.dev/auth/google/callback" \
-    APP_URL="https://${APP}.fly.dev" \
-    NEXT_PUBLIC_API_SECRET="${NEXT_PUBLIC_API_SECRET:-${SECRET:-change-me}}" \
-    BRIDGE_SECRET="${BRIDGE_SECRET:-${SECRET:-change-me}}" \
-    BRIDGE_PUBLIC_URL="https://${APP}.fly.dev/flyers" \
-    BAND_TOOLS_URL="https://${APP}.fly.dev"
-fi
+sync_fly_secrets "$APP" "$ENV_FILE"
 
-BUILD_SECRET="${NEXT_PUBLIC_API_SECRET:-${SECRET:-change-me}}"
+BUILD_SECRET="$(resolve_build_secret "$ENV_FILE")"
+fly_deploy_image "$APP" "${ROOT}/${CONFIG}" "$BUILD_SECRET"
 
-echo "Deploying..."
-fly deploy -a "$APP" -c "$CONFIG" --ha=false \
-  --build-arg "NEXT_PUBLIC_API_SECRET=${BUILD_SECRET}"
+print_deploy_success "$APP"
 
-echo ""
-echo "Done: https://${APP}.fly.dev/"
-echo "  /              Band Tools hub"
-echo "  /setlist-loader"
-echo "  /flyers/       Gig Flyers"
-echo "  /api/health    Setloader API health"
-echo ""
 echo "Add to Google OAuth authorized redirect URIs (if not already):"
 echo "  https://bandtools.fly.dev/auth/google/callback"
 echo "  https://bandtools-test.fly.dev/auth/google/callback"

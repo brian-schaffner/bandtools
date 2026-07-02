@@ -29,11 +29,12 @@ Or run components individually from this monorepo (see each subfolder README).
 ### Test (staging)
 
 ```bash
-cp .env.example .env   # fill in secrets
-FLY_CONFIG=fly.test.toml ./scripts/fly-deploy.sh
-./scripts/smoke-test.sh https://bandtools-test.fly.dev
+cp .env.example .env   # fill in secrets (optional if secrets already on Fly)
+./scripts/deploy-staging.sh
 ./scripts/sync-staging-setloader.sh   # copy prod backup + song mappings to test
 ```
+
+See `scripts/deploy/README.md` for flags (`--no-smoke`, `--skip-secrets`, `--dry-run`).
 
 ### Production
 
