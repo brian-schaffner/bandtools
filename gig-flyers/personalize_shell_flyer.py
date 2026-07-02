@@ -36,6 +36,8 @@ from shell_asset_policy import AssetMode, asset_mode_for_shell, asset_mode_label
 
 FinalRoute = Literal["text_only", "photo_logo"]
 from shell_pass2_mask import build_personalize_mask, build_slot_mask, enforce_shell_design, text_edit_zones
+from shell_model_policy import ShellModelChoice, ShellStep, model_choice_for_step, select_model_for_step
+from shell_openai_edit import shell_images_edit
 from shell_references import PLACEHOLDER_LABELS, ShellReference, get_shell
 from shell_text_slots import placeholder_values, slot_prompt, typography_text_zones
 from structured_layout.band_mark import find_band_logo
@@ -326,12 +328,10 @@ def personalize_shell_typography_sequential(
     date: str,
     time: str,
     client: Any,
-    model: str,
-    size: str,
-    quality: str,
+    model_choice: ShellModelChoice,
 ) -> Path:
     """Replace each placeholder in a tight mask, restoring pass-1 art after every step."""
-    canvas_size = _parse_canvas_size(size)
+    canvas_size = _parse_canvas_size(model_choice.size)
     shell_layer = _shell_canvas_rgba(shell_image_path, canvas_size)
     zones = typography_text_zones(canvas_size, shell)
     values = placeholder_values(band=band, venue=venue, date=date, time=time)
@@ -349,15 +349,12 @@ def personalize_shell_typography_sequential(
             mask_path = Path(tmp) / f"mask_{label.replace(' ', '_')}.png"
             build_slot_mask(canvas_size, zone).save(mask_path, format="PNG")
             with work.open("rb") as image_f, mask_path.open("rb") as mask_f:
-                response = client.images.edit(
-                    model=model,
+                response = shell_images_edit(
+                    client,
                     image=image_f,
                     mask=mask_f,
                     prompt=slot_prompt(label, value, shell),
-                    size=size,
-                    quality=quality,
-                    input_fidelity="high",
-                    n=1,
+                    choice=model_choice,
                 )
             _write_openai_image(response.data[0], work)
             edited_zones.append(zone)
@@ -393,6 +390,7 @@ def personalize_shell_openai(
     time: str = "",
     final_mode: FinalRoute | None = None,
     asset_mode: AssetMode | None = None,
+    model_choice: ShellModelChoice | None = None,
 ) -> Path:
     from openai import OpenAI
 
@@ -401,9 +399,16 @@ def personalize_shell_openai(
         raise RuntimeError("OPENAI_API_KEY required")
 
     client = OpenAI(api_key=api_key)
-    model = os.getenv("OPENAI_IMAGE_MODEL", "gpt-image-1")
-    size = os.getenv("OPENAI_IMAGE_SIZE", "1024x1536")
-    quality = os.getenv("OPENAI_IMAGE_QUALITY", "high")
+    final_step: ShellStep = (
+        "final_text"
+        if final_mode == "text_only"
+        else "final_photo"
+        if final_mode == "photo_logo"
+        else "final_text"
+        if (asset_mode or asset_mode_for_shell(shell)) == "typography_only" and band
+        else "final_photo"
+    )
+    choice = model_choice or select_model_for_step(shell, final_step, route=final_mode)
 
     use_typography = final_mode == "text_only" or (
         final_mode is None
@@ -411,6 +416,9 @@ def personalize_shell_openai(
         and band
     )
     if use_typography:
+        text_choice = choice if choice.step == "final_text" else select_model_for_step(
+            shell, "final_text", route=final_mode or "text_only",
+        )
         return personalize_shell_typography_sequential(
             shell,
             shell_image_path,
@@ -420,12 +428,13 @@ def personalize_shell_openai(
             date=date,
             time=time,
             client=client,
-            model=model,
-            size=size,
-            quality=quality,
+            model_choice=text_choice,
         )
 
     compose_mode = asset_mode or asset_mode_for_shell(shell)
+    photo_choice = choice if choice.step == "final_photo" else select_model_for_step(
+        shell, "final_photo", route=final_mode or "photo_logo",
+    )
     with tempfile.TemporaryDirectory(prefix="shell-pass2-") as tmp:
         canvas_path, mask_path, _, _, compose = build_personalize_canvas(
             shell_image_path,
@@ -436,15 +445,12 @@ def personalize_shell_openai(
             asset_mode=compose_mode,
         )
         with canvas_path.open("rb") as image_f, mask_path.open("rb") as mask_f:
-            response = client.images.edit(
-                model=model,
+            response = shell_images_edit(
+                client,
                 image=image_f,
                 mask=mask_f,
                 prompt=prompt,
-                size=size,
-                quality=quality,
-                input_fidelity="high",
-                n=1,
+                choice=photo_choice,
             )
         item = response.data[0]
         _write_openai_image(item, output_path)

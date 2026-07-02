@@ -719,6 +719,39 @@ def render_shell_generating_page(
     )
 
 
+def _model_plan_html(summary: dict[str, Any]) -> str:
+    plan = summary.get("model_plan") or {}
+    steps = plan.get("steps") or {}
+    if not steps:
+        return ""
+    rows: list[str] = []
+    labels = {
+        "pass1": "Pass 1 — design shell",
+        "prepass": "Pre-pass mockup",
+        "final_text": "Final — text only",
+        "final_photo": "Final — photo & logo",
+    }
+    for key, label in labels.items():
+        step = steps.get(key) or {}
+        model = step.get("model") or "—"
+        quality = step.get("quality") or "—"
+        rationale = step.get("rationale") or ""
+        rows.append(
+            f"<li><strong>{html.escape(label)}:</strong> "
+            f"<code>{html.escape(model)}</code> ({html.escape(quality)})"
+            f"{f' — <span class=\"muted\">{html.escape(rationale[:120])}</span>' if rationale else ''}"
+            f"</li>"
+        )
+    policy = html.escape(str(plan.get("policy") or "auto"))
+    return f"""
+    <section class="panel">
+      <h2>Model plan (this run)</h2>
+      <p class="muted">Policy: <strong>{policy}</strong> — evaluated per step for this shell.</p>
+      <ul class="layout-rules">{''.join(rows)}</ul>
+    </section>
+    """
+
+
 def render_shell_review_page(job_id: str, summary: dict[str, Any]) -> str:
     """Mockup review — user chooses text-only final vs photo/logo final."""
     shell_title = html.escape(summary.get("shell_title") or "")
@@ -775,6 +808,7 @@ def render_shell_review_page(job_id: str, summary: dict[str, Any]) -> str:
     <p class="muted">System suggestion: <strong>{html.escape(hint)}</strong></p>
 
     <div class="shell-compare-grid">{''.join(compare_panels)}</div>
+    {_model_plan_html(summary)}
 
     <section class="panel">
       <h2>Choose final path</h2>
@@ -886,6 +920,7 @@ def render_shell_results_page(job_id: str) -> str:
     <p class="muted">{shell_title}</p>
     {venue_line}
     <div class="shell-results-grid cols-{min(len(panels), 3) if panels else 1}">{''.join(panels)}</div>
+    {_model_plan_html(summary)}
     {eval_html}
     <p class="btn-row" style="margin-top:1.5rem">
       <a class="btn btn-purple" href="{html.escape(rerun)}">Run again</a>

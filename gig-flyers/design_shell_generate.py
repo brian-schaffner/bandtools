@@ -14,6 +14,8 @@ from dotenv import load_dotenv
 from PIL import Image, ImageDraw, ImageFont
 
 from output_paths import get_output_dir, output_relative
+from shell_model_policy import ShellModelChoice, select_model_for_step
+from shell_openai_edit import shell_images_edit
 from shell_references import PLACEHOLDER_LABELS, ShellReference, get_shell
 
 ROOT = Path(__file__).resolve().parent
@@ -100,6 +102,7 @@ def generate_design_shell_openai(
     output_path: Path,
     *,
     briefing_path: Path | None = None,
+    model_choice: ShellModelChoice | None = None,
 ) -> Path:
     from openai import OpenAI
 
@@ -107,10 +110,8 @@ def generate_design_shell_openai(
     if not api_key:
         raise RuntimeError("OPENAI_API_KEY required")
 
+    choice = model_choice or select_model_for_step(shell, "pass1")
     client = OpenAI(api_key=api_key)
-    model = os.getenv("OPENAI_IMAGE_MODEL", "gpt-image-1")
-    size = os.getenv("OPENAI_IMAGE_SIZE", "1024x1536")
-    quality = os.getenv("OPENAI_IMAGE_QUALITY", "high")
 
     with tempfile.TemporaryDirectory(prefix="shell-pass1-") as tmp:
         tmp_path = Path(tmp)
@@ -119,13 +120,11 @@ def generate_design_shell_openai(
             build_shell_briefing_sheet(shell, briefing)
         prompt = build_shell_prompt(shell)
         with briefing.open("rb") as f:
-            response = client.images.edit(
-                model=model,
+            response = shell_images_edit(
+                client,
                 image=f,
                 prompt=prompt,
-                size=size,
-                quality=quality,
-                n=1,
+                choice=choice,
             )
         item = response.data[0]
         output_path.parent.mkdir(parents=True, exist_ok=True)

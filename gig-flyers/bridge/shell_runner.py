@@ -39,7 +39,14 @@ from shell_asset_policy import (
     suggest_final_route,
 )
 from shell_evaluation_card import build_shell_evaluation_card
-from shell_pre_pass import build_prepass_mockup, prepass_quality
+from shell_model_policy import (
+    ShellModelChoice,
+    build_run_model_plan,
+    final_step_for_route,
+    model_choice_for_step,
+    select_model_for_step,
+)
+from shell_pre_pass import build_prepass_mockup
 from shell_references import ShellReference, get_shell
 from text_validation import resolve_venue_address
 
@@ -116,11 +123,17 @@ def _event_context(event: GigEvent) -> tuple[str, str, str]:
     return band, date_str, time_str
 
 
+def _step_api_message(step_label: str, choice: ShellModelChoice) -> str:
+    return f"{step_label} · {choice.label()}"
+
+
 def _run_pass1(
     job_id: str,
     shell: ShellReference,
     output_dir: Path,
     progress: ProgressCallback,
+    *,
+    model_plan: dict[str, Any],
 ) -> tuple[dict[str, Any], Path]:
     stem = shell.id
     briefing_path = output_dir / f"{stem}_pass1_briefing.png"
@@ -134,14 +147,22 @@ def _run_pass1(
         log=True,
     )
     build_shell_briefing_sheet(shell, briefing_path)
+    pass1_choice = model_choice_for_step(model_plan, "pass1") or select_model_for_step(
+        shell, "pass1",
+    )
     progress(
         step="pass1",
         substep="api",
-        message="Pass 1 · OpenAI creating design shell (placeholders only)",
+        message=_step_api_message("Pass 1 · creating design shell", pass1_choice),
         progress=14,
         log=True,
     )
-    generate_design_shell_openai(shell, shell_path, briefing_path=briefing_path)
+    generate_design_shell_openai(
+        shell,
+        shell_path,
+        briefing_path=briefing_path,
+        model_choice=pass1_choice,
+    )
     if not shell_path.is_file():
         raise FileNotFoundError(f"Pass 1 shell image missing: {shell_path}")
 
@@ -152,6 +173,7 @@ def _run_pass1(
         "briefing_rel": output_relative(briefing_path),
         "shell_rel": output_relative(shell_path),
         "prompt": build_shell_prompt(shell),
+        "model": pass1_choice.to_dict(),
     }
     manifest_path = output_dir / f"{stem}_pass1_manifest.json"
     manifest_path.write_text(json.dumps(pass1, indent=2), encoding="utf-8")
@@ -172,20 +194,25 @@ def _run_prepass(
     event: GigEvent,
     output_dir: Path,
     progress: ProgressCallback,
+    *,
+    model_plan: dict[str, Any],
 ) -> dict[str, Any]:
     band, date_str, time_str = _event_context(event)
     pass_stem = f"{event.gig_id}_{shell.id}"
     mockup_path = output_dir / f"{pass_stem}_prepass_mockup.png"
     suggested = suggest_final_route(shell)
 
+    prepass_choice = model_choice_for_step(model_plan, "prepass") or select_model_for_step(
+        shell, "prepass",
+    )
     progress(
         step="prepass",
         substep="api",
-        message="Pre-pass · fast text-only mockup with your gig details",
+        message=_step_api_message("Pre-pass · text-only mockup", prepass_choice),
         progress=46,
         log=True,
     )
-    build_prepass_mockup(
+    _, used_choice = build_prepass_mockup(
         shell,
         shell_path,
         mockup_path,
@@ -193,6 +220,7 @@ def _run_prepass(
         venue=event.venue,
         date=date_str,
         time=time_str,
+        model_choice=prepass_choice,
     )
     if not mockup_path.is_file():
         raise FileNotFoundError(f"Pre-pass mockup missing: {mockup_path}")
@@ -207,7 +235,7 @@ def _run_prepass(
     return {
         "gig_id": event.gig_id,
         "mockup_rel": output_relative(mockup_path),
-        "quality": prepass_quality(),
+        "model": used_choice.to_dict(),
         "suggested_route": suggested,
     }
 
@@ -220,6 +248,8 @@ def _run_final_pass(
     route: FinalRoute,
     output_dir: Path,
     progress: ProgressCallback,
+    *,
+    model_plan: dict[str, Any],
 ) -> tuple[dict[str, Any], Path]:
     set_test_mode(True)
     band, date_str, time_str = _event_context(event)
@@ -244,10 +274,18 @@ def _run_final_pass(
         asset_mode=compose_mode,
     )
 
+    final_step = final_step_for_route(route)
+    final_choice = model_choice_for_step(model_plan, final_step) or select_model_for_step(
+        shell, final_step, route=route,
+    )
+
     if route == "text_only":
-        pass2_msg = "Final pass · high-quality typography only (no photo or logo)"
+        pass2_msg = _step_api_message("Final pass · typography only", final_choice)
     else:
-        pass2_msg = f"Final pass · {asset_mode_label(compose_mode).lower()}"
+        pass2_msg = _step_api_message(
+            f"Final pass · {asset_mode_label(compose_mode).lower()}",
+            final_choice,
+        )
     progress(
         step="pass2",
         substep="canvas",
@@ -269,7 +307,7 @@ def _run_final_pass(
     progress(
         step="pass2",
         substep="api",
-        message=f"Final pass · {final_route_label(route).lower()}",
+        message=_step_api_message(f"Final pass · {final_route_label(route).lower()}", final_choice),
         progress=62,
         log=True,
     )
@@ -286,6 +324,7 @@ def _run_final_pass(
         time=time_str,
         final_mode=route,
         asset_mode=compose_mode,
+        model_choice=final_choice,
     )
 
     pass2 = {
@@ -298,6 +337,7 @@ def _run_final_pass(
         "personalized_rel": output_relative(out_path),
         "route": route,
         "asset_mode": compose_mode,
+        "model": final_choice.to_dict(),
         "prompt": prompt,
     }
     if route == "photo_logo":
@@ -322,6 +362,9 @@ def _run_eval_card(
     event: GigEvent,
     date_str: str,
     progress: ProgressCallback,
+    *,
+    model_plan: dict[str, Any] | None = None,
+    route: FinalRoute | None = None,
 ) -> str:
     progress(
         step="eval",
@@ -332,6 +375,15 @@ def _run_eval_card(
     )
     eval_path = OUT_DIR / f"{event.gig_id}_{shell.id}_eval.png"
     ref_path = shell.image_path()
+    extra_lines = [
+        f"Design family: {shell.design_family}",
+        "Provider: openai",
+    ]
+    if model_plan and route:
+        step = final_step_for_route(route)
+        choice = model_choice_for_step(model_plan, step)
+        if choice:
+            extra_lines.append(f"Final model: {choice.label()}")
     build_shell_evaluation_card(
         reference_path=ref_path if ref_path.is_file() else shell_path,
         shell_path=shell_path,
@@ -341,10 +393,7 @@ def _run_eval_card(
         shell_id=shell.id,
         venue=event.venue,
         date=date_str,
-        extra_lines=[
-            f"Design family: {shell.design_family}",
-            "Provider: openai",
-        ],
+        extra_lines=extra_lines,
     )
     progress(
         step="eval",
@@ -382,7 +431,10 @@ def run_shell_pipeline(
     try:
         output_dir = OUT_DIR
         output_dir.mkdir(parents=True, exist_ok=True)
-        pass1, shell_path = _run_pass1(job_id, shell, output_dir, progress)
+        model_plan = build_run_model_plan(shell)
+        pass1, shell_path = _run_pass1(
+            job_id, shell, output_dir, progress, model_plan=model_plan,
+        )
 
         summary: dict[str, Any] = {
             "job_id": job_id,
@@ -391,6 +443,7 @@ def run_shell_pipeline(
             "design_family": shell.design_family,
             "pass1_only": pass1_only,
             "skip_prepass": skip_prepass,
+            "model_plan": model_plan,
             "pass1": pass1,
         }
 
@@ -408,7 +461,9 @@ def run_shell_pipeline(
         summary["route"] = {"suggested": suggest_final_route(shell), "chosen": final_route}
 
         if final_route is None and not skip_prepass:
-            prepass = _run_prepass(job_id, shell, shell_path, event, output_dir, progress)
+            prepass = _run_prepass(
+                job_id, shell, shell_path, event, output_dir, progress, model_plan=model_plan,
+            )
             summary["prepass"] = prepass
             summary["status"] = "awaiting_route"
             _save_job_summary(job_id, summary)
@@ -465,11 +520,28 @@ def run_shell_final(
 
         summary.setdefault("route", {})
         summary["route"]["chosen"] = route
+        model_plan = summary.get("model_plan") or build_run_model_plan(shell)
         pass2, out_path = _run_final_pass(
-            job_id, shell, shell_path, event, route, output_dir, progress,
+            job_id,
+            shell,
+            shell_path,
+            event,
+            route,
+            output_dir,
+            progress,
+            model_plan=model_plan,
         )
         _, date_str, _ = _event_context(event)
-        eval_rel = _run_eval_card(shell, shell_path, out_path, event, date_str, progress)
+        eval_rel = _run_eval_card(
+            shell,
+            shell_path,
+            out_path,
+            event,
+            date_str,
+            progress,
+            model_plan=model_plan,
+            route=route,
+        )
 
         summary.update(
             {

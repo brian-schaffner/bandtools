@@ -5,19 +5,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from shell_model_policy import ShellModelChoice, select_model_for_step
 from shell_references import ShellReference
-
-
-def prepass_quality() -> str:
-    return (os.getenv("SHELL_PREPASS_QUALITY") or "medium").strip().lower()
-
-
-def prepass_model() -> str:
-    return os.getenv("OPENAI_IMAGE_MODEL", "gpt-image-1")
-
-
-def prepass_size() -> str:
-    return os.getenv("OPENAI_IMAGE_SIZE", "1024x1536")
 
 
 def build_prepass_mockup(
@@ -29,8 +18,9 @@ def build_prepass_mockup(
     venue: str,
     date: str,
     time: str,
-) -> Path:
-    """Swap placeholder text with gig facts — no photo, no logo, medium quality."""
+    model_choice: ShellModelChoice | None = None,
+) -> tuple[Path, ShellModelChoice]:
+    """Swap placeholder text with gig facts — no photo, no logo, draft quality."""
     from openai import OpenAI
 
     from personalize_shell_flyer import personalize_shell_typography_sequential
@@ -39,8 +29,9 @@ def build_prepass_mockup(
     if not api_key:
         raise RuntimeError("OPENAI_API_KEY required")
 
+    choice = model_choice or select_model_for_step(shell, "prepass")
     client = OpenAI(api_key=api_key)
-    return personalize_shell_typography_sequential(
+    result = personalize_shell_typography_sequential(
         shell,
         shell_image_path,
         output_path,
@@ -49,7 +40,6 @@ def build_prepass_mockup(
         date=date,
         time=time,
         client=client,
-        model=prepass_model(),
-        size=prepass_size(),
-        quality=prepass_quality(),
+        model_choice=choice,
     )
+    return result, choice
