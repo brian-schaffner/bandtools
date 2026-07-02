@@ -37,6 +37,29 @@ REF_BY_STUDY: dict[str, Path] = {
 
 DEFAULT_STUDY_ID = "hatch_hank_williams_1953"
 
+PROTECTED_ASSET_STUDIES = frozenset({"woodstock_festival_1969", "altamont_free_concert_1969"})
+
+
+def _paper_for_study(study_id: str) -> tuple[int, int, int]:
+    if study_id == "woodstock_festival_1969":
+        return (211, 47, 47)
+    return (242, 235, 220)
+
+
+def _label_fill_for_study(study_id: str) -> tuple[int, int, int]:
+    if study_id == "woodstock_festival_1969":
+        return (255, 255, 255)
+    return (20, 20, 20)
+
+
+def resolve_study_logo(band: str, study_id: str) -> Path:
+    paper = _paper_for_study(study_id)
+    logo = find_band_logo(band, paper=paper)
+    if logo is not None and logo.is_file():
+        return logo
+    name = "lindsey-lane-band-light.png" if sum(paper) / 3 < 128 else "lindsey-lane-band-dark.png"
+    return ROOT / "assets/logos" / name
+
 
 def _event_facts_block(
     *,
@@ -79,16 +102,14 @@ def build_hatch_prompt(*, venue: str, date: str, time: str, band: str, address: 
 def build_altamont_prompt(*, venue: str, date: str, time: str, band: str, address: str = "") -> str:
     return (
         "You are designing a gritty 1969-style rock club / festival bill poster.\n\n"
-        "You will receive THREE images:\n"
-        "  IMAGE 1 — STYLE REFERENCE: the 1969 Altamont Free Concert poster. Match its "
-        "asymmetric layout, red/black line alternation, and high-contrast xerox/screen-print feel.\n"
-        "  IMAGE 2 — BAND PHOTO: use as high-contrast B&W performance photo, lower-left ~40% width.\n"
-        "  IMAGE 3 — BAND LOGO: place in sidebar or near headliner block.\n\n"
+        "You will receive a canvas with assets already placed:\n"
+        "  STYLE REFERENCE at top — match its asymmetric layout and red/black screen-print feel.\n"
+        "  BAND PHOTO — already pasted lower-left. Preserve EXACTLY — do not redraw or repaint.\n"
+        "  BAND LOGO — already pasted. Must remain visible; do not replace with plain type.\n\n"
         "Layout (like reference):\n"
         "  • Headliner name largest at top\n"
-        "  • Promo hook line (e.g. LIVE AT / LIVE MUSIC) in red caps with star accents\n"
+        "  • Promo hook line (e.g. LIVE AT / ONE NIGHT ONLY) in red caps with star accents\n"
         "  • Date line (black) then venue line (red) — alternate colors by line\n"
-        "  • Band photo gritty B&W lower-left\n"
         "  • RIGHT SIDEBAR column: SPECIAL GUESTS / LOCAL OPENERS (not a bottom list)\n"
         "  • Show time in footer\n"
         "Palette: cream + red + black only.\n\n"
@@ -100,18 +121,19 @@ def build_altamont_prompt(*, venue: str, date: str, time: str, band: str, addres
 def build_woodstock_prompt(*, venue: str, date: str, time: str, band: str, address: str = "") -> str:
     return (
         "You are designing a psychedelic 1969 festival poster — graphically complex.\n\n"
-        "You will receive THREE images:\n"
-        "  IMAGE 1 — STYLE REFERENCE: the original Woodstock poster. Match its complexity:\n"
-        "    - Bold symbolic hero illustration filling top ~45% (dove/guitar style — create ORIGINAL "
-        "symbolic art inspired by the reference, do not copy the Woodstock bird exactly)\n"
-        "    - Solid red field behind art\n"
-        "    - Large festival hook slogan in hand-drawn yellow lettering\n"
-        "    - THREE-COLUMN footer grid: lineup | logistics/dates | slogan\n"
-        "    - Flat 4-color palette: red, yellow, blue, black, white — no gradients\n"
-        "  IMAGE 2 — BAND PHOTO: incorporate as a small halftone inset in the footer grid OR "
-        "work into the hero art tastefully — do not redraw faces.\n"
-        "  IMAGE 3 — BAND LOGO: place in footer grid or below slogan.\n\n"
-        "Hierarchy: slogan + symbolic art dominate; band name is secondary to festival hook.\n"
+        "You will receive a canvas with assets already placed:\n"
+        "  STYLE REFERENCE at top — transform this zone into original hero art (dove/guitar "
+        "motif inspired by Woodstock, not a copy).\n"
+        "  BAND PHOTO — already pasted in the footer. Preserve it EXACTLY: same faces, poses, "
+        "and framing. Do not redraw, repaint, halftone again, duplicate, or cover the musicians.\n"
+        "  BAND LOGO — already pasted in the footer. Must stay clearly visible at readable size. "
+        "Do not replace the logo with plain type or omit it.\n\n"
+        "Add around the protected assets:\n"
+        "  - Solid red field behind hero art\n"
+        "  - Large festival hook slogan in hand-drawn yellow lettering\n"
+        "  - THREE-COLUMN footer grid: lineup | logistics/dates | headliner block\n"
+        "  - Flat 4-color palette: red, yellow, blue, black, white — no gradients\n\n"
+        "Hierarchy: slogan + symbolic art dominate; band logo + name remain legible in footer.\n"
         "Include dense but readable small type in footer columns.\n\n"
         f"{_event_facts_block(venue=venue, date=date, time=time, band=band, address=address)}\n\n"
         "Festival hook suggestion: ONE NIGHT OF BLUES & ROCK (adapt to event).\n"
@@ -142,21 +164,18 @@ def build_generation_prompt(
 def _collage_edit_preamble(study_id: str) -> str:
     if study_id == "woodstock_festival_1969":
         return (
-            "The input image is a briefing sheet. STYLE REFERENCE at top shows a psychedelic "
-            "1969 festival poster. BAND PHOTO and BAND LOGO are assets to include. "
-            "Render ONE finished vertical festival poster in the outlined area at bottom, "
-            "then expand to fill the entire canvas as a single cohesive poster. "
-            "Remove briefing labels and boxes. Match the reference complexity: hero art, slogan, "
-            "3-column footer grid, flat 4-color palette.\n\n"
+            "The canvas already contains a style reference at top, plus a band photo and band logo "
+            "in the footer. Those photo and logo regions are LOCKED — do not move, redraw, replace, "
+            "or cover them. Build hero art, slogan, and footer typography around the locked assets. "
+            "Remove any briefing labels. Match Woodstock complexity: hero art, slogan, 3-column footer, "
+            "flat 4-color palette.\n\n"
         )
     if study_id == "altamont_free_concert_1969":
         return (
-            "The input image is a briefing sheet. STYLE REFERENCE at top shows a gritty 1969 "
-            "multi-act bill poster. BAND PHOTO and BAND LOGO are assets to include. "
-            "Render ONE finished vertical flyer in the outlined area at bottom, "
-            "then expand to fill the entire canvas as a single cohesive poster. "
-            "Remove briefing labels and boxes. Match asymmetric layout, red/black alternation, "
-            "sidebar guest column.\n\n"
+            "The canvas already contains a style reference at top, plus a band photo and band logo. "
+            "Photo and logo regions are LOCKED — do not redraw or replace them. Add typography and "
+            "layout around the locked assets. Match asymmetric layout, red/black alternation, sidebar "
+            "guest column.\n\n"
         )
     return (
         "The input image is a briefing sheet. STYLE REFERENCE at top shows the target layout. "
@@ -188,28 +207,30 @@ def build_collage_input(
 ) -> Path:
     """Single-sheet fallback for APIs that accept one image: ref + assets + blank render zone."""
     w, h = size
-    paper = (242, 235, 220) if study_id != "woodstock_festival_1969" else (211, 47, 47)
+    paper = _paper_for_study(study_id)
     sheet = Image.new("RGB", size, paper)
     draw = ImageDraw.Draw(sheet)
     label = _load_font(18)
+    label_fill = _label_fill_for_study(study_id)
+    ref_label_fill = (255, 220, 220) if study_id == "woodstock_festival_1969" else (80, 20, 20)
 
     ref_h = int(h * (0.42 if study_id == "woodstock_festival_1969" else 0.38))
     ref = Image.open(reference_path).convert("RGB")
     ref_fit = _fit(ref, w - 48, ref_h - 36)
     sheet.paste(ref_fit, ((w - ref_fit.width) // 2, 24))
-    draw.text((24, 4), "STYLE REFERENCE (match this layout)", fill=(80, 20, 20), font=label)
+    draw.text((24, 4), "STYLE REFERENCE (match this layout)", fill=ref_label_fill, font=label)
 
     assets_y = ref_h + 12
     photo = Image.open(photo_path).convert("RGB")
     photo_fit = _fit(photo, int(w * 0.42), int(h * 0.22))
     sheet.paste(photo_fit, (24, assets_y))
-    draw.text((24, assets_y - 20), "BAND PHOTO (use exactly)", fill=(20, 20, 20), font=label)
+    draw.text((24, assets_y - 20), "BAND PHOTO (use exactly)", fill=label_fill, font=label)
 
     logo = Image.open(logo_path).convert("RGBA")
     logo_fit = _fit(logo, int(w * 0.35), int(h * 0.12))
     lx = w - logo_fit.width - 24
     sheet.paste(logo_fit, (lx, assets_y), logo_fit if logo_fit.mode == "RGBA" else None)
-    draw.text((lx, assets_y - 20), "BAND LOGO (include)", fill=(20, 20, 20), font=label)
+    draw.text((lx, assets_y - 20), "BAND LOGO (include exactly)", fill=label_fill, font=label)
 
     render_y = assets_y + int(h * 0.24)
     draw.rectangle([24, render_y, w - 24, h - 24], outline=(179, 27, 27), width=3)
@@ -234,6 +255,75 @@ def _fit(img: Image.Image, max_w: int, max_h: int) -> Image.Image:
     return out.convert("RGB")
 
 
+def _prepare_study_photo(photo_path: Path, study_id: str) -> Image.Image:
+    """PIL-only photo treatment — never ask the model to redraw faces."""
+    photo = Image.open(photo_path).convert("RGBA")
+    if study_id == "woodstock_festival_1969":
+        from structured_layout.graphic_primitives import duotone_photo
+
+        return duotone_photo(photo, (17, 17, 17), (245, 196, 0))
+    if study_id == "altamont_free_concert_1969":
+        from structured_layout.graphic_primitives import threshold_photo
+
+        return threshold_photo(photo)
+    return photo
+
+
+def build_protected_study_canvas(
+    *,
+    reference_path: Path,
+    photo_path: Path,
+    logo_path: Path,
+    out_dir: Path,
+    study_id: str,
+    size: tuple[int, int] = (1024, 1536),
+) -> tuple[Path, Path, tuple[int, int, int, int], tuple[int, int, int, int]]:
+    """Pre-paste band photo + logo on canvas; return paths and bboxes for mask protection."""
+    w, h = size
+    paper = _paper_for_study(study_id)
+    canvas = Image.new("RGB", size, paper)
+
+    ref_h = int(h * 0.36)
+    ref = Image.open(reference_path).convert("RGB")
+    ref_fit = _fit(ref, w - 48, ref_h)
+    canvas.paste(ref_fit, ((w - ref_fit.width) // 2, 16))
+
+    photo_layer = _prepare_study_photo(photo_path, study_id)
+    photo_fit = _fit(photo_layer, int(w * 0.44), int(h * 0.24))
+    px, py = 36, int(h * 0.56)
+    canvas.paste(photo_fit, (px, py), photo_fit if photo_fit.mode == "RGBA" else None)
+    photo_bbox = (px, py, px + photo_fit.width, py + photo_fit.height)
+
+    logo = Image.open(logo_path).convert("RGBA")
+    logo_fit = _fit(logo, int(w * 0.46), int(h * 0.13))
+    lx = w - logo_fit.width - 36
+    ly = int(h * 0.74)
+    canvas.paste(logo_fit, (lx, ly), logo_fit)
+    logo_bbox = (lx, ly, lx + logo_fit.width, ly + logo_fit.height)
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    canvas_path = out_dir / "compose_canvas.png"
+    canvas.save(canvas_path, format="PNG")
+
+    mask = Image.new("RGBA", size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(mask)
+    pad = 28
+    for left, top, right, bottom in (photo_bbox, logo_bbox):
+        draw.rectangle(
+            [left - pad, top - pad, right + pad, bottom + pad],
+            fill=(255, 255, 255, 255),
+        )
+    mask_path = out_dir / "compose_mask.png"
+    mask.save(mask_path, format="PNG")
+    return canvas_path, mask_path, photo_bbox, logo_bbox
+
+
+def _uses_protected_assets(study_id: str) -> bool:
+    if study_id in PROTECTED_ASSET_STUDIES:
+        return True
+    return os.getenv("REFERENCE_STUDY_PROTECTED_ASSETS", "").strip().lower() in {"1", "true", "yes"}
+
+
 def generate_openai_multiref(
     prompt: str,
     *,
@@ -256,25 +346,46 @@ def generate_openai_multiref(
     quality = os.getenv("OPENAI_IMAGE_QUALITY", "high")
 
     with tempfile.TemporaryDirectory(prefix="ref-study-") as tmp:
-        collage = Path(tmp) / "input_sheet.png"
-        build_collage_input(
-            reference_path=reference_path,
-            photo_path=photo_path,
-            logo_path=logo_path,
-            out_path=collage,
-            study_id=study_id,
-        )
+        tmp_path = Path(tmp)
         edit_prompt = f"{_collage_edit_preamble(study_id)}{prompt}"
-        with collage.open("rb") as f:
-            response = client.images.edit(
-                model=model,
-                image=f,
-                prompt=edit_prompt,
-                size=size,
-                quality=quality,
-                input_fidelity="high",
-                n=1,
+        if _uses_protected_assets(study_id):
+            canvas_path, mask_path, _, _ = build_protected_study_canvas(
+                reference_path=reference_path,
+                photo_path=photo_path,
+                logo_path=logo_path,
+                out_dir=tmp_path,
+                study_id=study_id,
             )
+            with canvas_path.open("rb") as image_f, mask_path.open("rb") as mask_f:
+                response = client.images.edit(
+                    model=model,
+                    image=image_f,
+                    mask=mask_f,
+                    prompt=edit_prompt,
+                    size=size,
+                    quality=quality,
+                    input_fidelity="high",
+                    n=1,
+                )
+        else:
+            collage = tmp_path / "input_sheet.png"
+            build_collage_input(
+                reference_path=reference_path,
+                photo_path=photo_path,
+                logo_path=logo_path,
+                out_path=collage,
+                study_id=study_id,
+            )
+            with collage.open("rb") as f:
+                response = client.images.edit(
+                    model=model,
+                    image=f,
+                    prompt=edit_prompt,
+                    size=size,
+                    quality=quality,
+                    input_fidelity="high",
+                    n=1,
+                )
         item = response.data[0]
         output_path.parent.mkdir(parents=True, exist_ok=True)
         if item.b64_json:
@@ -352,9 +463,7 @@ def generate_reference_study_flyer(
     """Show reference poster + photo + logo; generate similar flyer for gig."""
     ref = reference_path or REF_BY_STUDY.get(study_id, HATCH_REF)
     photo = photo_path or DEFAULT_PHOTO
-    logo = logo_path or find_band_logo(band, paper=(242, 235, 220))
-    if logo is None or not logo.is_file():
-        logo = ROOT / "assets/logos/lindsey-lane-band-dark.png"
+    logo = logo_path or resolve_study_logo(band, study_id)
     for label, path in [("reference", ref), ("photo", photo), ("logo", logo)]:
         if not path.is_file():
             raise FileNotFoundError(f"Missing {label}: {path}")
@@ -419,6 +528,7 @@ def generate_reference_study_flyer(
             "Inputs: reference poster + band photo + logo",
             f"Study: {study_id}",
             f"Provider: {used}",
+            "Photo/logo: PIL pre-paste + mask (protected)" if _uses_protected_assets(study_id) else "Photo/logo: briefing sheet only",
             f"Venue: {event.venue}",
             f"Date: {date_str}",
         ],
