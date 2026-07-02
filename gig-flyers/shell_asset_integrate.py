@@ -9,6 +9,7 @@ from typing import Any
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter
 
 from shell_references import ShellReference
+from shell_asset_policy import AssetMode, asset_mode_for_shell, uses_band_logo, uses_band_photo
 from structured_layout.band_mark import _luminance, _tint_logo
 from structured_layout.graphic_primitives import duotone_photo
 
@@ -48,9 +49,6 @@ _CENTER_HERO_FAMILIES = frozenset(
         "swiss_jazz",
         "underground_zine",
         "swiss_grid",
-        "fillmore_psychedelic",
-        "avalon_psychedelic",
-        "victorian_circus",
     }
 )
 
@@ -67,6 +65,7 @@ class ShellPass2Compose:
     shell_layer: Image.Image
     text_edit_zones: tuple[tuple[int, int, int, int], ...]
     canvas_size: tuple[int, int]
+    asset_mode: AssetMode = "photo_hero"
     backdrop_rgb: tuple[int, int, int] = CANVAS_BACKGROUND
 
 
@@ -343,6 +342,9 @@ def _load_logo_from_image(logo: Image.Image) -> Image.Image:
 
 def photo_slot_for_shell(shell: ShellReference) -> str:
     """Return placement slot id: center_hero, footer_inset, or lower_left."""
+    mode = asset_mode_for_shell(shell)
+    if mode == "typography_only":
+        return "none"
     family = shell.design_family
     if family in _LOWER_LEFT_FAMILIES:
         return "lower_left"
@@ -363,6 +365,7 @@ def photo_slot_label(slot: str) -> str:
         "center_hero": "center hero portrait frame",
         "footer_inset": "footer inset slot",
         "lower_left": "lower-left inset",
+        "none": "typography-only (no photo slot)",
     }.get(slot, "designated photo slot")
 
 
@@ -372,8 +375,11 @@ def placement_zones(
 ) -> dict[str, tuple[int, int, int, int]]:
     w, h = canvas_size
     slot = photo_slot_for_shell(shell) if shell is not None else "lower_left"
+    mode = asset_mode_for_shell(shell) if shell is not None else "photo_inset"
 
-    if slot == "center_hero":
+    if slot == "none":
+        photo_box = (0, 0, 0, 0)
+    elif slot == "center_hero":
         photo_w, photo_h = int(w * 0.78), int(h * 0.44)
         px, py = (w - photo_w) // 2, int(h * 0.26)
     elif slot == "footer_inset":
@@ -448,6 +454,7 @@ def integration_summary(shell: ShellReference) -> dict[str, Any]:
     return {
         "style": shell.style,
         "design_family": shell.design_family,
+        "asset_mode": asset_mode_for_shell(shell),
         "photo_slot": slot,
         "duotone_strength": _duotone_strength(shell.style),
         "roles": {k: "#{:02x}{:02x}{:02x}".format(*v) for k, v in roles.items()},
@@ -456,7 +463,7 @@ def integration_summary(shell: ShellReference) -> dict[str, Any]:
 
 def enforce_shell_logo(output_path: Path, compose: ShellPass2Compose) -> bool:
     """Restore the pre-integrated logo layer after OpenAI pass 2."""
-    if not output_path.is_file():
+    if compose.asset_mode == "typography_only" or not output_path.is_file():
         return False
 
     model = Image.open(output_path).convert("RGBA")
@@ -473,7 +480,7 @@ def enforce_shell_logo(output_path: Path, compose: ShellPass2Compose) -> bool:
 
 def enforce_shell_photo(output_path: Path, compose: ShellPass2Compose) -> bool:
     """Restore the pre-integrated photo layer after OpenAI pass 2."""
-    if not output_path.is_file():
+    if compose.asset_mode == "typography_only" or not output_path.is_file():
         return False
 
     model = Image.open(output_path).convert("RGBA")

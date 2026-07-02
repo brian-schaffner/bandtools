@@ -16,18 +16,23 @@ from PIL import Image, ImageFont
 from gig_calendar import GigEvent
 from output_paths import get_output_dir, output_relative
 from shell_asset_integrate import (
+    CANVAS_BACKGROUND,
     ShellPass2Compose,
     _clear_pad_for_slot,
     _sample_backdrop_ring,
+    _sample_zone_mean,
     clear_photo_slot,
     compose_integrated_assets,
     enforce_shell_photo,
     enforce_shell_logo,
+    fit_layer_in_box,
+    integrate_band_logo,
     integration_summary,
     photo_slot_for_shell,
     photo_slot_label,
     placement_zones,
 )
+from shell_asset_policy import asset_mode_for_shell, asset_mode_label, uses_band_logo, uses_band_photo
 from shell_pass2_mask import build_personalize_mask, enforce_shell_design, text_edit_zones
 from shell_references import ShellReference, get_shell
 from structured_layout.band_mark import find_band_logo
@@ -117,30 +122,47 @@ def build_personalize_prompt(
     event: GigEvent | None = None,
 ) -> str:
     slot = photo_slot_for_shell(shell)
+    mode = asset_mode_for_shell(shell)
     slot_desc = photo_slot_label(slot)
+    mode_desc = asset_mode_label(mode)
     typo_lines: list[str] = []
     footer_lines: list[str] = []
     if event is not None:
         typo_lines = typography_hierarchy_prompt_lines(event, band=band)
         footer_lines = footer_prompt_lines(event, band=band)
+
+    if mode == "typography_only":
+        asset_block = (
+            f"ASSET MODE: {mode_desc}\n"
+            "  • Do NOT add any band photo, portrait, or pasted photo rectangle\n"
+            f"  • Replace HEADLINER with the band name \"{band}\" rendered in the SAME "
+            "hand-lettered / psychedelic / wood-type style as the shell — the band name IS the visual hero\n"
+            "  • Do not add a separate logo badge — the typography carries the band identity\n\n"
+        )
+    else:
+        asset_block = (
+            f"ASSET MODE: {mode_desc}\n"
+            "The canvas contains:\n"
+            "  • PASS 1 DESIGN SHELL as the full background\n"
+            f"  • ONE band photo already composited in the {slot_desc} — LOCKED\n"
+            "  • BAND LOGO on a tinted badge — LOCKED\n\n"
+            f"  • CRITICAL: There is exactly ONE band photo (in the {slot_desc}). "
+            "Do NOT draw or duplicate band members anywhere else\n\n"
+        )
+
     return (
         "You are personalizing an APPROVED DESIGN SHELL for a real gig.\n\n"
         "DESIGN PRESERVATION (critical):\n"
         "  • The pass-1 shell art is LOCKED — keep every color block, border, texture, "
         "grain, illustration, and printing effect exactly as on the input canvas\n"
-        "  • Change ONLY placeholder text in header/footer bands — do NOT simplify, "
+        "  • Change ONLY placeholder text in the editable bands — do NOT simplify, "
         "flatten, recolor, or redesign the poster\n"
         "  • Do not replace panel layouts with plain parchment or single-color backgrounds\n\n"
-        "The canvas contains:\n"
-        "  • PASS 1 DESIGN SHELL as the full background\n"
-        f"  • ONE band photo already composited in the {slot_desc} — LOCKED\n"
-        "  • BAND LOGO on a tinted badge — LOCKED\n\n"
+        f"{asset_block}"
         "Your job:\n"
-        "  • Swap placeholder text for the exact event facts below — typography only in "
-        "editable text bands\n"
-        "  • Never overpaint the photo, logo, hero illustration, or decorative frames\n"
-        f"  • CRITICAL: There is exactly ONE band photo (in the {slot_desc}). "
-        "Do NOT draw or duplicate band members anywhere else\n\n"
+        "  • Swap placeholder text for the exact event facts below — match the shell's "
+        "existing typography style\n"
+        "  • Never overpaint hero illustration, decorative frames, or locked assets\n\n"
         + ("\n".join(typo_lines) + "\n" if typo_lines else "")
         + ("\n".join(footer_lines) + "\n" if footer_lines else "")
         + f"{_exact_text_block(venue=venue, date=date, time=time, band=band, address=address)}\n\n"
@@ -172,8 +194,16 @@ def build_personalize_canvas(
 
     raw_photo = Image.open(photo_path)
     raw_logo = Image.open(logo_path)
+    mode = asset_mode_for_shell(shell) if shell is not None else "photo_inset"
+    empty_layer = Image.new("RGBA", (1, 1), (0, 0, 0, 0))
+    photo_layer = empty_layer
+    logo_layer = empty_layer
+    px, py, lx, ly = 0, 0, 0, 0
+    photo_zone = (0, 0, 0, 0)
+    backdrop = CANVAS_BACKGROUND if shell is None else (242, 235, 220)
+    clear_pad = 0
 
-    if shell is not None:
+    if shell is not None and uses_band_photo(mode):
         zones = placement_zones(size, shell)
         photo_zone = zones["photo"]
         slot = photo_slot_for_shell(shell)
@@ -182,7 +212,15 @@ def build_personalize_canvas(
         photo_layer, logo_layer, (px, py), (lx, ly) = compose_integrated_assets(
             shell_rgba, raw_photo, raw_logo, shell, size,
         )
-    else:
+    elif shell is not None and uses_band_logo(mode):
+        zones = placement_zones(size, shell)
+        logo_zone = zones["logo"]
+        logo_backdrop = _sample_zone_mean(shell_rgba, logo_zone)
+        logo_layer = integrate_band_logo(raw_logo, shell, zone_color=logo_backdrop)
+        logo_layer = fit_layer_in_box(logo_layer, logo_zone)
+        lx = logo_zone[2] - logo_layer.width
+        ly = logo_zone[1] + (logo_zone[3] - logo_zone[1] - logo_layer.height) // 2
+    elif shell is None:
         photo_layer = _fit(raw_photo.convert("RGBA"), int(w * 0.38), int(h * 0.20))
         px, py = 40, int(h * 0.62)
         logo_layer = _fit(raw_logo.convert("RGBA"), int(w * 0.42), int(h * 0.12))
@@ -191,14 +229,23 @@ def build_personalize_canvas(
         photo_zone = (px, py, px + photo_layer.width, py + photo_layer.height)
         backdrop = (242, 235, 220)
         clear_pad = 24
-        slot = "lower_left"
+        mode = "photo_inset"
 
     canvas_rgba = shell_rgba.copy()
-    photo_clear_bbox = clear_photo_slot(
-        canvas_rgba, photo_zone, backdrop=backdrop, pad=clear_pad,
-    )
-    canvas_rgba.alpha_composite(photo_layer, (px, py))
-    canvas_rgba.alpha_composite(logo_layer, (lx, ly))
+    photo_clear_bbox = (0, 0, 0, 0)
+    if shell is not None and uses_band_photo(mode):
+        photo_clear_bbox = clear_photo_slot(
+            canvas_rgba, photo_zone, backdrop=backdrop, pad=clear_pad,
+        )
+        canvas_rgba.alpha_composite(photo_layer, (px, py))
+    elif shell is None:
+        photo_clear_bbox = clear_photo_slot(
+            canvas_rgba, photo_zone, backdrop=backdrop, pad=clear_pad,
+        )
+        canvas_rgba.alpha_composite(photo_layer, (px, py))
+        canvas_rgba.alpha_composite(logo_layer, (lx, ly))
+    if shell is not None and uses_band_logo(mode):
+        canvas_rgba.alpha_composite(logo_layer, (lx, ly))
     canvas = canvas_rgba.convert("RGB")
 
     photo_bbox = (px, py, px + photo_layer.width, py + photo_layer.height)
@@ -213,13 +260,14 @@ def build_personalize_canvas(
         photo_clear_bbox=photo_clear_bbox,
         logo_bbox=logo_bbox,
         shell=shell,
+        asset_mode=mode if shell is not None else "photo_inset",
     )
     mask_path = out_dir / "pass2_mask.png"
     mask.save(mask_path, format="PNG")
 
     compose: ShellPass2Compose | None = None
     if shell is not None:
-        edit_zones = tuple(text_edit_zones(size, photo_clear_bbox, shell))
+        edit_zones = tuple(text_edit_zones(size, photo_clear_bbox, shell, asset_mode=mode))
         compose = ShellPass2Compose(
             photo_bbox=photo_bbox,
             photo_clear_bbox=photo_clear_bbox,
@@ -229,6 +277,7 @@ def build_personalize_canvas(
             shell_layer=shell_layer.copy(),
             text_edit_zones=edit_zones,
             canvas_size=size,
+            asset_mode=mode,
             backdrop_rgb=backdrop,
         )
     return canvas_path, mask_path, photo_bbox, logo_bbox, compose

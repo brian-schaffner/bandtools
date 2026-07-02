@@ -29,6 +29,14 @@ class ShellPass2MaskTest(unittest.TestCase):
         self.assertGreater(alpha.getpixel((cx, cy)), 200)
         self.assertLess(alpha.getpixel((512, 40)), 32)
 
+    def test_typography_shell_has_wide_text_zones(self) -> None:
+        shell = get_shell("fillmore_jefferson_airplane_1966")
+        assert shell is not None
+        zones = text_edit_zones((1024, 1536), (0, 0, 0, 0), shell, asset_mode="typography_only")
+        self.assertEqual(len(zones), 3)
+        total_height = sum(z[3] - z[1] for z in zones)
+        self.assertGreater(total_height, 1200)
+
     def test_text_zones_sit_outside_photo_clear(self) -> None:
         shell = get_shell("harvest_time_blues")
         assert shell is not None
@@ -64,6 +72,7 @@ class ShellPass2MaskTest(unittest.TestCase):
             shell_layer=pass1,
             text_edit_zones=zones,
             canvas_size=size,
+            asset_mode="photo_hero",
         )
         enforce_shell_design(out_path, compose)
         restored = Image.open(out_path).convert("RGB")

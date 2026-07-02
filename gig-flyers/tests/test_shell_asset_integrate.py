@@ -146,6 +146,7 @@ class ShellAssetIntegrateTest(unittest.TestCase):
             shell_layer=Image.new("RGBA", (1024, 1536), (242, 235, 220, 255)),
             text_edit_zones=((40, 40, 980, 120),),
             canvas_size=(1024, 1536),
+            asset_mode="photo_hero",
             backdrop_rgb=(242, 235, 220),
         )
         canvas_rgba = canvas.convert("RGBA")

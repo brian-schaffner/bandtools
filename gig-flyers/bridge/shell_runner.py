@@ -23,6 +23,7 @@ from personalize_shell_flyer import (
     personalize_shell_openai,
 )
 from personalize_shell_flyer import DEFAULT_PHOTO, _resolve_logo
+from shell_asset_policy import asset_mode_for_shell, asset_mode_label
 from shell_evaluation_card import build_shell_evaluation_card
 from shell_references import ShellReference, get_shell
 from text_validation import resolve_venue_address
@@ -200,10 +201,15 @@ def run_shell_pipeline(
             event=event,
         )
 
+        pass2_msg = (
+            "Pass 2 · typography-only personalization (no photo)"
+            if asset_mode_for_shell(shell) == "typography_only"
+            else "Pass 2 · styling photo & logo to match shell palette"
+        )
         progress(
             step="pass2",
             substep="canvas",
-            message="Pass 2 · styling photo & logo to match shell palette",
+            message=pass2_msg,
             progress=48,
             log=True,
         )
