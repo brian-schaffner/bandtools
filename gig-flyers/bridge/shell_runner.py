@@ -9,10 +9,19 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 
 from bridge.job_status import complete_job, fail_job, is_job_active, report_progress, start_job
-from design_shell_generate import generate_design_shell
+from design_shell_generate import (
+    build_shell_briefing_sheet,
+    build_shell_prompt,
+    generate_design_shell_openai,
+)
 from gig_calendar import GigEvent, set_test_mode
 from output_paths import get_output_dir, output_relative, resolve_output_path
-from personalize_shell_flyer import personalize_design_shell
+from personalize_shell_flyer import (
+    build_personalize_canvas,
+    build_personalize_prompt,
+    personalize_shell_openai,
+)
+from personalize_shell_flyer import DEFAULT_PHOTO, _resolve_logo
 from shell_evaluation_card import build_shell_evaluation_card
 from shell_references import ShellReference, get_shell
 from text_validation import resolve_venue_address
@@ -105,17 +114,42 @@ def run_shell_pipeline(
         report_progress(job_id, **kwargs)
 
     try:
+        output_dir = OUT_DIR
+        output_dir.mkdir(parents=True, exist_ok=True)
+        stem = shell.id
+        briefing_path = output_dir / f"{stem}_pass1_briefing.png"
+        shell_path = output_dir / f"{stem}_design_shell.png"
+
         progress(
             step="pass1",
-            substep="start",
-            message="Pass 1: generating design shell…",
+            substep="briefing",
+            message="Pass 1 · building style briefing sheet",
             progress=8,
             log=True,
         )
-        pass1 = generate_design_shell(shell.id)
-        shell_path = resolve_output_path(pass1["shell_rel"])
+        build_shell_briefing_sheet(shell, briefing_path)
+        progress(
+            step="pass1",
+            substep="api",
+            message="Pass 1 · OpenAI creating design shell (placeholders only)",
+            progress=14,
+            log=True,
+        )
+        generate_design_shell_openai(shell, shell_path, briefing_path=briefing_path)
         if not shell_path.is_file():
             raise FileNotFoundError(f"Pass 1 shell image missing: {shell_path}")
+
+        pass1 = {
+            "shell_id": shell.id,
+            "shell_title": shell.title,
+            "design_family": shell.design_family,
+            "briefing_rel": output_relative(briefing_path),
+            "shell_rel": output_relative(shell_path),
+            "prompt": build_shell_prompt(shell),
+        }
+        manifest_path = output_dir / f"{stem}_pass1_manifest.json"
+        manifest_path.write_text(json.dumps(pass1, indent=2), encoding="utf-8")
+
         progress(
             step="pass1",
             substep="saved",
@@ -143,19 +177,60 @@ def run_shell_pipeline(
             raise ValueError("Gig event required for pass 2 personalization")
 
         set_test_mode(True)
+        photo = DEFAULT_PHOTO
+        logo = _resolve_logo("Lindsey Lane Band", paper=(242, 235, 220))
+        for label, path in [("shell", shell_path), ("photo", photo), ("logo", logo)]:
+            if not path.is_file():
+                raise FileNotFoundError(f"Missing {label}: {path}")
+
+        pass_stem = f"{event.gig_id}_{shell.id}"
+        out_path = output_dir / f"{pass_stem}_personalized.png"
+        canvas_preview = output_dir / f"{pass_stem}_pass2_canvas.png"
+        date_str = event.event_date.strftime("%A, %B %d, %Y")
+        time_str = event.time_label or "TBA"
+        prompt = build_personalize_prompt(
+            shell,
+            venue=event.venue,
+            date=date_str,
+            time=time_str,
+            band="Lindsey Lane Band",
+            address=resolve_venue_address(event),
+        )
+
         progress(
             step="pass2",
-            substep="start",
-            message="Pass 2: personalizing with band photo & logo…",
+            substep="canvas",
+            message="Pass 2 · compositing shell with locked band photo & logo",
+            progress=48,
+            log=True,
+        )
+        c_path, _, _, _ = build_personalize_canvas(
+            shell_path, photo, logo, output_dir / f".{pass_stem}_work",
+        )
+        canvas_preview.write_bytes(c_path.read_bytes())
+        progress(
+            step="pass2",
+            substep="api",
+            message="Pass 2 · OpenAI personalizing with your gig details",
             progress=55,
             log=True,
         )
-        pass2 = personalize_design_shell(
-            event,
-            shell.id,
-            shell_path,
-            address=resolve_venue_address(event),
-        )
+        personalize_shell_openai(shell, shell_path, photo, logo, prompt, out_path)
+
+        pass2 = {
+            "gig_id": event.gig_id,
+            "shell_id": shell.id,
+            "shell_title": shell.title,
+            "shell_image": str(shell_path),
+            "photo": str(photo),
+            "logo": str(logo),
+            "personalized_rel": output_relative(out_path),
+            "pass2_canvas_rel": output_relative(canvas_preview),
+            "prompt": prompt,
+        }
+        manifest_path = output_dir / f"{pass_stem}_pass2_manifest.json"
+        manifest_path.write_text(json.dumps(pass2, indent=2), encoding="utf-8")
+
         progress(
             step="pass2",
             substep="saved",
@@ -164,7 +239,13 @@ def run_shell_pipeline(
             log=True,
         )
 
-        date_str = event.event_date.strftime("%A, %B %d, %Y")
+        progress(
+            step="eval",
+            substep="start",
+            message="Building 3-panel evaluation card",
+            progress=88,
+            log=True,
+        )
         eval_path = OUT_DIR / f"{event.gig_id}_{shell.id}_eval.png"
         ref_path = shell.image_path()
         build_shell_evaluation_card(

@@ -339,38 +339,91 @@ def render_shell_generating_page(
     *,
     shell_title: str,
     detail: str = "",
+    pass1_only: bool = False,
+    venue: str = "",
 ) -> str:
-    """Single-track progress page for shell design jobs."""
+    """Three-step progress UI for shell design jobs."""
     status_url = html.escape(shell_job_status_path(job_id))
     stream_url = html.escape(shell_job_status_stream_path(job_id))
     results_url = html.escape(shell_job_path(job_id))
     studio = html.escape(shell_studio_path())
-    heading = "Generating shell design…"
+    heading = "Shell design in progress"
     subtitle = html.escape(shell_title[:80])
+    venue_line = ""
+    if venue:
+        venue_line = f'<p class="gig-line">Gig: <strong>{html.escape(venue)}</strong></p>'
     detail_html = f'<p class="muted"><em>{html.escape(detail)}</em></p>' if detail else ""
+    pass1_only_js = "true" if pass1_only else "false"
 
     extra_css = progress_css() + """
-    .shell-progress-card { max-width: 36rem; }
-    .shell-vessel {
-      position: relative;
-      height: 220px;
-      border-radius: 12px;
+    .shell-progress-card { max-width: 42rem; }
+    .shell-overall-bar {
+      height: 10px;
+      border-radius: 999px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
       overflow: hidden;
-      background: #e8f5e0;
-      border: 3px solid #2d7a0e;
-      margin: 1rem 0;
+      margin: 0.75rem 0 1.25rem;
     }
-    .shell-vessel-fill {
-      position: absolute; left: 0; right: 0; bottom: 0; height: 0%;
-      background: linear-gradient(180deg, #818cf8 0%, #6366f1 100%);
-      transition: height 0.35s ease-out;
+    .shell-overall-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #818cf8, #6366f1);
+      transition: width 0.4s ease-out;
     }
-    .shell-vessel-pct {
-      position: absolute; inset: 0;
+    .shell-steps { display: grid; gap: 0.85rem; margin: 1rem 0; }
+    .shell-step {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 0.85rem 1rem;
+      background: var(--surface-2);
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0.75rem 1rem;
+      align-items: start;
+    }
+    .shell-step.active { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(99,102,241,0.15); background: var(--surface); }
+    .shell-step.done { border-color: var(--green); }
+    .shell-step.error { border-color: #ef4444; }
+    .shell-step.skipped { opacity: 0.55; }
+    .shell-step-badge {
+      width: 2rem; height: 2rem; border-radius: 999px;
       display: flex; align-items: center; justify-content: center;
-      font-size: 1.5rem; font-weight: 700; color: var(--muted); z-index: 2;
+      font-weight: 700; font-size: 0.95rem;
+      background: var(--bg); border: 1px solid var(--border); color: var(--muted);
     }
+    .shell-step.active .shell-step-badge { background: #eef2ff; color: var(--accent); border-color: var(--accent); }
+    .shell-step.done .shell-step-badge { background: var(--pass-bg); color: var(--green); border-color: var(--green); }
+    .shell-step.error .shell-step-badge { background: #fef2f2; color: #ef4444; border-color: #ef4444; }
+    .shell-step-body h3 { margin: 0 0 0.2rem; font-size: 1rem; }
+    .shell-step-body p { margin: 0; font-size: 0.9rem; color: var(--muted); }
+    .shell-step-phase { font-size: 0.85rem; font-weight: 600; margin-top: 0.35rem; color: var(--accent); }
+    .shell-step.done .shell-step-phase { color: var(--green); }
+    .shell-step.error .shell-step-phase { color: #ef4444; }
+    .shell-step-bar {
+      grid-column: 1 / -1;
+      height: 6px;
+      border-radius: 999px;
+      background: #e8f5e0;
+      overflow: hidden;
+      margin-top: 0.15rem;
+    }
+    .shell-step-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #818cf8, #6366f1);
+      transition: width 0.35s ease-out;
+    }
+    .shell-step.done .shell-step-bar-fill { background: var(--green); width: 100% !important; }
+    .shell-meta-row {
+      display: flex; flex-wrap: wrap; gap: 0.75rem 1.25rem;
+      font-size: 0.9rem; color: var(--muted); margin: 0.5rem 0 0;
+    }
+    .shell-meta-row strong { color: var(--text); }
     """
+
+    step2_extra = ' class="shell-step skipped" id="step-pass2"' if pass1_only else ' class="shell-step" id="step-pass2"'
+    step3_extra = ' class="shell-step skipped" id="step-eval"' if pass1_only else ' class="shell-step" id="step-eval"'
 
     return (
         page_head(heading, extra_css=extra_css)
@@ -380,54 +433,195 @@ def render_shell_generating_page(
   <div class="progress-card shell-progress-card">
     <h1>{html.escape(heading)}</h1>
     <p class="gig-line"><strong>{subtitle}</strong></p>
+    {venue_line}
     {detail_html}
     <p class="overall-status" id="overall-status">Starting…</p>
-    <p class="overall-detail" id="overall-detail"></p>
-    <div class="shell-vessel" aria-label="Generation progress">
-      <div class="shell-vessel-fill" id="shell-fill"></div>
-      <div class="shell-vessel-pct" id="shell-pct">—</div>
+    <div class="shell-overall-bar" aria-hidden="true"><div class="shell-overall-fill" id="overall-fill"></div></div>
+    <div class="shell-meta-row">
+      <span>Elapsed: <strong id="elapsed">0:00</strong></span>
+      <span id="eta-wrap">Est. step: <strong id="eta">~90s</strong></span>
     </div>
+
+    <div class="shell-steps">
+      <article class="shell-step" id="step-pass1" data-step="pass1">
+        <div class="shell-step-badge" id="badge-pass1">1</div>
+        <div class="shell-step-body">
+          <h3>Pass 1 — Design shell</h3>
+          <p>Match the reference style with placeholder text only (HEADLINER, VENUE, DATE…)</p>
+          <div class="shell-step-phase" id="phase-pass1">Waiting</div>
+        </div>
+        <div class="shell-step-bar"><div class="shell-step-bar-fill" id="fill-pass1"></div></div>
+      </article>
+
+      <article{step2_extra} data-step="pass2">
+        <div class="shell-step-badge" id="badge-pass2">2</div>
+        <div class="shell-step-body">
+          <h3>Pass 2 — Personalize</h3>
+          <p>Swap placeholders for gig facts; band photo &amp; logo stay locked</p>
+          <div class="shell-step-phase" id="phase-pass2">{"Skipped" if pass1_only else "Waiting"}</div>
+        </div>
+        <div class="shell-step-bar"><div class="shell-step-bar-fill" id="fill-pass2"></div></div>
+      </article>
+
+      <article{step3_extra} data-step="eval">
+        <div class="shell-step-badge" id="badge-eval3">3</div>
+        <div class="shell-step-body">
+          <h3>Evaluation card</h3>
+          <p>Side-by-side: reference · shell · personalized flyer</p>
+          <div class="shell-step-phase" id="phase-eval">{"Skipped" if pass1_only else "Waiting"}</div>
+        </div>
+        <div class="shell-step-bar"><div class="shell-step-bar-fill" id="fill-eval"></div></div>
+      </article>
+    </div>
+
     <div class="log-panel" id="log-panel" aria-live="polite"></div>
-    <p class="muted">Pass 1 builds the design shell; pass 2 adds your gig details with locked photo and logo.</p>
+    <p class="muted" id="status-hint">OpenAI image edits usually take 1–2 minutes per pass.</p>
   </div>
   </main>
   <script>
     const statusUrl = "{status_url}";
     const streamUrl = "{stream_url}";
     const resultsUrl = "{results_url}";
+    const pass1Only = {pass1_only_js};
+    const STEP_EST = {{ pass1: 75, pass2: 90, eval: 8 }};
+    const STEPS = pass1Only ? ["pass1"] : ["pass1", "pass2", "eval"];
     let lastLogRevision = -1;
+    let startedAt = Date.now();
+    let stepStartedAt = Date.now();
+    let currentStep = "";
+    let finished = false;
+
+    function fmtElapsed(ms) {{
+      const s = Math.floor(ms / 1000);
+      const m = Math.floor(s / 60);
+      return m + ":" + String(s % 60).padStart(2, "0");
+    }}
+
+    function stepState(step, substep, jobStatus) {{
+      if (jobStatus === "error") {{
+        if (step === currentStep) return "error";
+        const order = ["pass1", "pass2", "eval"];
+        const ci = order.indexOf(currentStep);
+        const si = order.indexOf(step);
+        if (si < ci) return "done";
+        return "pending";
+      }}
+      if (jobStatus === "done") return step === "eval" || (pass1Only && step === "pass1") ? "done" : (pass1Only ? "skipped" : "done");
+      const order = ["pass1", "pass2", "eval"];
+      const activeIdx = order.indexOf(currentStep);
+      const idx = order.indexOf(step);
+      if (substep === "saved") return "done";
+      if (step === currentStep) return "active";
+      if (idx < activeIdx) return "done";
+      if (pass1Only && step !== "pass1") return "skipped";
+      return "pending";
+    }}
+
+    function stepFillPct(step, substep, elapsedSec) {{
+      if (substep === "saved") return 100;
+      const est = STEP_EST[step] || 60;
+      if (substep === "briefing" || substep === "canvas" || substep === "start") return Math.min(35, 10 + elapsedSec * 8);
+      if (substep === "api") return Math.min(92, 18 + (elapsedSec / est) * 74);
+      return Math.min(90, (elapsedSec / est) * 90);
+    }}
 
     function applyStatus(data) {{
       const status = data.status || "idle";
       const msg = data.message || "";
+      const step = data.step || "";
+      const substep = data.substep || "";
       const progress = Math.min(100, Math.max(0, parseInt(data.progress || 0, 10)));
+
+      if (step && step !== currentStep) {{
+        currentStep = step;
+        stepStartedAt = Date.now();
+      }}
+
       document.getElementById("overall-status").textContent = msg || status;
-      document.getElementById("overall-detail").textContent = data.detail || "";
-      document.getElementById("shell-fill").style.height = progress + "%";
-      document.getElementById("shell-pct").textContent = progress + "%";
+      document.getElementById("overall-fill").style.width = progress + "%";
+      document.getElementById("elapsed").textContent = fmtElapsed(Date.now() - startedAt);
+
+      const activeEst = STEP_EST[currentStep] || 90;
+      const stepElapsed = (Date.now() - stepStartedAt) / 1000;
+      const remaining = Math.max(0, Math.ceil(activeEst - stepElapsed));
+      document.getElementById("eta").textContent = status === "running" ? ("~" + remaining + "s") : "—";
+
+      ["pass1", "pass2", "eval"].forEach((s) => {{
+        const el = document.getElementById("step-" + s);
+        const phase = document.getElementById("phase-" + s);
+        const fill = document.getElementById("fill-" + s);
+        const badge = document.getElementById("badge-" + (s === "eval" ? "eval3" : s));
+        if (!el || !phase || !fill) return;
+        const st = stepState(s, s === step ? substep : (s === "pass1" && step !== "pass1" ? "saved" : ""), status);
+        el.classList.remove("active", "done", "error", "skipped");
+        el.classList.add(st);
+        if (st === "done") {{
+          phase.textContent = "Complete";
+          fill.style.width = "100%";
+          if (badge) badge.textContent = "✓";
+        }} else if (st === "error") {{
+          phase.textContent = data.error || "Failed";
+          if (badge) badge.textContent = "!";
+        }} else if (st === "skipped") {{
+          phase.textContent = "Skipped";
+          fill.style.width = "0%";
+        }} else if (st === "active") {{
+          phase.textContent = msg || substep || "Working…";
+          const pct = stepFillPct(s, substep, stepElapsed);
+          fill.style.width = pct + "%";
+        }} else {{
+          phase.textContent = "Waiting";
+          fill.style.width = "0%";
+        }}
+      }});
+
       if (data.log_revision !== lastLogRevision && Array.isArray(data.log)) {{
         lastLogRevision = data.log_revision;
         const panel = document.getElementById("log-panel");
         panel.innerHTML = data.log.map(e => '<div class="log-line">' + (e.text || '') + '</div>').join('');
         panel.scrollTop = panel.scrollHeight;
       }}
-      if (status === "done") {{
-        window.location.href = resultsUrl;
+
+      if (status === "done" && !finished) {{
+        finished = true;
+        document.getElementById("status-hint").textContent = "Done — opening results…";
+        setTimeout(() => {{ window.location.href = resultsUrl; }}, 600);
       }}
       if (status === "error") {{
         document.getElementById("overall-status").className = "overall-status error";
-        document.getElementById("overall-status").textContent = data.error || msg || "Error";
+        document.getElementById("status-hint").textContent = data.error || msg || "Something went wrong.";
       }}
     }}
+
+    function tickClock() {{
+      if (finished) return;
+      document.getElementById("elapsed").textContent = fmtElapsed(Date.now() - startedAt);
+      if (currentStep) {{
+        const stepElapsed = (Date.now() - stepStartedAt) / 1000;
+        const fill = document.getElementById("fill-" + currentStep);
+        const phase = document.getElementById("phase-" + currentStep);
+        const el = document.getElementById("step-" + currentStep);
+        if (fill && el && el.classList.contains("active")) {{
+          const sub = "api";
+          fill.style.width = stepFillPct(currentStep, sub, stepElapsed) + "%";
+        }}
+      }}
+    }}
+    setInterval(tickClock, 500);
 
     if (typeof EventSource !== "undefined") {{
       const es = new EventSource(streamUrl);
       es.onmessage = (ev) => {{
         try {{ applyStatus(JSON.parse(ev.data)); }} catch (e) {{}}
-        const d = JSON.parse(ev.data);
-        if (d.status === "done" || d.status === "error") es.close();
       }};
-      es.onerror = () => es.close();
+      es.onerror = () => {{ /* polling fallback below */ }};
+      setInterval(async () => {{
+        if (finished) return;
+        try {{
+          const r = await fetch(statusUrl);
+          applyStatus(await r.json());
+        }} catch (e) {{}}
+      }}, 2000);
     }} else {{
       setInterval(async () => {{
         const r = await fetch(statusUrl);
@@ -445,7 +639,17 @@ def render_shell_results_page(job_id: str) -> str:
     job = get_job_status(job_id)
     if not summary and job.get("status") == "running":
         shell_title = job.get("title") or "Shell design"
-        return render_shell_generating_page(job_id, shell_title=shell_title, detail=job.get("detail") or "")
+        pass1_only = "Pass 1 only" in (job.get("detail") or "")
+        venue = ""
+        if " · " in (job.get("detail") or ""):
+            venue = job.get("detail", "").split(" · ", 1)[0]
+        return render_shell_generating_page(
+            job_id,
+            shell_title=shell_title,
+            detail=job.get("detail") or "",
+            pass1_only=pass1_only,
+            venue=venue,
+        )
 
     if not summary:
         return (

@@ -809,6 +809,34 @@ async def _run_shell_design_job(
         fail_job(job_id, f"Unknown shell: {shell_id}")
         return
     callback = _progress_callback(job_id)
+    stop = asyncio.Event()
+
+    async def _shell_heartbeat() -> None:
+        while not stop.is_set():
+            snap = get_job_status(job_id)
+            if snap.get("status") != "running":
+                break
+            step = snap.get("step") or ""
+            substep = snap.get("substep") or ""
+            if step == "pass1" and substep == "api":
+                report_progress(
+                    job_id,
+                    step=step,
+                    substep=substep,
+                    message="Pass 1 · OpenAI creating design shell (placeholders only)",
+                    log=False,
+                )
+            elif step == "pass2" and substep == "api":
+                report_progress(
+                    job_id,
+                    step=step,
+                    substep=substep,
+                    message="Pass 2 · OpenAI personalizing with your gig details",
+                    log=False,
+                )
+            await asyncio.sleep(2)
+
+    heartbeat = asyncio.create_task(_shell_heartbeat())
     try:
         await asyncio.to_thread(
             run_shell_pipeline,
@@ -821,6 +849,8 @@ async def _run_shell_design_job(
     except Exception as exc:  # noqa: BLE001
         _log_bridge_error(f"shell design error for {job_id}: {exc}")
     finally:
+        stop.set()
+        heartbeat.cancel()
         _shell_in_flight.discard(job_id)
 
 
@@ -949,7 +979,13 @@ async def shell_run(
         _run_shell_design_job(job_id, shell_id, event, pass1_only=only_pass1)
     )
     return HTMLResponse(
-        render_shell_generating_page(job_id, shell_title=shell.title, detail=detail)
+        render_shell_generating_page(
+            job_id,
+            shell_title=shell.title,
+            detail=detail,
+            pass1_only=only_pass1,
+            venue=event.venue if event else "",
+        )
     )
 
 

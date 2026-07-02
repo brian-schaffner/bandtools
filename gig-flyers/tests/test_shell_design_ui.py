@@ -75,6 +75,19 @@ class ShellDesignUiTest(unittest.TestCase):
         self.assertIn("Shell Design Studio", resp.text)
         self.assertIn("/flyers/shell", resp.text)
 
+    def test_shell_progress_page_has_stepper(self) -> None:
+        from bridge.shell_design import render_shell_generating_page
+
+        page = render_shell_generating_page(
+            "shell-test123",
+            shell_title="Jimi Hendrix at Sicks Stadium (1970)",
+            venue="Two Lane Tavern",
+        )
+        self.assertIn("Pass 1 — Design shell", page)
+        self.assertIn("Pass 2 — Personalize", page)
+        self.assertIn("id=\"step-pass1\"", page)
+        self.assertIn("Elapsed:", page)
+
 
 if __name__ == "__main__":
     unittest.main()
