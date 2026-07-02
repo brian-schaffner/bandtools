@@ -122,16 +122,16 @@ def main() -> int:
         print(f"  Evaluation: {structured['evaluation_card_rel']}")
 
     if not args.structured_only:
-        from visual_predict_flyer import _gemini_api_key, _openai_api_key
+        from visual_predict_flyer import _openai_api_key
 
-        if not _gemini_api_key() and not _openai_api_key() and not args.dry_run:
+        if not _openai_api_key() and not args.dry_run:
             print(
-                "No image API key found. Set GOOGLE_API_KEY / GEMINI_API_KEY and/or "
-                "OPENAI_API_KEY in Cloud Agent secrets.",
+                "OPENAI_API_KEY required for visual prediction. "
+                "Add it to Cloud Agent secrets.",
                 file=sys.stderr,
             )
             return 1
-        print("Running AI visual prediction path…")
+        print("Running AI visual prediction (OpenAI)…")
         predict = predict_visual_flyer(args.gig_id, dry_run=args.dry_run)
         results["outputs"]["ai_predict"] = predict
         print(f"  AI predict: {predict['path_rel']}")

@@ -113,7 +113,7 @@ def _openai_api_key() -> str:
 
 
 def _resolve_predict_provider() -> str:
-    return (os.getenv("VISUAL_PREDICT_PROVIDER") or "auto").strip().lower()
+    return (os.getenv("VISUAL_PREDICT_PROVIDER") or "openai").strip().lower()
 
 
 def _predict_api_available(provider: str) -> bool:
@@ -339,6 +339,7 @@ def predict_visual_flyer(
 
     provider_pref = _resolve_predict_provider()
     provider_used = provider_pref
+    photo_validation: dict[str, Any] = {}
 
     if dry_run:
         out_path.write_bytes(b"")
@@ -348,10 +349,8 @@ def predict_visual_flyer(
             raise RuntimeError("Band photo required for visual prediction")
         if not _predict_api_available(provider_pref) and provider_pref != "auto":
             raise RuntimeError(f"No API key available for VISUAL_PREDICT_PROVIDER={provider_pref}")
-        if not _gemini_api_key() and not _openai_api_key():
-            raise RuntimeError(
-                "No image API key found. Set GOOGLE_API_KEY, GEMINI_API_KEY, or OPENAI_API_KEY."
-            )
+        if not _openai_api_key() and provider_pref == "openai":
+            raise RuntimeError("OPENAI_API_KEY required for visual prediction")
 
         size = parse_output_size(os.getenv("OPENAI_IMAGE_SIZE", "1024x1536"))
         with tempfile.TemporaryDirectory(prefix="gigflyers-predict-") as tmp:
@@ -376,10 +375,12 @@ def predict_visual_flyer(
 
             enforce_photo_bbox(out_path, compose, force=True)
             validation = validate_flyer_photo(out_path, band_photo, compose)
+            photo_validation = validation.to_dict()
             if not validation.passed:
                 failed = [c for c in validation.checks if not c.get("passed")]
-                detail = "; ".join(f"{c.get('name')}: {c.get('detail')}" for c in failed[:3])
-                raise RuntimeError(f"Photo validation failed after prediction — {detail}")
+                photo_validation["warning"] = "; ".join(
+                    f"{c.get('name')}: {c.get('detail')}" for c in failed[:4]
+                )
 
     method_label = f"AI image prediction ({provider_used})"
     extra_lines = [
@@ -387,6 +388,8 @@ def predict_visual_flyer(
         f"Study: {study.title}",
         f"Provider: {provider_used}",
     ]
+    if photo_validation.get("warning"):
+        extra_lines.append(f"Photo QA warning: {photo_validation['warning'][:80]}…")
     build_evaluation_card(
         reference_path=style_ref,
         generated_path=out_path if out_path.stat().st_size > 0 else style_ref,
@@ -409,6 +412,7 @@ def predict_visual_flyer(
         "style_reference": study.source_url,
         "prompt": prompt,
         "research_venue_type": research.get("venue_type"),
+        "photo_validation": photo_validation,
         "dry_run": dry_run,
     }
     manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
