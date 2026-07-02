@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 import tempfile
@@ -15,11 +16,11 @@ from dotenv import load_dotenv
 from evaluation_card import build_evaluation_card
 from flyer_generator import gig_output_dir, resolve_gig_event
 from gig_research import research_gig
-from image_providers.errors import friendly_generation_error, is_retryable_429, retry_delay_seconds
+from image_providers.errors import ImageGenerationError, friendly_generation_error, is_quota_error, is_retryable_429, retry_delay_seconds
 from image_providers.reference_compose import (
+    ComposeResult,
     enforce_photo_bbox,
     parse_output_size,
-    prepare_canvas_with_photo,
     validate_flyer_photo,
 )
 from output_paths import output_relative
@@ -28,7 +29,6 @@ from progress_helper import ProgressCallback, emit_progress
 from text_validation import resolve_venue_address
 from visual_constraints import (
     HATCH_CONSTRAINTS,
-    StudyConstraints,
     get_constraints,
     hatch_predict_prompt_block,
 )
@@ -37,7 +37,6 @@ from visual_studies import get_study
 ROOT = Path(__file__).resolve().parent
 load_dotenv(ROOT / ".env")
 
-# Photo placement tuned to Hatch stack (portrait between bar and mega name)
 HATCH_PHOTO_PLACEMENT = {
     "width_frac": 0.52,
     "max_height_frac": 0.36,
@@ -47,30 +46,11 @@ HATCH_PHOTO_PLACEMENT = {
 }
 
 
-@dataclass(frozen=True)
-class PredictResult:
-    output_path: Path
-    evaluation_card_path: Path
-    manifest_path: Path
-    provider: str
-    dry_run: bool
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "output_path": str(self.output_path),
-            "evaluation_card_path": str(self.evaluation_card_path),
-            "manifest_path": str(self.manifest_path),
-            "provider": self.provider,
-            "dry_run": self.dry_run,
-        }
-
-
 def _prepare_hatch_canvas(
     band_photo_path: Path,
     output_size: tuple[int, int],
     work_dir: Path,
-):
-    """Place band photo on cream canvas using Hatch-study geometry."""
+) -> ComposeResult:
     from PIL import Image, ImageDraw
 
     from image_providers.reference_compose import (
@@ -112,8 +92,6 @@ def _prepare_hatch_canvas(
     mask_path = work_dir / "hatch_compose_mask.png"
     mask.save(mask_path, format="PNG")
 
-    from image_providers.reference_compose import ComposeResult
-
     return ComposeResult(
         canvas_path=canvas_path,
         mask_path=mask_path,
@@ -130,41 +108,44 @@ def _gemini_api_key() -> str:
     return (os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY") or "").strip()
 
 
-def _require_gemini_key() -> str:
-    key = _gemini_api_key()
-    if key:
-        return key
-    raise RuntimeError(
-        "GOOGLE_API_KEY or GEMINI_API_KEY required for visual prediction. "
-        "Add to gig-flyers/.env or Cloud Agent secrets, then re-run."
-    )
+def _openai_api_key() -> str:
+    return (os.getenv("OPENAI_API_KEY") or "").strip()
+
+
+def _resolve_predict_provider() -> str:
+    return (os.getenv("VISUAL_PREDICT_PROVIDER") or "auto").strip().lower()
+
+
+def _predict_api_available(provider: str) -> bool:
+    if provider == "openai":
+        return bool(_openai_api_key())
+    return bool(_gemini_api_key())
 
 
 def _gemini_predict(
     prompt: str,
     style_reference_path: Path,
-    compose_canvas_path: Path,
+    compose: ComposeResult,
     output_path: Path,
     *,
     on_progress: ProgressCallback | None = None,
 ) -> None:
-    """Call Gemini with style reference + composed band canvas."""
     from google import genai
     from google.genai import types
 
-    api_key = _require_gemini_key()
+    api_key = _gemini_api_key()
+    if not api_key:
+        raise RuntimeError("GOOGLE_API_KEY or GEMINI_API_KEY required for Gemini visual prediction")
+
     model = os.getenv("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")
     aspect_ratio = os.getenv("GEMINI_IMAGE_ASPECT_RATIO", "2:3")
     client = genai.Client(api_key=api_key)
 
-    style_bytes = style_reference_path.read_bytes()
-    canvas_bytes = compose_canvas_path.read_bytes()
-
     contents: list[Any] = [
         prompt,
-        types.Part.from_bytes(data=style_bytes, mime_type="image/jpeg"),
+        types.Part.from_bytes(data=style_reference_path.read_bytes(), mime_type="image/jpeg"),
         "IMAGE 1 — STYLE REFERENCE: Match this poster's layout structure, hierarchy, and letterpress feel.",
-        types.Part.from_bytes(data=canvas_bytes, mime_type="image/png"),
+        types.Part.from_bytes(data=compose.canvas_path.read_bytes(), mime_type="image/png"),
         "IMAGE 2 — INPUT CANVAS: Band photo is already placed. Add typography in cream areas only. "
         "Do NOT modify, redraw, duplicate, or frame the band photo.",
     ]
@@ -194,8 +175,7 @@ def _gemini_predict(
         else:
             raise friendly_generation_error(exc, "gemini") from exc
 
-    candidates = getattr(response, "candidates", None) or []
-    for candidate in candidates:
+    for candidate in getattr(response, "candidates", None) or []:
         content = getattr(candidate, "content", None)
         if not content:
             continue
@@ -204,14 +184,112 @@ def _gemini_predict(
             if inline and getattr(inline, "data", None):
                 data = inline.data
                 if isinstance(data, str):
-                    import base64
-
                     data = base64.b64decode(data)
                 output_path.parent.mkdir(parents=True, exist_ok=True)
                 output_path.write_bytes(data)
                 return
 
     raise RuntimeError("Gemini response contained no image data")
+
+
+def _openai_predict(
+    prompt: str,
+    style_reference_path: Path,
+    compose: ComposeResult,
+    output_path: Path,
+    *,
+    on_progress: ProgressCallback | None = None,
+) -> None:
+    from openai import OpenAI
+
+    from image_providers.openai import REFERENCE_EDIT_PROMPT_PREFIX
+
+    api_key = _openai_api_key()
+    if not api_key:
+        raise RuntimeError("OPENAI_API_KEY required for OpenAI visual prediction")
+
+    client = OpenAI(api_key=api_key)
+    model = os.getenv("OPENAI_IMAGE_MODEL", "gpt-image-1")
+    size = os.getenv("OPENAI_IMAGE_SIZE", "1024x1536")
+    quality = os.getenv("OPENAI_IMAGE_QUALITY", "medium")
+
+    style_note = (
+        f"STYLE REFERENCE (not in image — follow this layout): 1953 Hatch Show Print letterpress poster. "
+        f"Reference file: {style_reference_path.name}. "
+    )
+    edit_prompt = f"{REFERENCE_EDIT_PROMPT_PREFIX}\n{style_note}\n{prompt}"
+
+    emit_progress(
+        on_progress,
+        step="predict",
+        substep="openai",
+        message="Calling OpenAI images.edit for Hatch-style typography…",
+        progress=45,
+    )
+
+    with compose.canvas_path.open("rb") as image_file:
+        kwargs: dict[str, Any] = {
+            "model": model,
+            "image": image_file,
+            "prompt": edit_prompt,
+            "size": size,
+            "quality": quality,
+            "input_fidelity": "high",
+            "n": 1,
+        }
+        if compose.mask_path and compose.mask_path.is_file():
+            with compose.mask_path.open("rb") as mask_file:
+                kwargs["mask"] = mask_file
+                response = client.images.edit(**kwargs)
+        else:
+            response = client.images.edit(**kwargs)
+
+    item = response.data[0]
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    if item.b64_json:
+        output_path.write_bytes(base64.b64decode(item.b64_json))
+    elif item.url:
+        import urllib.request
+
+        with urllib.request.urlopen(item.url, timeout=120) as resp:
+            output_path.write_bytes(resp.read())
+    else:
+        raise RuntimeError("OpenAI image response had no b64_json or url")
+
+
+def _run_predict(
+    provider: str,
+    prompt: str,
+    style_reference_path: Path,
+    compose: ComposeResult,
+    output_path: Path,
+    *,
+    on_progress: ProgressCallback | None = None,
+) -> str:
+    """Run prediction; on auto, fall back from Gemini quota errors to OpenAI."""
+    if provider == "openai":
+        _openai_predict(prompt, style_reference_path, compose, output_path, on_progress=on_progress)
+        return "openai"
+
+    if provider == "auto" and not _gemini_api_key() and _openai_api_key():
+        _openai_predict(prompt, style_reference_path, compose, output_path, on_progress=on_progress)
+        return "openai"
+
+    try:
+        _gemini_predict(prompt, style_reference_path, compose, output_path, on_progress=on_progress)
+        return "gemini"
+    except ImageGenerationError as exc:
+        if provider == "auto" and is_quota_error(exc) and _openai_api_key():
+            emit_progress(
+                on_progress,
+                step="predict",
+                substep="fallback",
+                message="Gemini quota unavailable — falling back to OpenAI…",
+                progress=48,
+            )
+            _openai_predict(prompt, style_reference_path, compose, output_path, on_progress=on_progress)
+            return "openai (gemini quota fallback)"
+        raise
 
 
 def predict_visual_flyer(
@@ -221,9 +299,8 @@ def predict_visual_flyer(
     round_num: int = 1,
     dry_run: bool = False,
     on_progress: ProgressCallback | None = None,
-    predict_fn: Callable[..., None] | None = None,
+    predict_fn: Callable[..., str] | None = None,
 ) -> dict[str, Any]:
-    """Generate flyer via AI image prediction guided by a real poster reference."""
     event = resolve_gig_event(gig_id)
     band = os.getenv("GIG_CALENDAR_BAND", "Lindsey Lane Band")
     study = get_study(study_id)
@@ -260,8 +337,8 @@ def predict_visual_flyer(
     card_path = out_dir / f"evaluation_r{round_num}.png"
     manifest_path = out_dir / f"manifest_r{round_num}.json"
 
-    provider = "gemini"
-    compose = None
+    provider_pref = _resolve_predict_provider()
+    provider_used = provider_pref
 
     if dry_run:
         out_path.write_bytes(b"")
@@ -269,6 +346,12 @@ def predict_visual_flyer(
     else:
         if band_photo is None or not band_photo.is_file():
             raise RuntimeError("Band photo required for visual prediction")
+        if not _predict_api_available(provider_pref) and provider_pref != "auto":
+            raise RuntimeError(f"No API key available for VISUAL_PREDICT_PROVIDER={provider_pref}")
+        if not _gemini_api_key() and not _openai_api_key():
+            raise RuntimeError(
+                "No image API key found. Set GOOGLE_API_KEY, GEMINI_API_KEY, or OPENAI_API_KEY."
+            )
 
         size = parse_output_size(os.getenv("OPENAI_IMAGE_SIZE", "1024x1536"))
         with tempfile.TemporaryDirectory(prefix="gigflyers-predict-") as tmp:
@@ -279,10 +362,18 @@ def predict_visual_flyer(
                 message="Calling AI to predict flyer from style reference…",
                 progress=40,
             )
-            fn = predict_fn or _gemini_predict
-            fn(prompt, style_ref, compose.canvas_path, out_path, on_progress=on_progress)
+            if predict_fn is not None:
+                provider_used = predict_fn(prompt, style_ref, compose, out_path, on_progress=on_progress)
+            else:
+                provider_used = _run_predict(
+                    provider_pref,
+                    prompt,
+                    style_ref,
+                    compose,
+                    out_path,
+                    on_progress=on_progress,
+                )
 
-        if compose is not None:
             enforce_photo_bbox(out_path, compose, force=True)
             validation = validate_flyer_photo(out_path, band_photo, compose)
             if not validation.passed:
@@ -290,17 +381,18 @@ def predict_visual_flyer(
                 detail = "; ".join(f"{c.get('name')}: {c.get('detail')}" for c in failed[:3])
                 raise RuntimeError(f"Photo validation failed after prediction — {detail}")
 
+    method_label = f"AI image prediction ({provider_used})"
     extra_lines = [
-        "AI path: no layout constraint auto-check",
-        "Review visually against reference panel",
+        "AI path: review visually against reference panel",
         f"Study: {study.title}",
+        f"Provider: {provider_used}",
     ]
     build_evaluation_card(
         reference_path=style_ref,
         generated_path=out_path if out_path.stat().st_size > 0 else style_ref,
         output_path=card_path,
         study_title=study.title,
-        method="AI image prediction (Gemini + style ref)",
+        method=method_label,
         constraint_report=None,
         extra_checklist_lines=extra_lines,
     )
@@ -310,7 +402,8 @@ def predict_visual_flyer(
         "round": round_num,
         "study_id": study_id,
         "method": "ai_visual_predict",
-        "provider": provider,
+        "provider": provider_used,
+        "provider_preference": provider_pref,
         "path_rel": output_relative(out_path),
         "evaluation_card_rel": output_relative(card_path),
         "style_reference": study.source_url,
