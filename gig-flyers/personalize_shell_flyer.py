@@ -33,8 +33,9 @@ from shell_asset_integrate import (
     placement_zones,
 )
 from shell_asset_policy import asset_mode_for_shell, asset_mode_label, uses_band_logo, uses_band_photo
-from shell_pass2_mask import build_personalize_mask, enforce_shell_design, text_edit_zones
-from shell_references import ShellReference, get_shell
+from shell_pass2_mask import build_personalize_mask, build_slot_mask, enforce_shell_design, text_edit_zones
+from shell_references import PLACEHOLDER_LABELS, ShellReference, get_shell
+from shell_text_slots import placeholder_values, slot_prompt, typography_text_zones
 from structured_layout.band_mark import find_band_logo
 from text_validation import footer_prompt_lines, typography_hierarchy_prompt_lines
 
@@ -283,6 +284,97 @@ def build_personalize_canvas(
     return canvas_path, mask_path, photo_bbox, logo_bbox, compose
 
 
+def _parse_canvas_size(size: str) -> tuple[int, int]:
+    raw = (size or "1024x1536").strip().lower()
+    w, h = raw.split("x", 1)
+    return int(w), int(h)
+
+
+def _shell_canvas_rgba(shell_image_path: Path, size: tuple[int, int]) -> Image.Image:
+    w, h = size
+    shell_img = Image.open(shell_image_path).convert("RGB")
+    shell_fit = _fit(shell_img, w, h)
+    canvas = Image.new("RGB", size, (242, 235, 220))
+    ox = (w - shell_fit.width) // 2
+    oy = (h - shell_fit.height) // 2
+    canvas.paste(shell_fit, (ox, oy))
+    return canvas.convert("RGBA")
+
+
+def _write_openai_image(item: Any, path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if item.b64_json:
+        path.write_bytes(base64.b64decode(item.b64_json))
+    elif item.url:
+        with urllib.request.urlopen(item.url, timeout=120) as resp:
+            path.write_bytes(resp.read())
+    else:
+        raise RuntimeError("OpenAI returned no image data")
+
+
+def personalize_shell_typography_sequential(
+    shell: ShellReference,
+    shell_image_path: Path,
+    output_path: Path,
+    *,
+    band: str,
+    venue: str,
+    date: str,
+    time: str,
+    client: Any,
+    model: str,
+    size: str,
+    quality: str,
+) -> Path:
+    """Replace each placeholder in a tight mask, restoring pass-1 art after every step."""
+    canvas_size = _parse_canvas_size(size)
+    shell_layer = _shell_canvas_rgba(shell_image_path, canvas_size)
+    zones = typography_text_zones(canvas_size, shell)
+    values = placeholder_values(band=band, venue=venue, date=date, time=time)
+    empty = Image.new("RGBA", (1, 1), (0, 0, 0, 0))
+
+    with tempfile.TemporaryDirectory(prefix="shell-pass2-typo-") as tmp:
+        work = Path(tmp) / "work.png"
+        shell_layer.convert("RGB").save(work, format="PNG")
+
+        edited_zones: list[tuple[int, int, int, int]] = []
+        for label, zone in zip(PLACEHOLDER_LABELS, zones):
+            value = values.get(label, "").strip()
+            if not value:
+                continue
+            mask_path = Path(tmp) / f"mask_{label.replace(' ', '_')}.png"
+            build_slot_mask(canvas_size, zone).save(mask_path, format="PNG")
+            with work.open("rb") as image_f, mask_path.open("rb") as mask_f:
+                response = client.images.edit(
+                    model=model,
+                    image=image_f,
+                    mask=mask_f,
+                    prompt=slot_prompt(label, value, shell),
+                    size=size,
+                    quality=quality,
+                    input_fidelity="high",
+                    n=1,
+                )
+            _write_openai_image(response.data[0], work)
+            edited_zones.append(zone)
+            compose = ShellPass2Compose(
+                photo_bbox=(0, 0, 0, 0),
+                photo_clear_bbox=(0, 0, 0, 0),
+                photo_layer=empty,
+                logo_bbox=(0, 0, 0, 0),
+                logo_layer=empty,
+                shell_layer=shell_layer.copy(),
+                text_edit_zones=tuple(edited_zones),
+                canvas_size=canvas_size,
+                asset_mode="typography_only",
+            )
+            enforce_shell_design(work, compose)
+
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_bytes(work.read_bytes())
+    return output_path
+
+
 def personalize_shell_openai(
     shell: ShellReference,
     shell_image_path: Path,
@@ -290,6 +382,11 @@ def personalize_shell_openai(
     logo_path: Path,
     prompt: str,
     output_path: Path,
+    *,
+    band: str = "",
+    venue: str = "",
+    date: str = "",
+    time: str = "",
 ) -> Path:
     from openai import OpenAI
 
@@ -301,6 +398,21 @@ def personalize_shell_openai(
     model = os.getenv("OPENAI_IMAGE_MODEL", "gpt-image-1")
     size = os.getenv("OPENAI_IMAGE_SIZE", "1024x1536")
     quality = os.getenv("OPENAI_IMAGE_QUALITY", "high")
+
+    if asset_mode_for_shell(shell) == "typography_only" and band:
+        return personalize_shell_typography_sequential(
+            shell,
+            shell_image_path,
+            output_path,
+            band=band,
+            venue=venue,
+            date=date,
+            time=time,
+            client=client,
+            model=model,
+            size=size,
+            quality=quality,
+        )
 
     with tempfile.TemporaryDirectory(prefix="shell-pass2-") as tmp:
         canvas_path, mask_path, _, _, compose = build_personalize_canvas(
@@ -318,14 +430,7 @@ def personalize_shell_openai(
                 n=1,
             )
         item = response.data[0]
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        if item.b64_json:
-            output_path.write_bytes(base64.b64decode(item.b64_json))
-        elif item.url:
-            with urllib.request.urlopen(item.url, timeout=120) as resp:
-                output_path.write_bytes(resp.read())
-        else:
-            raise RuntimeError("OpenAI returned no image data")
+        _write_openai_image(item, output_path)
         if compose is not None:
             enforce_shell_design(output_path, compose)
             enforce_shell_photo(output_path, compose)
@@ -378,7 +483,10 @@ def personalize_design_shell(
     )
     canvas_preview.write_bytes(c_path.read_bytes())
 
-    personalize_shell_openai(shell, shell_image_path, photo, logo, prompt, out_path)
+    personalize_shell_openai(
+        shell, shell_image_path, photo, logo, prompt, out_path,
+        band=band, venue=event.venue, date=date_str, time=time_str,
+    )
 
     manifest = {
         "gig_id": event.gig_id,

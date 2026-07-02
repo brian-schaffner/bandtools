@@ -9,6 +9,7 @@ from PIL import Image, ImageDraw
 
 from shell_asset_integrate import ShellPass2Compose
 from shell_pass2_mask import build_personalize_mask, enforce_shell_design, text_edit_zones
+from shell_text_slots import typography_text_zones
 from shell_references import get_shell
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -29,13 +30,15 @@ class ShellPass2MaskTest(unittest.TestCase):
         self.assertGreater(alpha.getpixel((cx, cy)), 200)
         self.assertLess(alpha.getpixel((512, 40)), 32)
 
-    def test_typography_shell_has_wide_text_zones(self) -> None:
+    def test_typography_slots_avoid_illustration_band(self) -> None:
         shell = get_shell("fillmore_jefferson_airplane_1966")
         assert shell is not None
-        zones = text_edit_zones((1024, 1536), (0, 0, 0, 0), shell, asset_mode="typography_only")
-        self.assertEqual(len(zones), 3)
-        total_height = sum(z[3] - z[1] for z in zones)
-        self.assertGreater(total_height, 1200)
+        zones = typography_text_zones((1024, 1536), shell)
+        mid = 768
+        for x1, y1, x2, y2 in zones:
+            covers_mid = y1 < mid < y2
+            self.assertFalse(covers_mid, f"zone {y1}-{y2} covers illustration at y={mid}")
+        self.assertEqual(len(zones), 5)
 
     def test_text_zones_sit_outside_photo_clear(self) -> None:
         shell = get_shell("harvest_time_blues")

@@ -224,7 +224,10 @@ def run_shell_pipeline(
             progress=55,
             log=True,
         )
-        personalize_shell_openai(shell, shell_path, photo, logo, prompt, out_path)
+        personalize_shell_openai(
+            shell, shell_path, photo, logo, prompt, out_path,
+            band=band, venue=event.venue, date=date_str, time=time_str,
+        )
 
         pass2 = {
             "gig_id": event.gig_id,

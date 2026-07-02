@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from PIL import Image, ImageDraw
 
 from shell_references import ShellReference
 from shell_asset_integrate import ShellPass2Compose
 from shell_asset_policy import AssetMode
+from shell_text_slots import typography_text_zones
 
 _PROTECT = (255, 255, 255, 255)
 _EDIT = (0, 0, 0, 0)
@@ -34,11 +37,14 @@ def text_edit_zones(
     w, h = size
     margin_x = int(w * 0.03)
 
+    if asset_mode == "typography_only" and shell is not None:
+        return typography_text_zones(size, shell)
+
     if asset_mode == "typography_only":
+        margin_x = int(w * 0.03)
         return [
-            (margin_x, int(h * 0.02), w - margin_x, int(h * 0.36)),
-            (margin_x, int(h * 0.36), w - margin_x, int(h * 0.70)),
-            (margin_x, int(h * 0.70), w - margin_x, int(h * 0.98)),
+            (margin_x, int(h * 0.05), w - margin_x, int(h * 0.20)),
+            (margin_x, int(h * 0.78), w - margin_x, int(h * 0.98)),
         ]
 
     _, photo_top, _, photo_bottom = photo_clear_bbox
@@ -96,6 +102,24 @@ def build_personalize_mask(
         lb = min(h, logo_bbox[3] + protect_pad)
         draw.rectangle([ll, lt, lr, lb], fill=_PROTECT)
 
+    return mask
+
+
+def build_slot_mask(
+    size: tuple[int, int],
+    zone: tuple[int, int, int, int],
+    *,
+    pad: int = 4,
+) -> Image.Image:
+    """Protect entire canvas except one tight placeholder slot."""
+    w, h = size
+    mask = Image.new("RGBA", (w, h), _PROTECT)
+    x1, y1, x2, y2 = zone
+    draw = ImageDraw.Draw(mask)
+    draw.rectangle(
+        [max(0, x1 - pad), max(0, y1 - pad), min(w, x2 + pad), min(h, y2 + pad)],
+        fill=_EDIT,
+    )
     return mask
 
 
