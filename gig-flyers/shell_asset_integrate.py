@@ -60,9 +60,10 @@ class ShellPass2Compose:
     """Photo layer + placement for post-OpenAI fidelity restore."""
 
     photo_bbox: tuple[int, int, int, int]
+    photo_clear_bbox: tuple[int, int, int, int]
     photo_layer: Image.Image
     canvas_size: tuple[int, int]
-    canvas_rgb: tuple[int, int, int] = CANVAS_BACKGROUND
+    backdrop_rgb: tuple[int, int, int] = CANVAS_BACKGROUND
 
 
 def _hex_rgb(value: str) -> tuple[int, int, int]:
@@ -94,6 +95,56 @@ def _pick_roles(colors: tuple[tuple[int, int, int], ...]) -> dict[str, tuple[int
     mid = by_lum[len(by_lum) // 2]
     accent = max(colors, key=lambda c: abs(_luminance(c) - 128))
     return {"paper": paper, "ink": ink, "shadow": ink, "highlight": mid, "accent": accent}
+
+
+def _sample_backdrop_ring(
+    img: Image.Image,
+    box: tuple[int, int, int, int],
+    *,
+    ring: int = 8,
+) -> tuple[int, int, int]:
+    """Sample shell backdrop from a ring just outside the photo slot (avoids placeholder pixels)."""
+    x1, y1, x2, y2 = box
+    w, h = img.size
+    strips: list[tuple[int, int, int]] = []
+    if y1 - ring > 0:
+        strips.append(_sample_zone_mean(img, (x1, max(0, y1 - ring * 3), x2, y1)))
+    if y2 + ring < h:
+        strips.append(_sample_zone_mean(img, (x1, y2, x2, min(h, y2 + ring * 3))))
+    if x1 - ring > 0:
+        strips.append(_sample_zone_mean(img, (max(0, x1 - ring * 3), y1, x1, y2)))
+    if x2 + ring < w:
+        strips.append(_sample_zone_mean(img, (x2, y1, min(w, x2 + ring * 3), y2)))
+    if not strips:
+        return _sample_zone_mean(img, (0, 0, w, min(h, max(40, h // 8))))
+    r = sum(s[0] for s in strips) // len(strips)
+    g = sum(s[1] for s in strips) // len(strips)
+    b = sum(s[2] for s in strips) // len(strips)
+    return (r, g, b)
+
+
+def _clear_pad_for_slot(slot: str) -> int:
+    return {"center_hero": 48, "footer_inset": 28, "lower_left": 24}.get(slot, 32)
+
+
+def clear_photo_slot(
+    canvas: Image.Image,
+    zone: tuple[int, int, int, int],
+    *,
+    backdrop: tuple[int, int, int],
+    pad: int = 24,
+) -> tuple[int, int, int, int]:
+    """Remove pass-1 placeholder imagery from the photo slot before overlay."""
+    x1, y1, x2, y2 = zone
+    left = max(0, x1 - pad)
+    top = max(0, y1 - pad)
+    right = min(canvas.width, x2 + pad)
+    bottom = min(canvas.height, y2 + pad)
+    layer = canvas.convert("RGBA")
+    draw = ImageDraw.Draw(layer)
+    draw.rectangle([left, top, right, bottom], fill=(*backdrop, 255))
+    canvas.paste(layer, (0, 0), layer)
+    return (left, top, right, bottom)
 
 
 def _sample_zone_mean(img: Image.Image, box: tuple[int, int, int, int]) -> tuple[int, int, int]:
@@ -319,8 +370,8 @@ def placement_zones(
     slot = photo_slot_for_shell(shell) if shell is not None else "lower_left"
 
     if slot == "center_hero":
-        photo_w, photo_h = int(w * 0.72), int(h * 0.40)
-        px, py = (w - photo_w) // 2, int(h * 0.28)
+        photo_w, photo_h = int(w * 0.78), int(h * 0.44)
+        px, py = (w - photo_w) // 2, int(h * 0.26)
     elif slot == "footer_inset":
         photo_w, photo_h = int(w * 0.50), int(h * 0.16)
         px, py = (w - photo_w) // 2, int(h * 0.72)
@@ -336,9 +387,21 @@ def placement_zones(
     return {"photo": photo_box, "logo": logo_box, "photo_slot": slot}
 
 
-def fit_layer_in_box(layer: Image.Image, box: tuple[int, int, int, int]) -> Image.Image:
+def fit_layer_in_box(
+    layer: Image.Image,
+    box: tuple[int, int, int, int],
+    *,
+    cover: bool = False,
+) -> Image.Image:
     x1, y1, x2, y2 = box
     max_w, max_h = x2 - x1, y2 - y1
+    if cover:
+        ratio = max(max_w / layer.width, max_h / layer.height)
+        nw, nh = max(1, int(layer.width * ratio)), max(1, int(layer.height * ratio))
+        resized = layer.resize((nw, nh), Image.Resampling.LANCZOS)
+        left = max(0, (nw - max_w) // 2)
+        top = max(0, (nh - max_h) // 2)
+        return resized.crop((left, top, left + max_w, top + max_h))
     ratio = min(max_w / layer.width, max_h / layer.height)
     nw, nh = max(1, int(layer.width * ratio)), max(1, int(layer.height * ratio))
     return layer.resize((nw, nh), Image.Resampling.LANCZOS)
@@ -359,9 +422,12 @@ def compose_integrated_assets(
     hero = zones.get("photo_slot") == "center_hero"
 
     photo_layer = integrate_band_photo(photo, shell, backdrop=backdrop, hero=hero)
-    photo_layer = fit_layer_in_box(photo_layer, photo_zone)
-    px = photo_zone[0]
-    py = photo_zone[1] + (photo_zone[3] - photo_zone[1] - photo_layer.height) // 2
+    photo_layer = fit_layer_in_box(photo_layer, photo_zone, cover=hero)
+    if hero:
+        px, py = photo_zone[0], photo_zone[1]
+    else:
+        px = photo_zone[0]
+        py = photo_zone[1] + (photo_zone[3] - photo_zone[1] - photo_layer.height) // 2
 
     logo_backdrop = _sample_zone_mean(shell_img, logo_zone)
     logo_layer = integrate_band_logo(logo, shell, zone_color=logo_backdrop)
@@ -384,7 +450,7 @@ def integration_summary(shell: ShellReference) -> dict[str, Any]:
     }
 
 
-def enforce_shell_photo(output_path: Path, compose: ShellPass2Compose, *, clear_pad: int = 12) -> bool:
+def enforce_shell_photo(output_path: Path, compose: ShellPass2Compose) -> bool:
     """Restore the pre-integrated photo layer after OpenAI pass 2."""
     if not output_path.is_file():
         return False
@@ -394,12 +460,11 @@ def enforce_shell_photo(output_path: Path, compose: ShellPass2Compose, *, clear_
     if model.size != (orig_w, orig_h):
         model = model.resize((orig_w, orig_h), Image.Resampling.LANCZOS)
 
-    left, top, right, bottom = compose.photo_bbox
-    pl, pt = max(0, left - clear_pad), max(0, top - clear_pad)
-    pr, pb = min(orig_w, right + clear_pad), min(orig_h, bottom + clear_pad)
+    left, top, right, bottom = compose.photo_clear_bbox
+    px, py = compose.photo_bbox[0], compose.photo_bbox[1]
     result = model.copy()
-    clear = Image.new("RGBA", (pr - pl, pb - pt), (*compose.canvas_rgb, 255))
-    result.paste(clear, (pl, pt))
-    result.alpha_composite(compose.photo_layer, (left, top))
+    clear = Image.new("RGBA", (right - left, bottom - top), (*compose.backdrop_rgb, 255))
+    result.paste(clear, (left, top))
+    result.alpha_composite(compose.photo_layer, (px, py))
     result.convert("RGB").save(output_path, format="PNG")
     return True

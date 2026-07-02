@@ -17,11 +17,15 @@ from gig_calendar import GigEvent
 from output_paths import get_output_dir, output_relative
 from shell_asset_integrate import (
     ShellPass2Compose,
+    _clear_pad_for_slot,
+    _sample_backdrop_ring,
+    clear_photo_slot,
     compose_integrated_assets,
     enforce_shell_photo,
     integration_summary,
     photo_slot_for_shell,
     photo_slot_label,
+    placement_zones,
 )
 from shell_references import ShellReference, get_shell
 from structured_layout.band_mark import find_band_logo
@@ -128,6 +132,11 @@ def build_personalize_canvas(
     raw_logo = Image.open(logo_path)
 
     if shell is not None:
+        zones = placement_zones(size, shell)
+        photo_zone = zones["photo"]
+        slot = photo_slot_for_shell(shell)
+        backdrop = _sample_backdrop_ring(shell_rgba, photo_zone)
+        clear_pad = _clear_pad_for_slot(slot)
         photo_layer, logo_layer, (px, py), (lx, ly) = compose_integrated_assets(
             shell_rgba, raw_photo, raw_logo, shell, size,
         )
@@ -137,8 +146,15 @@ def build_personalize_canvas(
         logo_layer = _fit(raw_logo.convert("RGBA"), int(w * 0.42), int(h * 0.12))
         lx = w - logo_layer.width - 40
         ly = int(h * 0.78)
+        photo_zone = (px, py, px + photo_layer.width, py + photo_layer.height)
+        backdrop = (242, 235, 220)
+        clear_pad = 24
+        slot = "lower_left"
 
     canvas_rgba = shell_rgba.copy()
+    photo_clear_bbox = clear_photo_slot(
+        canvas_rgba, photo_zone, backdrop=backdrop, pad=clear_pad,
+    )
     canvas_rgba.alpha_composite(photo_layer, (px, py))
     canvas_rgba.alpha_composite(logo_layer, (lx, ly))
     canvas = canvas_rgba.convert("RGB")
@@ -153,11 +169,19 @@ def build_personalize_canvas(
     mask = Image.new("RGBA", size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(mask)
     pad = 24
-    for bbox in (photo_bbox, logo_bbox):
-        draw.rectangle(
-            [bbox[0] - pad, bbox[1] - pad, bbox[2] + pad, bbox[3] + pad],
-            fill=(255, 255, 255, 255),
-        )
+    draw.rectangle(
+        [
+            photo_clear_bbox[0] - pad,
+            photo_clear_bbox[1] - pad,
+            photo_clear_bbox[2] + pad,
+            photo_clear_bbox[3] + pad,
+        ],
+        fill=(255, 255, 255, 255),
+    )
+    draw.rectangle(
+        [logo_bbox[0] - pad, logo_bbox[1] - pad, logo_bbox[2] + pad, logo_bbox[3] + pad],
+        fill=(255, 255, 255, 255),
+    )
     mask_path = out_dir / "pass2_mask.png"
     mask.save(mask_path, format="PNG")
 
@@ -165,8 +189,10 @@ def build_personalize_canvas(
     if shell is not None:
         compose = ShellPass2Compose(
             photo_bbox=photo_bbox,
+            photo_clear_bbox=photo_clear_bbox,
             photo_layer=photo_layer.copy(),
             canvas_size=size,
+            backdrop_rgb=backdrop,
         )
     return canvas_path, mask_path, photo_bbox, logo_bbox, compose
 

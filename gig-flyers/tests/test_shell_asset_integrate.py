@@ -10,6 +10,7 @@ from PIL import Image, ImageDraw
 from shell_asset_integrate import (
     ShellPass2Compose,
     blend_duotone_photo,
+    clear_photo_slot,
     enforce_shell_photo,
     integrate_band_photo,
     integrate_band_logo,
@@ -103,8 +104,18 @@ class ShellAssetIntegrateTest(unittest.TestCase):
         photo = zones["photo"]
         w, h = photo[2] - photo[0], photo[3] - photo[1]
         self.assertEqual(photo_slot_for_shell(shell), "center_hero")
-        self.assertGreaterEqual(w, 700)
-        self.assertGreaterEqual(h, 600)
+        self.assertGreaterEqual(w, 790)
+        self.assertGreaterEqual(h, 670)
+
+    def test_clear_photo_slot_erases_placeholder(self) -> None:
+        canvas = Image.new("RGBA", (400, 400), (20, 80, 40, 255))
+        draw = ImageDraw.Draw(canvas)
+        draw.rectangle([80, 80, 320, 280], fill=(200, 100, 50, 255))
+        zone = (80, 80, 320, 280)
+        cleared = clear_photo_slot(canvas, zone, backdrop=(20, 80, 40), pad=12)
+        patch = canvas.crop(cleared)
+        orange = sum(1 for p in patch.getdata() if p[0] > 150 and p[1] < 130)
+        self.assertLess(orange, patch.width * patch.height // 10)
 
     def test_gritty_shell_uses_lower_left(self) -> None:
         shell = get_shell("altamont_free_concert_1969")
@@ -125,7 +136,14 @@ class ShellAssetIntegrateTest(unittest.TestCase):
         )
         canvas = Image.new("RGB", (1024, 1536), (242, 235, 220))
         bbox = (40, 900, 40 + photo.width, 900 + photo.height)
-        compose = ShellPass2Compose(photo_bbox=bbox, photo_layer=photo, canvas_size=(1024, 1536))
+        clear_bbox = (28, 888, 52 + photo.width, 912 + photo.height)
+        compose = ShellPass2Compose(
+            photo_bbox=bbox,
+            photo_clear_bbox=clear_bbox,
+            photo_layer=photo,
+            canvas_size=(1024, 1536),
+            backdrop_rgb=(242, 235, 220),
+        )
         canvas_rgba = canvas.convert("RGBA")
         canvas_rgba.alpha_composite(photo, (40, 900))
         canvas_rgba.convert("RGB").save(tmp := ROOT / "output" / ".test_enforce_in.png")
