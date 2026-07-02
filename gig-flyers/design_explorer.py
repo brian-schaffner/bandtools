@@ -31,6 +31,7 @@ from structured_layout.graphic_composer import (
 )
 from structured_layout.tier_archetypes import load_tier_archetype
 from structured_layout.validation import validate_structured_flyer
+from output_paths import output_relative
 from text_validation import resolve_venue_address
 
 ROOT = Path(__file__).resolve().parent
@@ -345,7 +346,7 @@ def _render_explore_spec(
         family=spec.family,
         label=spec.label,
         tags=dict(spec.tags),
-        path_rel=str(out_path.relative_to(ROOT)),
+        path_rel=output_relative(out_path),
         wild=spec.wild,
         layout_score=layout_score,
         validation_issues=issues[:5],

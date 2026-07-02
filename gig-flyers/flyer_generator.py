@@ -58,7 +58,7 @@ load_dotenv(ROOT / ".env")
 STYLE_PATH = ROOT / "style.yaml"
 
 
-from output_paths import get_output_dir
+from output_paths import get_output_dir, output_relative
 OPTION_LETTERS = ("A", "B", "C")
 
 
@@ -765,11 +765,11 @@ def _generate_structured_layout_option(
     
     return {
         "letter": letter,
-        "path_rel": str(path.relative_to(ROOT)),
+        "path_rel": output_relative(path),
         "prompt": f"[Structured Layout Mode: {design_style.value}]",
         "verdict": verdict,
         "var_id": var_id,
-        "layout_spec_path": str(layout_json_path.relative_to(ROOT)),
+        "layout_spec_path": output_relative(layout_json_path),
     }
 
 
@@ -1019,7 +1019,7 @@ def _generate_single_option(
 
     return {
         "letter": letter,
-        "path_rel": str(path.relative_to(ROOT)),
+        "path_rel": output_relative(path),
         "prompt": final_prompt,
         "verdict": final_verdict,
         "var_id": var_id,
@@ -1248,7 +1248,7 @@ def generate_for_gig(
         "research": research,
         "selected_photo": selected_photo,
         "reviewer_verdicts": reviewer_verdicts,
-        "output_dir": str(out_dir.relative_to(ROOT)),
+        "output_dir": output_relative(out_dir),
         "template_version": "v4",
         "generation_mode": "structured_fixed",
     }

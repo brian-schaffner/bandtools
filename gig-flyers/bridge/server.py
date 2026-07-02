@@ -57,6 +57,7 @@ from bridge.review import (  # noqa: E402
 )
 from flyer_generator import generate_for_gig  # noqa: E402
 from gig_calendar import CalendarUnavailableError, find_gig_by_id  # noqa: E402
+from output_paths import resolve_output_path  # noqa: E402
 from state import (  # noqa: E402
     append_feedback,
     get_gig_state,
@@ -118,7 +119,7 @@ def _resolve_option_path(gig_id: str, option: str) -> Path:
     rel = options.get(option.upper()) or options.get(option)
     if not rel:
         raise HTTPException(status_code=400, detail=f"Option {option} not found")
-    path = ROOT / rel
+    path = resolve_output_path(rel)
     if not path.exists():
         raise HTTPException(status_code=400, detail=f"Missing image for option {option}")
     return path

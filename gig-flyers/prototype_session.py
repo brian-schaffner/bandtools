@@ -19,6 +19,7 @@ from design_explorer import (
     spec_signature,
 )
 from flyer_generator import gig_output_dir, resolve_gig_event
+from output_paths import resolve_output_path
 from gig_research import research_gig
 from photo_selector import select_band_photo
 from preference_model import (
@@ -437,7 +438,7 @@ def submit_prototype_turn(
         path_rel = winner.get("path_rel")
         if not path_rel:
             raise ValueError("Winning prototype has no image")
-        source = ROOT / path_rel
+        source = resolve_output_path(path_rel)
         append_feedback(gig_id, "prototype_approve", slot, feedback, f"APPROVE prototype {slot} round {proto_round}")
         dest = mark_approved(gig_id, f"P{slot}", source)
         upsert_gig(

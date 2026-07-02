@@ -12,9 +12,9 @@ from urllib.parse import urlparse
 
 from bridge.job_status import get_job_status
 from bridge.ui import page_close, page_head, progress_css, review_css, site_nav
-from state import ROOT, can_regenerate, get_gig_state, load_state
+from state import can_regenerate, get_gig_state, load_state
 
-from output_paths import get_output_dir
+from output_paths import get_output_dir, output_relative, resolve_output_path
 
 OUTPUT_DIR = get_output_dir()
 
@@ -52,7 +52,7 @@ def asset_url(rel_path: str) -> str:
     path = Path(rel_path)
     if path.is_absolute():
         try:
-            rel = str(path.relative_to(ROOT))
+            rel = output_relative(path)
         except ValueError:
             rel = rel_path.lstrip("/")
     else:
@@ -134,7 +134,7 @@ def _gig_output_dir(gig_id: str) -> Optional[Path]:
 
 
 def _is_valid_image(rel: str, min_bytes: int = 1024) -> bool:
-    path = ROOT / rel.lstrip("/")
+    path = resolve_output_path(rel)
     try:
         return path.is_file() and path.stat().st_size >= min_bytes
     except OSError:
@@ -167,7 +167,7 @@ def _scan_rounds(gig_dir: Path) -> list[dict[str, Any]]:
         if not match:
             continue
         letter, round_num = match.group(1), int(match.group(2))
-        rel = str(png.relative_to(ROOT))
+        rel = output_relative(png)
         if not _is_valid_image(rel):
             continue
         rounds.setdefault(round_num, {"round": round_num, "options": {}, "event": {}})
@@ -251,10 +251,11 @@ def public_output_url(path: Path | str) -> str:
     p = Path(path)
     if p.is_absolute():
         try:
-            p = p.relative_to(ROOT)
+            rel = output_relative(p)
         except ValueError:
-            pass
-    rel = str(p).replace("\\", "/")
+            rel = str(p).replace("\\", "/")
+    else:
+        rel = str(p).replace("\\", "/")
     if rel.startswith("output/"):
         rel = rel[len("output/") :]
     return route_path(f"/output/{rel}")
