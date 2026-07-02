@@ -48,6 +48,7 @@ from bridge.review import (  # noqa: E402
     build_review_data,
     build_review_link_message,
     home_page_path,
+    pick_page_path,
     render_processing_page,
     render_regenerating_page,
     render_review_page,
@@ -56,12 +57,14 @@ from bridge.review import (  # noqa: E402
 )
 from flyer_generator import generate_for_gig  # noqa: E402
 from gig_calendar import CalendarUnavailableError, find_gig_by_id  # noqa: E402
+from output_paths import resolve_output_path  # noqa: E402
 from state import (  # noqa: E402
     append_feedback,
     get_gig_state,
     get_last_poll_rowid,
     mark_approved,
     set_last_poll_rowid,
+    upsert_gig,
 )
 
 load_dotenv(ROOT / ".env")
@@ -116,7 +119,7 @@ def _resolve_option_path(gig_id: str, option: str) -> Path:
     rel = options.get(option.upper()) or options.get(option)
     if not rel:
         raise HTTPException(status_code=400, detail=f"Option {option} not found")
-    path = ROOT / rel
+    path = resolve_output_path(rel)
     if not path.exists():
         raise HTTPException(status_code=400, detail=f"Missing image for option {option}")
     return path
@@ -644,6 +647,150 @@ async def _poll_loop() -> None:
             with log_path.open("a", encoding="utf-8") as f:
                 f.write(f"poll error: {exc}\n")
         await asyncio.sleep(POLL_SECONDS)
+
+
+async def _run_prototype_job(gig_id: str, *, start: bool = False, submit: Optional[dict[str, Any]] = None) -> None:
+    event = _gig_event_summary(gig_id)
+    title = f"{event.get('short_date') or event.get('date', '')} @ {event.get('venue', 'Venue TBA')}".strip()
+    if not is_job_active(gig_id):
+        start_job(gig_id, "prototype", title=title, detail="Prototype batch")
+    callback = _progress_callback(gig_id)
+    try:
+        if start:
+            await asyncio.to_thread(
+                __import__("prototype_session").start_prototype_session,
+                gig_id,
+                on_progress=callback,
+            )
+        elif submit:
+            await asyncio.to_thread(
+                __import__("prototype_session").submit_prototype_turn,
+                gig_id,
+                **submit,
+            )
+        complete_job(gig_id, "Prototype ready")
+    except Exception as exc:  # noqa: BLE001
+        fail_job(gig_id, str(exc))
+        _log_bridge_error(f"prototype error for {gig_id}: {exc}")
+    finally:
+        _generate_in_flight.discard(gig_id)
+
+
+@add_get(app, "/prototype/{gig_id}", response_class=HTMLResponse)
+async def prototype_page(gig_id: str) -> HTMLResponse:
+    from bridge.prototype import render_prototype_page
+
+    try:
+        return HTMLResponse(render_prototype_page(gig_id))
+    except Exception as exc:  # noqa: BLE001
+        return _error_response(gig_id, exc)
+
+
+@add_post(app, "/prototype/{gig_id}/start")
+async def prototype_start(gig_id: str) -> Response:
+    from bridge.prototype import prototype_page_path, render_prototype_generating_page
+    from gig_resolve import is_placeholder_gig_id, resolve_gig_event
+
+    if is_placeholder_gig_id(gig_id):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid gig link — use Prototype mode from a gig review page, not /prototype/{gig_id}",
+        )
+
+    record = get_gig_state(gig_id) or {}
+    if gig_id in _generate_in_flight:
+        return HTMLResponse(render_prototype_generating_page(gig_id, record.get("event") or {}))
+
+    from gig_resolve import resolve_gig_event
+
+    try:
+        event_obj = resolve_gig_event(gig_id)
+        upsert_gig(gig_id, event=event_obj.to_dict())
+    except ValueError as exc:
+        pick = pick_page_path()
+        body = f"""<!DOCTYPE html><html><body style="font-family:system-ui;margin:2rem">
+        <h1>Gig not found</h1>
+        <p>{html_module.escape(str(exc))}</p>
+        <p><a href="{html_module.escape(pick)}">Pick a gig from the calendar</a>
+        or open an existing <a href="{html_module.escape(review_page_path(gig_id))}">review page</a>.</p>
+        </body></html>"""
+        return HTMLResponse(body, status_code=404)
+
+    _generate_in_flight.add(gig_id)
+    asyncio.create_task(_run_prototype_job(gig_id, start=True))
+    return HTMLResponse(render_prototype_generating_page(gig_id, record.get("event") or {}))
+
+
+@add_post(app, "/prototype/{gig_id}/submit")
+async def prototype_submit(
+    gig_id: str,
+    request: Request,
+    action: str = Form(...),
+    feedback: str = Form(""),
+) -> Response:
+    from bridge.prototype import prototype_page_path, render_prototype_generating_page
+
+    form = await request.form()
+    rankings: list[dict[str, Any]] = []
+    for slot in ("1", "2", "3"):
+        rank_raw = form.get(f"rank_{slot}")
+        if rank_raw:
+            rankings.append({"slot": slot, "rank": int(rank_raw)})
+    winner_slot = form.get("winner_slot")
+    if winner_slot is not None:
+        winner_slot = str(winner_slot)
+
+    if action == "next" and len(rankings) != 3:
+        raise HTTPException(status_code=400, detail="Rank all 3 prototypes (1st, 2nd, 3rd) before continuing")
+    ranks = [r["rank"] for r in rankings]
+    if action == "next" and sorted(ranks) != [1, 2, 3]:
+        raise HTTPException(status_code=400, detail="Each rank 1, 2, and 3 must be used exactly once")
+
+    if action == "approve":
+        if not winner_slot:
+            raise HTTPException(status_code=400, detail="Select which prototype wins")
+        try:
+            from prototype_session import submit_prototype_turn
+
+            submit_prototype_turn(
+                gig_id,
+                rankings=rankings,
+                feedback=feedback.strip(),
+                action="approve",
+                winner_slot=winner_slot,
+            )
+        except Exception as exc:  # noqa: BLE001
+            return _error_response(gig_id, exc)
+        return RedirectResponse(url=review_page_path(gig_id), status_code=303)
+
+    if action == "forfeit":
+        from prototype_session import submit_prototype_turn
+
+        submit_prototype_turn(
+            gig_id,
+            rankings=rankings,
+            feedback=feedback.strip(),
+            action="forfeit",
+        )
+        return RedirectResponse(url=prototype_page_path(gig_id), status_code=303)
+
+    if gig_id in _generate_in_flight:
+        record = get_gig_state(gig_id) or {}
+        return HTMLResponse(render_prototype_generating_page(gig_id, record.get("event") or {}))
+
+    _generate_in_flight.add(gig_id)
+    asyncio.create_task(
+        _run_prototype_job(
+            gig_id,
+            submit={
+                "rankings": rankings,
+                "feedback": feedback.strip(),
+                "action": "next",
+            },
+        )
+    )
+    record = get_gig_state(gig_id) or {}
+    return HTMLResponse(render_prototype_generating_page(gig_id, record.get("event") or {}))
 
 
 @app.on_event("startup")

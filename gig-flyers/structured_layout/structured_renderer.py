@@ -763,12 +763,31 @@ def _render_graphic(
         stamp_color = outline or (139, 0, 0, int(255 * element.opacity))
         layer = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
         layer_draw = ImageDraw.Draw(layer)
-        layer_draw.rectangle([x, y, x + w, y + h], outline=stamp_color, width=2)
-        font = _get_font("Helvetica", max(14, h // 2), FontWeight.BOLD)
-        layer_draw.text((x + 4, y + max(2, h // 6)), stamp_text, font=font, fill=stamp_color)
+        pad = max(4, int(min(w, h) * 0.08))
+        layer_draw.ellipse([x + pad, y + pad, x + w - pad, y + h - pad], outline=stamp_color, width=2)
+        lines = stamp_text.split("\n")
+        font_size = max(11, min(h // (len(lines) + 2), w // 4))
+        font = _get_font("Helvetica", font_size, FontWeight.BOLD)
+        line_h = font_size + 2
+        total_h = len(lines) * line_h
+        cx, cy = x + w // 2, y + h // 2
+        start_y = cy - total_h // 2
+        for i, line in enumerate(lines):
+            tb = layer_draw.textbbox((0, 0), line, font=font)
+            tw = tb[2] - tb[0]
+            layer_draw.text((cx - tw // 2, start_y + i * line_h), line, font=font, fill=stamp_color)
         if element.rotation != 0:
-            layer = layer.rotate(element.rotation, center=(x + w // 2, y + h // 2), expand=False)
-        canvas.alpha_composite(layer)
+            layer = layer.rotate(
+                element.rotation,
+                center=(cx, cy),
+                expand=True,
+                resample=Image.Resampling.BICUBIC,
+            )
+            # Re-center rotated stamp near original anchor
+            ox, oy = cx - layer.width // 2, cy - layer.height // 2
+            canvas.alpha_composite(layer, (ox, oy))
+        else:
+            canvas.alpha_composite(layer)
 
     elif element.element_type == "corner_strip":
         corner = element.properties.get("corner", "top_left")
@@ -855,6 +874,27 @@ def render_flyer(
         on_progress: Progress callback
         option: Option letter (B or C)
     """
+    from structured_layout.style_dna_renderer import is_style_dna_layout, render_style_dna_from_layout
+
+    if is_style_dna_layout(layout):
+        emit_progress(
+            on_progress,
+            step="render",
+            substep="style_dna",
+            message=f"Rendering Style DNA archetype for option {option}…",
+            option=option,
+        )
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        render_style_dna_from_layout(layout, photo_path, output_path)
+        emit_progress(
+            on_progress,
+            step="render",
+            substep="complete",
+            message=f"Style DNA render complete for option {option}",
+            option=option,
+        )
+        return
+
     emit_progress(
         on_progress,
         step="render",

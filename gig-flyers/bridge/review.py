@@ -12,9 +12,11 @@ from urllib.parse import urlparse
 
 from bridge.job_status import get_job_status
 from bridge.ui import page_close, page_head, progress_css, review_css, site_nav
-from state import ROOT, can_regenerate, get_gig_state, load_state
+from state import can_regenerate, get_gig_state, load_state
 
-OUTPUT_DIR = ROOT / "output"
+from output_paths import get_output_dir, output_relative, resolve_output_path
+
+OUTPUT_DIR = get_output_dir()
 
 
 def root_path() -> str:
@@ -50,7 +52,7 @@ def asset_url(rel_path: str) -> str:
     path = Path(rel_path)
     if path.is_absolute():
         try:
-            rel = str(path.relative_to(ROOT))
+            rel = output_relative(path)
         except ValueError:
             rel = rel_path.lstrip("/")
     else:
@@ -132,7 +134,7 @@ def _gig_output_dir(gig_id: str) -> Optional[Path]:
 
 
 def _is_valid_image(rel: str, min_bytes: int = 1024) -> bool:
-    path = ROOT / rel.lstrip("/")
+    path = resolve_output_path(rel)
     try:
         return path.is_file() and path.stat().st_size >= min_bytes
     except OSError:
@@ -165,7 +167,7 @@ def _scan_rounds(gig_dir: Path) -> list[dict[str, Any]]:
         if not match:
             continue
         letter, round_num = match.group(1), int(match.group(2))
-        rel = str(png.relative_to(ROOT))
+        rel = output_relative(png)
         if not _is_valid_image(rel):
             continue
         rounds.setdefault(round_num, {"round": round_num, "options": {}, "event": {}})
@@ -249,10 +251,11 @@ def public_output_url(path: Path | str) -> str:
     p = Path(path)
     if p.is_absolute():
         try:
-            p = p.relative_to(ROOT)
+            rel = output_relative(p)
         except ValueError:
-            pass
-    rel = str(p).replace("\\", "/")
+            rel = str(p).replace("\\", "/")
+    else:
+        rel = str(p).replace("\\", "/")
     if rel.startswith("output/"):
         rel = rel[len("output/") :]
     return route_path(f"/output/{rel}")
@@ -267,12 +270,13 @@ def render_job_progress_page(
     detail: str = "",
     back_href: Optional[str] = None,
     back_label: str = "Back to review",
+    redirect_href: Optional[str] = None,
     nav_current: str = "progress",
 ) -> str:
     """Processing page with per-option vessel progress (SSE + polling fallback)."""
     status_url = html.escape(job_status_path(gig_id))
     stream_url = html.escape(job_status_stream_path(gig_id))
-    review = html.escape(review_page_path(gig_id))
+    review = html.escape(redirect_href or review_page_path(gig_id))
     back = back_href or review_page_path(gig_id)
     nav = site_nav(active=nav_current, back_href=back, back_label=back_label)
     venue = html.escape(event.get("venue", "Venue TBA"))
@@ -969,6 +973,18 @@ def render_review_page(data: dict[str, Any]) -> str:
     """
 
     pick = pick_page_path()
+    from bridge.prototype import prototype_page_path
+
+    prototype_link = f"""
+    <section class="prototype-cta">
+      <p><a class="btn btn-purple btn-block" href="{html.escape(prototype_page_path(gig_id))}">
+        Rapid prototype mode (3 at a time, rank &amp; iterate)
+      </a></p>
+      <p class="muted" style="font-size:0.875rem;margin-top:0.35rem">
+        Not happy with A/B/C? Try ranking batches of 3 until something clicks or you call it.
+      </p>
+    </section>
+    """
     nav = site_nav(active="review", back_href=pick, back_label="Pick gig")
 
     return (
@@ -981,6 +997,7 @@ def render_review_page(data: dict[str, Any]) -> str:
     <p class="meta">{short_date} @ {venue} · status: {status}</p>
   </header>
   {approved_banner}
+  {prototype_link}
   {current_section}
   {regenerate_section}
   {research_section}

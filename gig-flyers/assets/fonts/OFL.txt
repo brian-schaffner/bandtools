@@ -1,0 +1,5 @@
+Display fonts in this directory are licensed under the SIL Open Font License 1.1.
+See each font's upstream project for copyright holders:
+- Bebas Neue — https://github.com/dharmatype/Bebas-Neue
+- Special Elite — https://github.com/googlefonts/specialelite
+- Playfair Display — https://github.com/googlefonts/PlayfairDisplay

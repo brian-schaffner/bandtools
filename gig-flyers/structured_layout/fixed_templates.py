@@ -71,6 +71,14 @@ from structured_layout.layout_spec import (  # noqa: E402
 )
 
 
+def _stamp_date(date: str) -> str:
+    """Compact two-line date for small stamp badges."""
+    parts = date.replace(",", "").split()
+    if len(parts) >= 4:
+        return f"{parts[1][:3].upper()}\n{parts[2]}"
+    return date[:8].upper()
+
+
 def _short_date(date: str) -> str:
     """Compact date for stamp badge."""
     parts = date.replace(",", "").split()
@@ -100,10 +108,21 @@ _DISPLAY_VENUE_FONT = FONT_DISPLAY
 _DISPLAY_BAND_FONT = FONT_DISPLAY_HEAVY
 
 
-def _select_medium_variant(arch: TierArchetype, rng: random.Random) -> str:
+def _select_medium_variant(
+    arch: TierArchetype,
+    rng: random.Random,
+    *,
+    preferences: dict[str, dict[str, int]] | None = None,
+) -> str:
     """Deterministic medium-tier layout pick; paste_up default for blues_bar."""
     if arch.venue_type == "blues_bar":
         return "paste_up"
+    prefs = preferences or {}
+    weights = prefs.get("medium_variant", {})
+    if weights:
+        from preference_model import weighted_choice
+
+        return weighted_choice(rng, list(MEDIUM_VARIANTS), weights)
     return MEDIUM_VARIANTS[rng.randint(0, len(MEDIUM_VARIANTS) - 1)]
 
 
@@ -154,6 +173,77 @@ def _add_tape_on_photo_edge(
             height=tape_h,
             rotation=_rf(-10, 10, rng),
         )
+    )
+
+
+def _add_medium_header_double_rule(
+    graphic_elements: list[GraphicElement],
+    *,
+    y: float,
+    arch: TierArchetype,
+    rng: random.Random,
+) -> None:
+    """Hairline double rule under venue header — layout chrome, not an accent device."""
+    if rng.random() > 0.55:
+        return
+    for i, opacity in enumerate((0.5, 0.28)):
+        graphic_elements.append(
+            GraphicElement(
+                element_type="divider",
+                x=TEXT_MARGIN_X_PCT,
+                y=round(y + i * 0.55, 1),
+                width=MAX_TEXT_WIDTH_PCT,
+                height=0,
+                stroke_color=ColorSpec(arch.ink_muted, opacity=opacity),
+                stroke_width=1,
+            )
+        )
+
+
+def _build_medium_photo_frame(
+    arch: TierArchetype,
+    rng: random.Random,
+    *,
+    photo_x: float,
+    photo_y: float,
+    photo_w: float,
+    photo_h: float,
+    placement: PhotoPlacement,
+    rotation: float,
+    contrast: float,
+    saturation: float,
+) -> PhotoFrame:
+    """Option B photo — light halftone, paste-up border, optional paper texture."""
+    use_halftone = rng.random() < 0.48
+    border_w = 4.0 if rng.random() < 0.38 else 3.0
+    return PhotoFrame(
+        x=photo_x,
+        y=photo_y,
+        width=photo_w,
+        height=photo_h,
+        placement=placement,
+        rotation=rotation,
+        film_grain=_rf(0.010, 0.018, rng),
+        halftone=use_halftone,
+        halftone_dot_size=5 if use_halftone else 4,
+        paper_texture=_rf(0.05, 0.14, rng) if rng.random() < 0.42 else 0.0,
+        border_width=border_w,
+        border_color=ColorSpec(arch.ink_primary),
+        brightness=1.01,
+        contrast=contrast,
+        saturation=saturation,
+        opacity=1.0,
+    )
+
+
+def _medium_background(arch: TierArchetype, rng: random.Random) -> BackgroundSpec:
+    """Slightly richer paper/photocopy texture for medium tier."""
+    texture = "photocopy" if rng.random() < 0.35 else "paper"
+    return BackgroundSpec(
+        color=ColorSpec(arch.paper_color),
+        texture=texture,
+        texture_strength=_rf(0.26, 0.38, rng),
+        grain_strength=arch.grain_strength + _rf(0.01, 0.03, rng),
     )
 
 
@@ -218,6 +308,12 @@ def _create_handbill_paste_up(
             fill_color=ColorSpec(arch.ink_muted, opacity=1.0),
         ),
     ]
+    _add_medium_header_double_rule(
+        graphic_elements,
+        y=round(top_y + header_h + 0.4, 1),
+        arch=arch,
+        rng=rng,
+    )
 
     text_elements: list[TextElement] = [
         TextElement(
@@ -319,14 +415,14 @@ def _create_handbill_paste_up(
         graphic_elements.append(
             GraphicElement(
                 element_type="stamp",
-                x=type_x + type_w - 18,
+                x=type_x,
                 y=round(top_y + header_h + gap, 1),
-                width=16,
-                height=9,
+                width=14,
+                height=10,
                 stroke_color=ColorSpec(arch.ink_accent),
                 stroke_width=2,
                 rotation=-6,
-                properties={"text": _short_date(date)},
+                properties={"text": _stamp_date(date)},
             )
         )
         text_elements.append(
@@ -383,27 +479,18 @@ def _create_handbill_paste_up(
     layout = LayoutSpec(
         design_style=DesignStyle.HANDBILL,
         style_notes="Medium paste-up — two-column offset photo, one accent element",
-        background=BackgroundSpec(
-            color=ColorSpec(arch.paper_color),
-            texture="paper",
-            texture_strength=_rf(0.22, 0.32, rng),
-            grain_strength=arch.grain_strength,
-        ),
-        photo_frame=PhotoFrame(
-            x=photo_x,
-            y=photo_y,
-            width=photo_w,
-            height=photo_h,
+        background=_medium_background(arch, rng),
+        photo_frame=_build_medium_photo_frame(
+            arch,
+            rng,
+            photo_x=photo_x,
+            photo_y=photo_y,
+            photo_w=photo_w,
+            photo_h=photo_h,
             placement=PhotoPlacement.RIGHT if photo_right else PhotoPlacement.LEFT,
             rotation=photo_rotation,
-            film_grain=0.008,
-            paper_texture=0.0,
-            border_width=3,
-            border_color=ColorSpec(arch.paper_color),
-            brightness=1.01,
             contrast=contrast,
             saturation=saturation,
-            opacity=1.0,
         ),
         text_elements=text_elements,
         graphic_elements=graphic_elements,
@@ -470,6 +557,12 @@ def _create_handbill_tri_band(
             fill_color=ColorSpec(arch.ink_primary),
         ),
     ]
+    _add_medium_header_double_rule(
+        graphic_elements,
+        y=round(top_y + header_h + 0.35, 1),
+        arch=arch,
+        rng=rng,
+    )
 
     text_elements: list[TextElement] = [
         TextElement(
@@ -545,14 +638,14 @@ def _create_handbill_tri_band(
         graphic_elements.append(
             GraphicElement(
                 element_type="stamp",
-                x=round(100 - TEXT_MARGIN_X_PCT - 18, 1),
+                x=TEXT_MARGIN_X_PCT + 1,
                 y=round(mid_y + 1, 1),
-                width=16,
-                height=9,
+                width=14,
+                height=10,
                 stroke_color=ColorSpec(arch.ink_accent),
                 stroke_width=2,
                 rotation=-8,
-                properties={"text": _short_date(date)},
+                properties={"text": _stamp_date(date)},
             )
         )
     elif accent == "tape":
@@ -569,27 +662,18 @@ def _create_handbill_tri_band(
     layout = LayoutSpec(
         design_style=DesignStyle.HANDBILL,
         style_notes="Medium tri-band — header / offset photo / footer type",
-        background=BackgroundSpec(
-            color=ColorSpec(arch.paper_color),
-            texture="paper",
-            texture_strength=_rf(0.22, 0.30, rng),
-            grain_strength=arch.grain_strength,
-        ),
-        photo_frame=PhotoFrame(
-            x=photo_x,
-            y=photo_y,
-            width=photo_w,
-            height=photo_h,
+        background=_medium_background(arch, rng),
+        photo_frame=_build_medium_photo_frame(
+            arch,
+            rng,
+            photo_x=photo_x,
+            photo_y=photo_y,
+            photo_w=photo_w,
+            photo_h=photo_h,
             placement=PhotoPlacement.RIGHT if photo_right else PhotoPlacement.LEFT,
             rotation=_rf(-1.2, 1.2, rng),
-            film_grain=0.008,
-            paper_texture=0.0,
-            border_width=2,
-            border_color=ColorSpec(arch.paper_color),
-            brightness=1.01,
             contrast=contrast,
             saturation=saturation,
-            opacity=1.0,
         ),
         text_elements=text_elements,
         graphic_elements=graphic_elements,
@@ -636,27 +720,18 @@ def _create_handbill_broadside(
     layout = LayoutSpec(
         design_style=DesignStyle.HANDBILL,
         style_notes="Medium broadside — photo top, massive band, double rule, venue bar",
-        background=BackgroundSpec(
-            color=ColorSpec(arch.paper_color),
-            texture="photocopy",
-            texture_strength=_rf(0.15, 0.22, rng),
-            grain_strength=arch.grain_strength,
-        ),
-        photo_frame=PhotoFrame(
-            x=TEXT_MARGIN_X_PCT,
-            y=photo_y,
-            width=MAX_TEXT_WIDTH_PCT,
-            height=photo_h,
+        background=_medium_background(arch, rng),
+        photo_frame=_build_medium_photo_frame(
+            arch,
+            rng,
+            photo_x=TEXT_MARGIN_X_PCT,
+            photo_y=photo_y,
+            photo_w=MAX_TEXT_WIDTH_PCT,
+            photo_h=photo_h,
             placement=PhotoPlacement.TOP,
             rotation=0.0,
-            film_grain=0.008,
-            paper_texture=0.0,
-            border_width=0,
-            border_color=ColorSpec(arch.paper_color),
-            brightness=1.01,
             contrast=contrast,
             saturation=saturation,
-            opacity=1.0,
         ),
         text_elements=[
             TextElement(
@@ -760,9 +835,10 @@ def _create_handbill_inverted_footer(
     band_y = round(photo_bottom + gap + 0.8, 1)
     date_y = round(band_y + 7.5 + gap, 1)
     time_y = round(date_y + 5.5 + gap, 1)
-    footer_h = _rf(14.0, 17.0, rng)
+    footer_h = _rf(10.0, 12.5, rng)
     footer_y = round(100 - _safe_y_pct() - footer_h - 1.0, 1)
-    venue_text_y = round(footer_y + footer_h * 0.22, 1)
+    venue_text_y = round(footer_y + footer_h * 0.32, 1)
+    address_y = round(footer_y + footer_h * 0.62, 1) if address else None
     saturation = _rf(0.05, 0.15, rng)
     contrast = _rf(1.05, 1.15, rng)
 
@@ -813,7 +889,7 @@ def _create_handbill_inverted_footer(
             x=TEXT_MARGIN_X_PCT,
             y=venue_text_y,
             width=MAX_TEXT_WIDTH_PCT,
-            font_size=_ri(44, 56, rng),
+            font_size=_ri(44, 52, rng),
             font_family=_DISPLAY_VENUE_FONT,
             font_weight=FontWeight.BLACK,
             alignment=TextAlignment.CENTER,
@@ -821,6 +897,20 @@ def _create_handbill_inverted_footer(
             color=ColorSpec(arch.paper_color),
         ),
     ]
+    if address:
+        text_elements.append(
+            TextElement(
+                content=address,
+                x=TEXT_MARGIN_X_PCT,
+                y=address_y,
+                width=MAX_TEXT_WIDTH_PCT,
+                font_size=TYPE_XS,
+                font_weight=FontWeight.NORMAL,
+                alignment=TextAlignment.CENTER,
+                color=ColorSpec(arch.paper_color, opacity=0.85),
+                font_family=FONT_BODY_CONDENSED,
+            )
+        )
 
     if accent == "starburst":
         graphic_elements.append(
@@ -840,41 +930,32 @@ def _create_handbill_inverted_footer(
         graphic_elements.append(
             GraphicElement(
                 element_type="stamp",
-                x=round(100 - TEXT_MARGIN_X_PCT - 18, 1),
-                y=round(band_y - 1, 1),
-                width=16,
-                height=9,
+                x=TEXT_MARGIN_X_PCT + 1,
+                y=round(date_y - 1, 1),
+                width=14,
+                height=10,
                 stroke_color=ColorSpec(arch.ink_accent),
                 stroke_width=2,
-                rotation=-8,
-                properties={"text": _short_date(date)},
+                rotation=6,
+                properties={"text": _stamp_date(date)},
             )
         )
 
     layout = LayoutSpec(
         design_style=DesignStyle.HANDBILL,
         style_notes="Medium inverted footer — photo top, black footer venue bar",
-        background=BackgroundSpec(
-            color=ColorSpec(arch.paper_color),
-            texture="paper",
-            texture_strength=_rf(0.18, 0.28, rng),
-            grain_strength=arch.grain_strength,
-        ),
-        photo_frame=PhotoFrame(
-            x=TEXT_MARGIN_X_PCT,
-            y=photo_y,
-            width=MAX_TEXT_WIDTH_PCT,
-            height=photo_h,
+        background=_medium_background(arch, rng),
+        photo_frame=_build_medium_photo_frame(
+            arch,
+            rng,
+            photo_x=TEXT_MARGIN_X_PCT,
+            photo_y=photo_y,
+            photo_w=MAX_TEXT_WIDTH_PCT,
+            photo_h=photo_h,
             placement=PhotoPlacement.TOP,
             rotation=_rf(-1.0, 1.0, rng),
-            film_grain=0.008,
-            paper_texture=0.0,
-            border_width=2,
-            border_color=ColorSpec(arch.paper_color),
-            brightness=1.01,
             contrast=contrast,
             saturation=saturation,
-            opacity=1.0,
         ),
         text_elements=text_elements,
         graphic_elements=graphic_elements,
@@ -1033,11 +1114,18 @@ def create_handbill_layout(
     event: Optional[Any] = None,
     archetype: Optional[TierArchetype] = None,
     rng: Optional[random.Random] = None,
+    medium_variant: Optional[str] = None,
 ) -> LayoutSpec:
     """Option B — paste-up handbill with venue accent and offset photo."""
     r = rng or _make_rng()
     arch = archetype or load_tier_archetype("medium", event=event)
-    variant = _select_medium_variant(arch, r)
+    if medium_variant and medium_variant in MEDIUM_VARIANTS:
+        variant = medium_variant
+    else:
+        from state import load_design_preferences
+        from preference_model import preference_weights
+
+        variant = _select_medium_variant(arch, r, preferences=preference_weights(load_design_preferences()))
     kwargs = {
         "venue": venue,
         "band": band,
@@ -1714,28 +1802,83 @@ def create_collage_layout(
     archetype: Optional[TierArchetype] = None,
     rng: Optional[random.Random] = None,
 ) -> LayoutSpec:
-    """Option C — wildly creative: named layout variants via seeded hash."""
+    """Option C — Graphic Composer: Style DNA pro archetypes with seeded palette/accent."""
+    from structured_layout.graphic_composer import build_recipe, recipe_signature
+
     r = rng or _make_rng()
-    arch = archetype or load_tier_archetype("creative", event=event)
-    variant = _select_creative_variant(r)
-    kwargs = {
-        "venue": venue,
-        "band": band,
-        "date": date,
-        "time": time,
-        "address": address,
-        "event": event,
-        "archetype": arch,
-        "rng": r,
-    }
-    builders = {
-        "dark_field": _create_collage_dark_field,
-        "light_collage": _create_collage_light_collage,
-        "troubadour_inverted": _create_collage_troubadour_inverted,
-        "roxy_corners": _create_collage_roxy_corners,
-        "torn_reveal": _create_collage_torn_reveal,
-    }
-    return builders[variant](**kwargs)
+    _ = archetype or load_tier_archetype("creative", event=event)
+    from state import load_design_preferences
+    from preference_model import preference_weights
+
+    recipe = build_recipe(r, preferences=preference_weights(load_design_preferences()))
+    seed = recipe.seed
+    date_line = _compact_date_upper(date)
+
+    return LayoutSpec(
+        canvas_width=1024,
+        canvas_height=1536,
+        design_style=DesignStyle.COLLAGE,
+        style_notes=recipe_signature(recipe),
+        background=BackgroundSpec(color=ColorSpec("#f0ebe0"), texture="none"),
+        photo_frame=PhotoFrame(
+            x=10,
+            y=18,
+            width=80,
+            height=44,
+            placement=PhotoPlacement.CENTER,
+            opacity=1.0,
+        ),
+        text_elements=[
+            TextElement(
+                content=venue,
+                x=TEXT_MARGIN_X_PCT,
+                y=_safe_y_pct(),
+                width=MAX_TEXT_WIDTH_PCT,
+                font_size=TYPE_XL,
+                font_weight=FontWeight.BOLD,
+                alignment=TextAlignment.LEFT,
+            ),
+            TextElement(
+                content=band,
+                x=TEXT_MARGIN_X_PCT,
+                y=_safe_y_pct() + 8,
+                width=MAX_TEXT_WIDTH_PCT,
+                font_size=TYPE_LG,
+                font_weight=FontWeight.BOLD,
+                alignment=TextAlignment.LEFT,
+            ),
+            TextElement(
+                content=date_line,
+                x=TEXT_MARGIN_X_PCT,
+                y=72,
+                width=MAX_TEXT_WIDTH_PCT,
+                font_size=TYPE_MD,
+                font_weight=FontWeight.BOLD,
+                alignment=TextAlignment.LEFT,
+            ),
+            TextElement(
+                content=time.upper() if time else "TBA",
+                x=TEXT_MARGIN_X_PCT,
+                y=78,
+                width=MAX_TEXT_WIDTH_PCT,
+                font_size=TYPE_MD,
+                font_weight=FontWeight.BOLD,
+                alignment=TextAlignment.LEFT,
+            ),
+            TextElement(
+                content=address,
+                x=TEXT_MARGIN_X_PCT,
+                y=88,
+                width=MAX_TEXT_WIDTH_PCT,
+                font_size=TYPE_SM,
+                font_weight=FontWeight.NORMAL,
+                alignment=TextAlignment.LEFT,
+            ),
+        ],
+        graphic_elements=[],
+        photocopy_effect=0.0,
+        age_effect=0.0,
+    )
 
 
 def layout_for_option(

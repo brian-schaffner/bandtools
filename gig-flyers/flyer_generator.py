@@ -58,8 +58,7 @@ load_dotenv(ROOT / ".env")
 STYLE_PATH = ROOT / "style.yaml"
 
 
-def get_output_dir() -> Path:
-    return ROOT / "output"
+from output_paths import get_output_dir, output_relative
 OPTION_LETTERS = ("A", "B", "C")
 
 
@@ -766,11 +765,11 @@ def _generate_structured_layout_option(
     
     return {
         "letter": letter,
-        "path_rel": str(path.relative_to(ROOT)),
+        "path_rel": output_relative(path),
         "prompt": f"[Structured Layout Mode: {design_style.value}]",
         "verdict": verdict,
         "var_id": var_id,
-        "layout_spec_path": str(layout_json_path.relative_to(ROOT)),
+        "layout_spec_path": output_relative(layout_json_path),
     }
 
 
@@ -1020,7 +1019,7 @@ def _generate_single_option(
 
     return {
         "letter": letter,
-        "path_rel": str(path.relative_to(ROOT)),
+        "path_rel": output_relative(path),
         "prompt": final_prompt,
         "verdict": final_verdict,
         "var_id": var_id,
@@ -1120,22 +1119,10 @@ def generate_image(
 
 
 def resolve_gig_event(gig_id: str) -> GigEvent:
-    """Resolve gig metadata from state, live calendar, or mock data."""
-    record = get_gig_state(gig_id) or {}
-    if record.get("event"):
-        return event_from_dict(record["event"], gig_id=gig_id)
+    """Resolve gig metadata from state, live calendar, manifests, or mock data."""
+    from gig_resolve import resolve_gig_event as _resolve
 
-    found = find_gig_by_id(gig_id)
-    if found:
-        return found
-
-    if is_test_mode():
-        for event in _events_from_mock():
-            if event.gig_id == gig_id:
-                return event
-
-    raise ValueError(f"Gig not found: {gig_id}")
-
+    return _resolve(gig_id)
 
 
 def generate_for_gig(
@@ -1261,7 +1248,7 @@ def generate_for_gig(
         "research": research,
         "selected_photo": selected_photo,
         "reviewer_verdicts": reviewer_verdicts,
-        "output_dir": str(out_dir.relative_to(ROOT)),
+        "output_dir": output_relative(out_dir),
         "template_version": "v4",
         "generation_mode": "structured_fixed",
     }
