@@ -38,4 +38,16 @@ if [[ -z "${BAND_TOOLS_URL:-}" && -n "${APP_URL:-}" ]]; then
 fi
 
 echo "[fly-entrypoint] APP_URL=${APP_URL:-unset} DATA_DIR=$DATA"
+
+# Shell reference images live on the persistent volume (cache/ is symlinked to $DATA/cache).
+if command -v /opt/flyers-venv/bin/python3 >/dev/null 2>&1; then
+  mkdir -p "$DATA/cache/shell_references"
+  ref_count="$(find "$DATA/cache/shell_references" -type f 2>/dev/null | wc -l | tr -d ' ')"
+  if [[ "${ref_count:-0}" -lt 10 ]]; then
+    echo "[fly-entrypoint] warming shell reference cache (${ref_count} files)…"
+    /opt/flyers-venv/bin/python3 "$FLYERS/scripts/download_shell_references.py" \
+      >>"$DATA/cache/shell_download.log" 2>&1 &
+  fi
+fi
+
 exec "$@"
