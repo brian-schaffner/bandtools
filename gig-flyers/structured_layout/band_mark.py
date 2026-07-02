@@ -26,6 +26,7 @@ HERO_BOXES: dict[str, tuple[int, int, int, int]] = {
     "country_fair": (96, 742, 928, 842),
     "boutique": (96, 48, 928, 168),
     "psychedelic": (96, 88, 928, 208),
+    "woodstock_festival": (680, 1180, 980, 1340),
     "xerox_punk": (48, 728, 976, 828),
 }
 

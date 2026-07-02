@@ -559,7 +559,7 @@ def _style_to_generator(style: str) -> tuple[str, str | None, str | None]:
         "photographic": ("B", None, "tri_band"),
         "duotone_bold": ("C", "duotone_modern", None),
         "screen_print": ("C", "xerox_punk", None),
-        "psychedelic_illustrative": ("C", "psychedelic", None),
+        "psychedelic_illustrative": ("C", "woodstock_festival", None),
         "neon_nightlife": ("C", "neon_bar", None),
         "folk_illustrative": ("C", "country_fair", None),
         "collage_zine": ("C", "pasteup_zine", None),

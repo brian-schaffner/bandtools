@@ -129,7 +129,7 @@ VISUAL_STUDIES: tuple[VisualStudy, ...] = (
             "Solid color field behind art unifies busy information.",
         ),
         palette=("#D32F2F", "#111111", "#F5C400", "#1565C0"),
-        graphic_archetype="psychedelic",
+        graphic_archetype="woodstock_festival",
     ),
 )
 

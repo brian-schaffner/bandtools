@@ -64,6 +64,25 @@ class VisualStudiesTest(unittest.TestCase):
     def test_festival_picks_woodstock(self) -> None:
         study = pick_study_for_research({"venue_type": "festival"})
         self.assertEqual(study.id, "woodstock_festival_1969")
+        self.assertEqual(study.graphic_archetype, "woodstock_festival")
+
+    def test_festival_option_c_routes_to_woodstock_archetype(self) -> None:
+        from structured_layout.fixed_templates import layout_for_option
+
+        event = _event(venue="Kentucky River Festival")
+        layout = layout_for_option(
+            "C",
+            event.venue,
+            "Lindsey Lane Band",
+            "Saturday, August 15, 2026",
+            "2:00 PM",
+            event=event,
+            research={"venue_type": "festival"},
+            gig_id=event.gig_id,
+            option_letter="C",
+            round_num=1,
+        )
+        self.assertIn("woodstock_festival", layout.style_notes)
 
 
 class VisualDesignBriefTest(unittest.TestCase):

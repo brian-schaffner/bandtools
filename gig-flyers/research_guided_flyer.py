@@ -63,7 +63,6 @@ def _layout_from_brief(
     rng = _make_rng(event.gig_id, letter, round_num)
 
     if letter == "C" and brief.graphic_archetype:
-        recipe = build_recipe(rng, archetype=brief.graphic_archetype)
         layout = create_collage_layout(
             event.venue,
             band,
@@ -73,7 +72,10 @@ def _layout_from_brief(
             event=event,
             archetype=archetype,
             rng=rng,
+            research=research,
+            graphic_archetype=brief.graphic_archetype,
         )
+        recipe = build_recipe(rng, archetype=brief.graphic_archetype)
         from dataclasses import replace
 
         layout = replace(layout, style_notes=recipe_signature(recipe))

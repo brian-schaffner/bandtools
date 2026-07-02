@@ -2080,16 +2080,29 @@ def create_collage_layout(
     event: Optional[Any] = None,
     archetype: Optional[TierArchetype] = None,
     rng: Optional[random.Random] = None,
+    research: Optional[dict[str, Any]] = None,
+    graphic_archetype: str | None = None,
 ) -> LayoutSpec:
     """Option C — Graphic Composer: Style DNA pro archetypes with seeded palette/accent."""
     from structured_layout.graphic_composer import build_recipe, recipe_signature
 
     r = rng or _make_rng()
-    _ = archetype or load_tier_archetype("creative", event=event)
+    _ = archetype or load_tier_archetype("creative", event=event, research=research)
     from state import load_design_preferences
     from preference_model import preference_weights
 
-    recipe = build_recipe(r, preferences=preference_weights(load_design_preferences()))
+    forced_arch = graphic_archetype
+    if forced_arch is None and research:
+        from visual_studies import pick_study_for_research
+
+        study = pick_study_for_research(research)
+        forced_arch = study.graphic_archetype
+
+    recipe = build_recipe(
+        r,
+        archetype=forced_arch,
+        preferences=preference_weights(load_design_preferences()),
+    )
     seed = recipe.seed
     date_line = _compact_date_upper(date)
 
@@ -2185,6 +2198,7 @@ def layout_for_option(
         "event": event,
         "archetype": archetype,
         "rng": rng,
+        "research": research,
     }
 
     if opt == "A":
