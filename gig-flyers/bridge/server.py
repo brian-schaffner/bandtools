@@ -48,6 +48,7 @@ from bridge.review import (  # noqa: E402
     build_review_data,
     build_review_link_message,
     home_page_path,
+    pick_page_path,
     render_processing_page,
     render_regenerating_page,
     render_review_page,
@@ -688,12 +689,31 @@ async def prototype_page(gig_id: str) -> HTMLResponse:
 async def prototype_start(gig_id: str) -> Response:
     from bridge.prototype import prototype_page_path, render_prototype_generating_page
 
+    if is_placeholder_gig_id(gig_id):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid gig link — use Prototype mode from a gig review page, not /prototype/{gig_id}",
+        )
+
     record = get_gig_state(gig_id) or {}
     if gig_id in _generate_in_flight:
         return HTMLResponse(render_prototype_generating_page(gig_id, record.get("event") or {}))
-    gig = find_gig_by_id(gig_id)
-    if gig:
-        upsert_gig(gig_id, event=gig.to_dict())
+
+    from gig_resolve import load_event_dict, resolve_gig_event
+
+    try:
+        event_obj = resolve_gig_event(gig_id)
+        upsert_gig(gig_id, event=event_obj.to_dict())
+    except ValueError as exc:
+        pick = pick_page_path()
+        body = f"""<!DOCTYPE html><html><body style="font-family:system-ui;margin:2rem">
+        <h1>Gig not found</h1>
+        <p>{html_module.escape(str(exc))}</p>
+        <p><a href="{html_module.escape(pick)}">Pick a gig from the calendar</a>
+        or open an existing <a href="{html_module.escape(review_page_path(gig_id))}">review page</a>.</p>
+        </body></html>"""
+        return HTMLResponse(body, status_code=404)
+
     _generate_in_flight.add(gig_id)
     asyncio.create_task(_run_prototype_job(gig_id, start=True))
     return HTMLResponse(render_prototype_generating_page(gig_id, record.get("event") or {}))

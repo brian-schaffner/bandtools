@@ -1120,22 +1120,10 @@ def generate_image(
 
 
 def resolve_gig_event(gig_id: str) -> GigEvent:
-    """Resolve gig metadata from state, live calendar, or mock data."""
-    record = get_gig_state(gig_id) or {}
-    if record.get("event"):
-        return event_from_dict(record["event"], gig_id=gig_id)
+    """Resolve gig metadata from state, live calendar, manifests, or mock data."""
+    from gig_resolve import resolve_gig_event as _resolve
 
-    found = find_gig_by_id(gig_id)
-    if found:
-        return found
-
-    if is_test_mode():
-        for event in _events_from_mock():
-            if event.gig_id == gig_id:
-                return event
-
-    raise ValueError(f"Gig not found: {gig_id}")
-
+    return _resolve(gig_id)
 
 
 def generate_for_gig(

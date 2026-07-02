@@ -6,8 +6,7 @@ import html
 import json
 from typing import Any, Optional
 
-from bridge.review import asset_url, review_page_path, route_path
-from bridge.ui import page_close, page_head, review_css, site_nav
+from bridge.review import asset_url, pick_page_path, review_page_path, route_path
 from prototype_session import get_prototype_session, prototype_max_rounds
 from state import get_gig_state
 
@@ -36,8 +35,25 @@ def _tag_chips(tags: dict[str, str]) -> str:
 
 
 def render_prototype_page(gig_id: str) -> str:
+    if is_placeholder_gig_id(gig_id):
+        pick = html.escape(pick_page_path())
+        return (
+            page_head("Prototype — invalid link", extra_css=review_css())
+            + site_nav(active="prototype", back_href=pick, back_label="Pick gig")
+            + f"""
+  <main class="page-main">
+    <h1>Invalid prototype link</h1>
+    <p>This URL is a template placeholder, not a real gig.</p>
+    <p class="muted">Open <strong>Pick a gig</strong>, generate or review flyers, then use
+       <strong>Rapid prototype mode</strong> from that gig's review page.</p>
+    <p><a class="btn btn-block" href="{pick}">Choose a gig →</a></p>
+  </main>
+"""
+            + page_close()
+        )
+
     record = get_gig_state(gig_id) or {}
-    event = record.get("event") or {}
+    event = record.get("event") or load_event_dict(gig_id) or {}
     session = get_prototype_session(gig_id)
     status = session.get("status", "idle")
     proto_round = int(session.get("round") or 0)
