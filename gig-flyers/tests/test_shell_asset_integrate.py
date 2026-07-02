@@ -14,6 +14,7 @@ from shell_asset_integrate import (
     integrate_band_photo,
     integrate_band_logo,
     knockout_studio_background,
+    photo_slot_for_shell,
     placement_zones,
     shell_palette_rgb,
 )
@@ -95,12 +96,24 @@ class ShellAssetIntegrateTest(unittest.TestCase):
         color_delta = max(abs(p[0] - p[1]) + abs(p[1] - p[2]) for p in px[:5000])
         self.assertGreater(color_delta, 8)
 
-    def test_photo_zone_is_larger(self) -> None:
-        zones = placement_zones((1024, 1536))
+    def test_photo_zone_is_larger_for_hero_shells(self) -> None:
+        shell = get_shell("new_orleans_jazz_club")
+        assert shell is not None
+        zones = placement_zones((1024, 1536), shell)
         photo = zones["photo"]
         w, h = photo[2] - photo[0], photo[3] - photo[1]
-        self.assertGreaterEqual(w, 420)
-        self.assertGreaterEqual(h, 390)
+        self.assertEqual(photo_slot_for_shell(shell), "center_hero")
+        self.assertGreaterEqual(w, 700)
+        self.assertGreaterEqual(h, 600)
+
+    def test_gritty_shell_uses_lower_left(self) -> None:
+        shell = get_shell("altamont_free_concert_1969")
+        assert shell is not None
+        self.assertEqual(photo_slot_for_shell(shell), "lower_left")
+        zones = placement_zones((1024, 1536), shell)
+        photo = zones["photo"]
+        self.assertLess(photo[0], 200)
+        self.assertGreater(photo[1], 800)
 
     def test_enforce_shell_photo_restores_layer(self) -> None:
         if not DEFAULT_PHOTO.is_file():

@@ -25,6 +25,35 @@ _DUOTONE_STRENGTH: dict[str, float] = {
 }
 _DEFAULT_DUOTONE_STRENGTH = 0.52
 
+# Where the integrated photo belongs on the shell (must match pass-1 layout intent).
+_LOWER_LEFT_FAMILIES = frozenset({"gritty_sidebar_bill"})
+_FOOTER_INSET_FAMILIES = frozenset({"festival_hero_grid"})
+_CENTER_HERO_FAMILIES = frozenset(
+    {
+        "letterpress_stack",
+        "letterpress_country",
+        "arena_photo_dominant",
+        "jazz_club",
+        "blues_festival",
+        "blues_screenprint",
+        "theater_debut",
+        "vintage_broadside",
+        "modern_club",
+        "neon_club",
+        "modern_metal_arena",
+        "reggae_flyer",
+        "instrument_hook",
+        "xerox_folk_flyer",
+        "punk_screenprint",
+        "swiss_jazz",
+        "underground_zine",
+        "swiss_grid",
+        "fillmore_psychedelic",
+        "avalon_psychedelic",
+        "victorian_circus",
+    }
+)
+
 
 @dataclass
 class ShellPass2Compose:
@@ -173,6 +202,7 @@ def integrate_band_photo(
     shell: ShellReference,
     *,
     backdrop: tuple[int, int, int],
+    hero: bool = False,
 ) -> Image.Image:
     """Grade, knock out studio white, light duotone blend, feather — ready to paste on shell."""
     roles = _pick_roles(shell_palette_rgb(shell))
@@ -180,13 +210,16 @@ def integrate_band_photo(
     style = shell.style
 
     layer = knockout_studio_background(photo, target=backdrop)
-    layer = ImageEnhance.Contrast(layer).enhance(1.04)
-    layer = ImageEnhance.Color(layer).enhance(0.94 if style in {"letterpress_handbill", "type_only", "xerox"} else 0.97)
+    contrast = 1.02 if hero else 1.04
+    color = 0.98 if hero else (0.94 if style in {"letterpress_handbill", "type_only", "xerox"} else 0.97)
+    layer = ImageEnhance.Contrast(layer).enhance(contrast)
+    layer = ImageEnhance.Color(layer).enhance(color)
+    strength = _duotone_strength(style) * (0.55 if hero else 1.0)
     layer = blend_duotone_photo(
         layer,
         shadow=shadow,
         highlight=highlight,
-        strength=_duotone_strength(style),
+        strength=strength,
     )
 
     if style in {"psychedelic_illustrative", "folk_illustrative", "mixed_indie"}:
@@ -196,10 +229,17 @@ def integrate_band_photo(
         layer = Image.merge("RGBA", (r, g, b, a))
         mat_style = "oval"
     else:
-        layer = soften_photo_edges(layer, radius=6)
+        layer = soften_photo_edges(layer, radius=4 if hero else 6)
         mat_style = "rounded"
 
-    return add_photo_mat(layer, accent=roles["accent"], paper=roles["paper"], style=mat_style)
+    mat_pad = 8 if hero else 14
+    return add_photo_mat(
+        layer,
+        accent=roles["accent"],
+        paper=roles["paper"],
+        style=mat_style,
+        pad=mat_pad,
+    )
 
 
 def integrate_band_logo(
@@ -246,16 +286,54 @@ def _load_logo_from_image(logo: Image.Image) -> Image.Image:
     return cropped
 
 
-def placement_zones(canvas_size: tuple[int, int]) -> dict[str, tuple[int, int, int, int]]:
+def photo_slot_for_shell(shell: ShellReference) -> str:
+    """Return placement slot id: center_hero, footer_inset, or lower_left."""
+    family = shell.design_family
+    if family in _LOWER_LEFT_FAMILIES:
+        return "lower_left"
+    if family in _FOOTER_INSET_FAMILIES:
+        return "footer_inset"
+    if family in _CENTER_HERO_FAMILIES or shell.style == "photographic":
+        return "center_hero"
+    prompt = shell.personalize_prompt.lower()
+    if "lower-left" in prompt or "lower left" in prompt:
+        return "lower_left"
+    if "footer inset" in prompt:
+        return "footer_inset"
+    return "center_hero"
+
+
+def photo_slot_label(slot: str) -> str:
+    return {
+        "center_hero": "center hero portrait frame",
+        "footer_inset": "footer inset slot",
+        "lower_left": "lower-left inset",
+    }.get(slot, "designated photo slot")
+
+
+def placement_zones(
+    canvas_size: tuple[int, int],
+    shell: ShellReference | None = None,
+) -> dict[str, tuple[int, int, int, int]]:
     w, h = canvas_size
-    photo_w, photo_h = int(w * 0.42), int(h * 0.26)
-    px, py = int(w * 0.05), int(h * 0.60)
+    slot = photo_slot_for_shell(shell) if shell is not None else "lower_left"
+
+    if slot == "center_hero":
+        photo_w, photo_h = int(w * 0.72), int(h * 0.40)
+        px, py = (w - photo_w) // 2, int(h * 0.28)
+    elif slot == "footer_inset":
+        photo_w, photo_h = int(w * 0.50), int(h * 0.16)
+        px, py = (w - photo_w) // 2, int(h * 0.72)
+    else:
+        photo_w, photo_h = int(w * 0.42), int(h * 0.26)
+        px, py = int(w * 0.05), int(h * 0.60)
+
     photo_box = (px, py, px + photo_w, py + photo_h)
-    logo_w, logo_h = int(w * 0.38), int(h * 0.11)
-    lx = w - logo_w - int(w * 0.06)
-    ly = int(h * 0.76)
+    logo_w, logo_h = int(w * 0.34), int(h * 0.10)
+    lx = w - logo_w - int(w * 0.05)
+    ly = int(h * 0.52) if slot == "center_hero" else int(h * 0.76)
     logo_box = (lx, ly, lx + logo_w, ly + logo_h)
-    return {"photo": photo_box, "logo": logo_box}
+    return {"photo": photo_box, "logo": logo_box, "photo_slot": slot}
 
 
 def fit_layer_in_box(layer: Image.Image, box: tuple[int, int, int, int]) -> Image.Image:
@@ -274,12 +352,13 @@ def compose_integrated_assets(
     canvas_size: tuple[int, int],
 ) -> tuple[Image.Image, Image.Image, tuple[int, int], tuple[int, int]]:
     """Return integrated photo layer, logo layer, and paste positions."""
-    zones = placement_zones(canvas_size)
+    zones = placement_zones(canvas_size, shell)
     photo_zone = zones["photo"]
     logo_zone = zones["logo"]
     backdrop = _sample_zone_mean(shell_img, photo_zone)
+    hero = zones.get("photo_slot") == "center_hero"
 
-    photo_layer = integrate_band_photo(photo, shell, backdrop=backdrop)
+    photo_layer = integrate_band_photo(photo, shell, backdrop=backdrop, hero=hero)
     photo_layer = fit_layer_in_box(photo_layer, photo_zone)
     px = photo_zone[0]
     py = photo_zone[1] + (photo_zone[3] - photo_zone[1] - photo_layer.height) // 2
@@ -295,15 +374,17 @@ def compose_integrated_assets(
 
 def integration_summary(shell: ShellReference) -> dict[str, Any]:
     roles = _pick_roles(shell_palette_rgb(shell))
+    slot = photo_slot_for_shell(shell)
     return {
         "style": shell.style,
         "design_family": shell.design_family,
+        "photo_slot": slot,
         "duotone_strength": _duotone_strength(shell.style),
         "roles": {k: "#{:02x}{:02x}{:02x}".format(*v) for k, v in roles.items()},
     }
 
 
-def enforce_shell_photo(output_path: Path, compose: ShellPass2Compose) -> bool:
+def enforce_shell_photo(output_path: Path, compose: ShellPass2Compose, *, clear_pad: int = 12) -> bool:
     """Restore the pre-integrated photo layer after OpenAI pass 2."""
     if not output_path.is_file():
         return False
@@ -313,8 +394,12 @@ def enforce_shell_photo(output_path: Path, compose: ShellPass2Compose) -> bool:
     if model.size != (orig_w, orig_h):
         model = model.resize((orig_w, orig_h), Image.Resampling.LANCZOS)
 
-    left, top, _, _ = compose.photo_bbox
+    left, top, right, bottom = compose.photo_bbox
+    pl, pt = max(0, left - clear_pad), max(0, top - clear_pad)
+    pr, pb = min(orig_w, right + clear_pad), min(orig_h, bottom + clear_pad)
     result = model.copy()
+    clear = Image.new("RGBA", (pr - pl, pb - pt), (*compose.canvas_rgb, 255))
+    result.paste(clear, (pl, pt))
     result.alpha_composite(compose.photo_layer, (left, top))
     result.convert("RGB").save(output_path, format="PNG")
     return True

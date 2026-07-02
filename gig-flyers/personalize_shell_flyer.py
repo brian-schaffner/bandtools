@@ -20,6 +20,8 @@ from shell_asset_integrate import (
     compose_integrated_assets,
     enforce_shell_photo,
     integration_summary,
+    photo_slot_for_shell,
+    photo_slot_label,
 )
 from shell_references import ShellReference, get_shell
 from structured_layout.band_mark import find_band_logo
@@ -79,13 +81,15 @@ def build_personalize_prompt(
     band: str,
     address: str = "",
 ) -> str:
+    slot = photo_slot_for_shell(shell)
+    slot_desc = photo_slot_label(slot)
     return (
         "You are personalizing an APPROVED DESIGN SHELL for a real gig.\n\n"
         "The canvas contains:\n"
         "  • PASS 1 DESIGN SHELL as the full background — preserve its art, palette, "
         "and layout quality\n"
-        "  • BAND PHOTO pre-composited with a subtle poster-matched grade, feathered edges, "
-        "and a mat/frame — LOCKED (do not redraw faces or add a white box)\n"
+        f"  • ONE band photo already composited in the {slot_desc} — subtle poster-matched "
+        "grade, feathered edges, and mat/frame — LOCKED (do not redraw faces or add a white box)\n"
         "  • BAND LOGO on a tinted badge matching the shell palette — LOCKED\n\n"
         "Your job:\n"
         "  • Replace ALL placeholder text (HEADLINER, VENUE NAME, DATE, TIME, etc.) "
@@ -93,7 +97,8 @@ def build_personalize_prompt(
         "  • Refine typography only in editable zones — do not repaint the hero illustration\n"
         "  • Optionally add subtle ornamental lines or texture in empty margins that "
         "harmonize with the shell — never overpaint the photo or logo\n"
-        "  • Do not add a second band photo, white rectangle, or flat pasted-on logo\n\n"
+        f"  • CRITICAL: There is exactly ONE band photo on this flyer (in the {slot_desc}). "
+        "Do NOT draw, duplicate, or replace band members anywhere else on the poster\n\n"
         f"{shell.personalize_prompt}\n\n"
         f"{_event_facts_block(venue=venue, date=date, time=time, band=band, address=address)}\n\n"
         "Output one complete personalized gig flyer."
