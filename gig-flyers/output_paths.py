@@ -39,10 +39,15 @@ def output_relative(path: Path | str) -> str:
     except ValueError:
         pass
 
-    try:
-        return str(p.resolve().relative_to(ROOT.resolve())).replace("\\", "/")
-    except ValueError as exc:
-        raise ValueError(f"{p!s} is not under output directory {out_dir}") from exc
+    explicit = os.getenv("GIG_OUTPUT_DIR", "").strip()
+    if explicit:
+        try:
+            rel = p.resolve().relative_to(Path(explicit).resolve())
+            return f"{OUTPUT_PREFIX}/{rel.as_posix()}"
+        except ValueError:
+            pass
+
+    raise ValueError(f"{p!s} is not under output directory {out_dir}")
 
 
 def resolve_output_path(rel: Path | str) -> Path:
