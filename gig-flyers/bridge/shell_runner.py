@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import uuid
 from datetime import date
 from pathlib import Path
@@ -177,8 +178,9 @@ def run_shell_pipeline(
             raise ValueError("Gig event required for pass 2 personalization")
 
         set_test_mode(True)
+        band = os.getenv("GIG_CALENDAR_BAND", "Lindsey Lane Band")
         photo = DEFAULT_PHOTO
-        logo = _resolve_logo("Lindsey Lane Band", paper=(242, 235, 220))
+        logo = _resolve_logo(band, paper=(242, 235, 220))
         for label, path in [("shell", shell_path), ("photo", photo), ("logo", logo)]:
             if not path.is_file():
                 raise FileNotFoundError(f"Missing {label}: {path}")
@@ -193,8 +195,9 @@ def run_shell_pipeline(
             venue=event.venue,
             date=date_str,
             time=time_str,
-            band="Lindsey Lane Band",
+            band=band,
             address=resolve_venue_address(event),
+            event=event,
         )
 
         progress(

@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageFont
 
 from gig_calendar import GigEvent
 from output_paths import get_output_dir, output_relative
@@ -27,8 +27,10 @@ from shell_asset_integrate import (
     photo_slot_label,
     placement_zones,
 )
+from shell_pass2_mask import build_personalize_mask
 from shell_references import ShellReference, get_shell
 from structured_layout.band_mark import find_band_logo
+from text_validation import footer_prompt_lines, typography_hierarchy_prompt_lines
 
 ROOT = Path(__file__).resolve().parent
 load_dotenv(ROOT / ".env")
@@ -76,6 +78,33 @@ def _resolve_logo(band: str, paper: tuple[int, int, int]) -> Path:
     return ROOT / "assets/logos" / name
 
 
+def _exact_text_block(
+    *,
+    venue: str,
+    date: str,
+    time: str,
+    band: str,
+    address: str = "",
+) -> str:
+    lines = [
+        "EXACT TEXT (copy character-for-character; match shell typography but never misspell):",
+        f'  Band name: "{band}"',
+        f'  Venue: "{venue}"',
+        f'  Date: "{date}"',
+        f'  Time: "{time}"',
+    ]
+    if address:
+        lines.append(f'  Address: "{address}"')
+    lines.extend(
+        [
+            "  • Do NOT re-type the band name from the logo artwork — use the quoted band name above",
+            '  • Do NOT change "Lane" to "Land" or alter capitalization',
+            "  • Replace HEADLINER / VENUE NAME / DATE / TIME placeholders with these exact strings",
+        ]
+    )
+    return "\n".join(lines)
+
+
 def build_personalize_prompt(
     shell: ShellReference,
     *,
@@ -84,25 +113,36 @@ def build_personalize_prompt(
     time: str,
     band: str,
     address: str = "",
+    event: GigEvent | None = None,
 ) -> str:
     slot = photo_slot_for_shell(shell)
     slot_desc = photo_slot_label(slot)
+    typo_lines: list[str] = []
+    footer_lines: list[str] = []
+    if event is not None:
+        typo_lines = typography_hierarchy_prompt_lines(event, band=band)
+        footer_lines = footer_prompt_lines(event, band=band)
     return (
         "You are personalizing an APPROVED DESIGN SHELL for a real gig.\n\n"
+        "DESIGN PRESERVATION (critical):\n"
+        "  • The pass-1 shell art is LOCKED — keep every color block, border, texture, "
+        "grain, illustration, and printing effect exactly as on the input canvas\n"
+        "  • Change ONLY placeholder text in header/footer bands — do NOT simplify, "
+        "flatten, recolor, or redesign the poster\n"
+        "  • Do not replace panel layouts with plain parchment or single-color backgrounds\n\n"
         "The canvas contains:\n"
-        "  • PASS 1 DESIGN SHELL as the full background — preserve its art, palette, "
-        "and layout quality\n"
-        f"  • ONE band photo already composited in the {slot_desc} — subtle poster-matched "
-        "grade, feathered edges, and mat/frame — LOCKED (do not redraw faces or add a white box)\n"
-        "  • BAND LOGO on a tinted badge matching the shell palette — LOCKED\n\n"
+        "  • PASS 1 DESIGN SHELL as the full background\n"
+        f"  • ONE band photo already composited in the {slot_desc} — LOCKED\n"
+        "  • BAND LOGO on a tinted badge — LOCKED\n\n"
         "Your job:\n"
-        "  • Replace ALL placeholder text (HEADLINER, VENUE NAME, DATE, TIME, etc.) "
-        "with the exact event facts below\n"
-        "  • Refine typography only in editable zones — do not repaint the hero illustration\n"
-        "  • Optionally add subtle ornamental lines or texture in empty margins that "
-        "harmonize with the shell — never overpaint the photo or logo\n"
-        f"  • CRITICAL: There is exactly ONE band photo on this flyer (in the {slot_desc}). "
-        "Do NOT draw, duplicate, or replace band members anywhere else on the poster\n\n"
+        "  • Swap placeholder text for the exact event facts below — typography only in "
+        "editable text bands\n"
+        "  • Never overpaint the photo, logo, hero illustration, or decorative frames\n"
+        f"  • CRITICAL: There is exactly ONE band photo (in the {slot_desc}). "
+        "Do NOT draw or duplicate band members anywhere else\n\n"
+        + ("\n".join(typo_lines) + "\n" if typo_lines else "")
+        + ("\n".join(footer_lines) + "\n" if footer_lines else "")
+        + f"{_exact_text_block(venue=venue, date=date, time=time, band=band, address=address)}\n\n"
         f"{shell.personalize_prompt}\n\n"
         f"{_event_facts_block(venue=venue, date=date, time=time, band=band, address=address)}\n\n"
         "Output one complete personalized gig flyer."
@@ -166,21 +206,11 @@ def build_personalize_canvas(
     canvas_path = out_dir / "pass2_canvas.png"
     canvas.save(canvas_path, format="PNG")
 
-    mask = Image.new("RGBA", size, (0, 0, 0, 0))
-    draw = ImageDraw.Draw(mask)
-    pad = 24
-    draw.rectangle(
-        [
-            photo_clear_bbox[0] - pad,
-            photo_clear_bbox[1] - pad,
-            photo_clear_bbox[2] + pad,
-            photo_clear_bbox[3] + pad,
-        ],
-        fill=(255, 255, 255, 255),
-    )
-    draw.rectangle(
-        [logo_bbox[0] - pad, logo_bbox[1] - pad, logo_bbox[2] + pad, logo_bbox[3] + pad],
-        fill=(255, 255, 255, 255),
+    mask = build_personalize_mask(
+        size,
+        photo_clear_bbox=photo_clear_bbox,
+        logo_bbox=logo_bbox,
+        shell=shell,
     )
     mask_path = out_dir / "pass2_mask.png"
     mask.save(mask_path, format="PNG")
@@ -275,7 +305,13 @@ def personalize_design_shell(
     date_str = event.event_date.strftime("%A, %B %d, %Y")
     time_str = event.time_label or "TBA"
     prompt = build_personalize_prompt(
-        shell, venue=event.venue, date=date_str, time=time_str, band=band, address=address,
+        shell,
+        venue=event.venue,
+        date=date_str,
+        time=time_str,
+        band=band,
+        address=address,
+        event=event,
     )
 
     # Save pass-2 canvas preview for eval
