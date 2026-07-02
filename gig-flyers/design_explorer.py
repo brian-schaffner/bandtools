@@ -226,6 +226,13 @@ def materialize_spec_for_round(
         arch = spec.tags.get("archetype") or "xerox_punk"
         palette_id = spec.tags.get("palette") or "cream_black"
         palettes = PALETTES.get(arch, PALETTES["xerox_punk"])
+        palette_ids = [pid for pid, _ in palettes]
+        if round_num > 1 and prefs.get("palette"):
+            from preference_model import weighted_choice
+
+            preferred = weighted_choice(rng, palette_ids, prefs.get("palette", {}))
+            if preferred in palette_ids:
+                palette_id = preferred
         palette = next(p for pid, p in palettes if pid == palette_id)
         if spec.wild:
             recipe = _recipe_for_tags(arch, palette_id, palette, rng, wild=True)
@@ -238,7 +245,7 @@ def materialize_spec_for_round(
                 accent=built.accent,
                 layers=built.layers,
                 mirror=built.mirror,
-                seed=digest,
+                seed=digest + round_num * 997,
             )
         tags = dict(spec.tags)
         tags["accent"] = recipe.accent
