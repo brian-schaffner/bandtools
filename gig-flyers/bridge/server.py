@@ -57,7 +57,7 @@ from bridge.review import (  # noqa: E402
 )
 from flyer_generator import generate_for_gig  # noqa: E402
 from gig_calendar import CalendarUnavailableError, find_gig_by_id  # noqa: E402
-from output_paths import resolve_output_path  # noqa: E402
+from output_paths import get_output_dir, resolve_output_path  # noqa: E402
 from state import (  # noqa: E402
     append_feedback,
     get_gig_state,
@@ -70,7 +70,7 @@ from state import (  # noqa: E402
 load_dotenv(ROOT / ".env")
 
 app = FastAPI(title="Gig Flyer Bridge", version="2.0.0")
-app.mount("/output", StaticFiles(directory=str(ROOT / "output")), name="output")
+app.mount("/output", StaticFiles(directory=str(get_output_dir())), name="output")
 app.mount("/bandphotos", StaticFiles(directory=str(ROOT / "bandphotos")), name="bandphotos")
 
 POLL_SECONDS = int(os.getenv("BRIDGE_POLL_SECONDS", "30"))
