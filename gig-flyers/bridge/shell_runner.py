@@ -11,7 +11,7 @@ from typing import Any, Callable, Optional
 from bridge.job_status import complete_job, fail_job, is_job_active, report_progress, start_job
 from design_shell_generate import generate_design_shell
 from gig_calendar import GigEvent, set_test_mode
-from output_paths import get_output_dir
+from output_paths import get_output_dir, output_relative, resolve_output_path
 from personalize_shell_flyer import personalize_design_shell
 from shell_evaluation_card import build_shell_evaluation_card
 from shell_references import ShellReference, get_shell
@@ -113,7 +113,9 @@ def run_shell_pipeline(
             log=True,
         )
         pass1 = generate_design_shell(shell.id)
-        shell_path = ROOT / pass1["shell_rel"]
+        shell_path = resolve_output_path(pass1["shell_rel"])
+        if not shell_path.is_file():
+            raise FileNotFoundError(f"Pass 1 shell image missing: {shell_path}")
         progress(
             step="pass1",
             substep="saved",
@@ -168,7 +170,7 @@ def run_shell_pipeline(
         build_shell_evaluation_card(
             reference_path=ref_path if ref_path.is_file() else shell_path,
             shell_path=shell_path,
-            personalized_path=ROOT / pass2["personalized_rel"],
+            personalized_path=resolve_output_path(pass2["personalized_rel"]),
             output_path=eval_path,
             shell_title=shell.title,
             shell_id=shell.id,
@@ -193,7 +195,7 @@ def run_shell_pipeline(
                 "gig_id": event.gig_id,
                 "event": event.to_dict(),
                 "pass2": pass2,
-                "evaluation_rel": str(eval_path.relative_to(ROOT)),
+                "evaluation_rel": output_relative(eval_path),
             }
         )
         _save_job_summary(job_id, summary)

@@ -23,6 +23,7 @@ from gig_calendar import GigEvent, set_test_mode
 from personalize_shell_flyer import personalize_design_shell
 from shell_evaluation_card import build_shell_evaluation_card
 from shell_references import get_shell, pick_shell_for_research
+from output_paths import get_output_dir, output_relative, resolve_output_path
 from text_validation import resolve_venue_address
 
 
@@ -108,7 +109,7 @@ def main() -> int:
     print(f"Shell: {shell.id} ({shell.title})")
     print("Pass 1: generating design shell…")
     pass1 = generate_design_shell(shell.id)
-    shell_path = ROOT / pass1["shell_rel"]
+    shell_path = resolve_output_path(pass1["shell_rel"])
     print(f"  Shell: {pass1['shell_rel']}")
 
     if args.pass1_only:
@@ -123,12 +124,12 @@ def main() -> int:
     )
     print(f"  Flyer: {pass2['personalized_rel']}")
 
-    eval_path = ROOT / "output" / "shell_design" / f"{event.gig_id}_{shell.id}_eval.png"
+    eval_path = get_output_dir() / "shell_design" / f"{event.gig_id}_{shell.id}_eval.png"
     ref_path = shell.image_path()
     build_shell_evaluation_card(
         reference_path=ref_path if ref_path.is_file() else shell_path,
         shell_path=shell_path,
-        personalized_path=ROOT / pass2["personalized_rel"],
+        personalized_path=resolve_output_path(pass2["personalized_rel"]),
         output_path=eval_path,
         shell_title=shell.title,
         shell_id=shell.id,
@@ -139,15 +140,15 @@ def main() -> int:
             f"Provider: openai",
         ],
     )
-    print(f"  Eval:  {eval_path.relative_to(ROOT)}")
+    print(f"  Eval:  {output_relative(eval_path)}")
 
     summary = {
         "shell_id": shell.id,
         "pass1": pass1,
         "pass2": pass2,
-        "evaluation_rel": str(eval_path.relative_to(ROOT)),
+        "evaluation_rel": output_relative(eval_path),
     }
-    summary_path = ROOT / "output" / "shell_design" / f"{event.gig_id}_{shell.id}_summary.json"
+    summary_path = get_output_dir() / "shell_design" / f"{event.gig_id}_{shell.id}_summary.json"
     summary_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
     return 0
 
