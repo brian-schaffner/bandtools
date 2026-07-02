@@ -115,7 +115,21 @@ run_smoke_checks() {
   local url="$1"
   local root
   root="$(deploy_repo_root)"
-  "${root}/scripts/smoke-test.sh" "$url"
+  local attempt max_attempts wait_secs
+  max_attempts="${SMOKE_RETRIES:-5}"
+  wait_secs="${SMOKE_RETRY_WAIT_SECS:-8}"
+
+  for ((attempt = 1; attempt <= max_attempts; attempt++)); do
+    if "${root}/scripts/smoke-test.sh" "$url"; then
+      return 0
+    fi
+    if [[ "$attempt" -lt "$max_attempts" ]]; then
+      echo "Smoke checks failed (attempt ${attempt}/${max_attempts}); retrying in ${wait_secs}s..."
+      sleep "$wait_secs"
+    fi
+  done
+  echo "ERROR: smoke checks failed after ${max_attempts} attempts" >&2
+  return 1
 }
 
 print_deploy_success() {
