@@ -10,6 +10,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Optional
 
+from dotenv import load_dotenv
+
 from evaluation_card import build_evaluation_card
 from flyer_generator import gig_output_dir, resolve_gig_event
 from gig_research import research_gig
@@ -33,6 +35,7 @@ from visual_constraints import (
 from visual_studies import get_study
 
 ROOT = Path(__file__).resolve().parent
+load_dotenv(ROOT / ".env")
 
 # Photo placement tuned to Hatch stack (portrait between bar and mega name)
 HATCH_PHOTO_PLACEMENT = {
@@ -123,6 +126,20 @@ def _prepare_hatch_canvas(
     )
 
 
+def _gemini_api_key() -> str:
+    return (os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY") or "").strip()
+
+
+def _require_gemini_key() -> str:
+    key = _gemini_api_key()
+    if key:
+        return key
+    raise RuntimeError(
+        "GOOGLE_API_KEY or GEMINI_API_KEY required for visual prediction. "
+        "Add to gig-flyers/.env or Cloud Agent secrets, then re-run."
+    )
+
+
 def _gemini_predict(
     prompt: str,
     style_reference_path: Path,
@@ -135,10 +152,7 @@ def _gemini_predict(
     from google import genai
     from google.genai import types
 
-    api_key = (os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY") or "").strip()
-    if not api_key:
-        raise RuntimeError("GOOGLE_API_KEY or GEMINI_API_KEY required for visual prediction")
-
+    api_key = _require_gemini_key()
     model = os.getenv("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")
     aspect_ratio = os.getenv("GEMINI_IMAGE_ASPECT_RATIO", "2:3")
     client = genai.Client(api_key=api_key)

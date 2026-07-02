@@ -10,6 +10,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from dotenv import load_dotenv
+
+load_dotenv(ROOT / ".env")
+
 from evaluation_card import build_evaluation_card
 from gig_calendar import GigEvent, set_test_mode
 from output_paths import get_output_dir, output_relative
@@ -118,6 +122,15 @@ def main() -> int:
         print(f"  Evaluation: {structured['evaluation_card_rel']}")
 
     if not args.structured_only:
+        from visual_predict_flyer import _gemini_api_key
+
+        if not _gemini_api_key() and not args.dry_run:
+            print(
+                "Gemini key not found. Set GOOGLE_API_KEY or GEMINI_API_KEY in "
+                "gig-flyers/.env or Cloud Agent secrets.",
+                file=sys.stderr,
+            )
+            return 1
         print("Running AI visual prediction path…")
         predict = predict_visual_flyer(args.gig_id, dry_run=args.dry_run)
         results["outputs"]["ai_predict"] = predict
