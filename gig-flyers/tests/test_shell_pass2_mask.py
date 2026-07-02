@@ -3,9 +3,15 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
 
-from shell_pass2_mask import build_personalize_mask, text_edit_zones
+from PIL import Image, ImageDraw
+
+from shell_asset_integrate import ShellPass2Compose
+from shell_pass2_mask import build_personalize_mask, enforce_shell_design, text_edit_zones
 from shell_references import get_shell
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 class ShellPass2MaskTest(unittest.TestCase):
@@ -33,6 +39,37 @@ class ShellPass2MaskTest(unittest.TestCase):
             overlaps = not (y2 <= photo_clear[1] or y1 >= photo_clear[3])
             if overlaps:
                 self.assertLessEqual(y2 - y1, 120)
+
+    def test_enforce_shell_design_restores_pass1_pixels(self) -> None:
+        shell = get_shell("hendrix_sicks_stadium_1970")
+        assert shell is not None
+        size = (400, 600)
+        photo_clear = (50, 180, 350, 420)
+        logo = (280, 300, 360, 360)
+        zones = tuple(text_edit_zones(size, photo_clear, shell))
+        pass1 = Image.new("RGBA", size, (255, 220, 0, 255))
+        draw = ImageDraw.Draw(pass1)
+        draw.rectangle([50, 180, 350, 420], fill=(0, 0, 0, 255))
+        model = pass1.copy()
+        draw_model = ImageDraw.Draw(model)
+        draw_model.rectangle([0, 0, 400, 600], fill=(240, 235, 220, 255))
+        out_path = ROOT / "output" / ".test_design_restore.png"
+        model.convert("RGB").save(out_path)
+        compose = ShellPass2Compose(
+            photo_bbox=(60, 190, 340, 410),
+            photo_clear_bbox=photo_clear,
+            photo_layer=Image.new("RGBA", (280, 220), (100, 100, 100, 255)),
+            logo_bbox=logo,
+            logo_layer=Image.new("RGBA", (80, 60), (0, 0, 0, 0)),
+            shell_layer=pass1,
+            text_edit_zones=zones,
+            canvas_size=size,
+        )
+        enforce_shell_design(out_path, compose)
+        restored = Image.open(out_path).convert("RGB")
+        self.assertGreater(restored.getpixel((200, 100))[0], 200)
+        self.assertLess(restored.getpixel((200, 300))[0], 40)
+        out_path.unlink(missing_ok=True)
 
 
 if __name__ == "__main__":

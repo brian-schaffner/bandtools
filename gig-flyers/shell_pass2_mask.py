@@ -5,6 +5,7 @@ from __future__ import annotations
 from PIL import Image, ImageDraw
 
 from shell_references import ShellReference
+from shell_asset_integrate import ShellPass2Compose
 
 _PROTECT = (255, 255, 255, 255)
 _EDIT = (0, 0, 0, 0)
@@ -82,3 +83,38 @@ def build_personalize_mask(
     draw.rectangle([ll, lt, lr, lb], fill=_PROTECT)
 
     return mask
+
+
+def enforce_shell_design(output_path: Path, compose: ShellPass2Compose, *, asset_pad: int = 20) -> bool:
+    """Paste pass-1 shell pixels back everywhere except text bands and asset slots."""
+    if not output_path.is_file():
+        return False
+
+    model = Image.open(output_path).convert("RGBA")
+    shell = compose.shell_layer.convert("RGBA")
+    orig_w, orig_h = compose.canvas_size
+    if model.size != (orig_w, orig_h):
+        model = model.resize((orig_w, orig_h), Image.Resampling.LANCZOS)
+    if shell.size != (orig_w, orig_h):
+        shell = shell.resize((orig_w, orig_h), Image.Resampling.LANCZOS)
+
+    keep_model = Image.new("L", (orig_w, orig_h), 255)
+    draw = ImageDraw.Draw(keep_model)
+    draw.rectangle([0, 0, orig_w, orig_h], fill=255)
+    for zone in compose.text_edit_zones:
+        draw.rectangle(zone, fill=0)
+    for bbox in (compose.photo_clear_bbox, compose.logo_bbox):
+        draw.rectangle(
+            [
+                max(0, bbox[0] - asset_pad),
+                max(0, bbox[1] - asset_pad),
+                min(orig_w, bbox[2] + asset_pad),
+                min(orig_h, bbox[3] + asset_pad),
+            ],
+            fill=255,
+        )
+
+    # mask 255 → shell (pass-1 art), mask 0 → model (personalized text)
+    result = Image.composite(shell, model, keep_model)
+    result.convert("RGB").save(output_path, format="PNG")
+    return True

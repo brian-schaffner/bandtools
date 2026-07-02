@@ -57,11 +57,15 @@ _CENTER_HERO_FAMILIES = frozenset(
 
 @dataclass
 class ShellPass2Compose:
-    """Photo layer + placement for post-OpenAI fidelity restore."""
+    """Layers + placement for post-OpenAI fidelity and design restore."""
 
     photo_bbox: tuple[int, int, int, int]
     photo_clear_bbox: tuple[int, int, int, int]
     photo_layer: Image.Image
+    logo_bbox: tuple[int, int, int, int]
+    logo_layer: Image.Image
+    shell_layer: Image.Image
+    text_edit_zones: tuple[tuple[int, int, int, int], ...]
     canvas_size: tuple[int, int]
     backdrop_rgb: tuple[int, int, int] = CANVAS_BACKGROUND
 
@@ -448,6 +452,23 @@ def integration_summary(shell: ShellReference) -> dict[str, Any]:
         "duotone_strength": _duotone_strength(shell.style),
         "roles": {k: "#{:02x}{:02x}{:02x}".format(*v) for k, v in roles.items()},
     }
+
+
+def enforce_shell_logo(output_path: Path, compose: ShellPass2Compose) -> bool:
+    """Restore the pre-integrated logo layer after OpenAI pass 2."""
+    if not output_path.is_file():
+        return False
+
+    model = Image.open(output_path).convert("RGBA")
+    orig_w, orig_h = compose.canvas_size
+    if model.size != (orig_w, orig_h):
+        model = model.resize((orig_w, orig_h), Image.Resampling.LANCZOS)
+
+    lx, ly = compose.logo_bbox[0], compose.logo_bbox[1]
+    result = model.copy()
+    result.alpha_composite(compose.logo_layer, (lx, ly))
+    result.convert("RGB").save(output_path, format="PNG")
+    return True
 
 
 def enforce_shell_photo(output_path: Path, compose: ShellPass2Compose) -> bool:

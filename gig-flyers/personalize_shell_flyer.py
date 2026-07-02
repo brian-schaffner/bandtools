@@ -22,12 +22,13 @@ from shell_asset_integrate import (
     clear_photo_slot,
     compose_integrated_assets,
     enforce_shell_photo,
+    enforce_shell_logo,
     integration_summary,
     photo_slot_for_shell,
     photo_slot_label,
     placement_zones,
 )
-from shell_pass2_mask import build_personalize_mask
+from shell_pass2_mask import build_personalize_mask, enforce_shell_design, text_edit_zones
 from shell_references import ShellReference, get_shell
 from structured_layout.band_mark import find_band_logo
 from text_validation import footer_prompt_lines, typography_hierarchy_prompt_lines
@@ -167,6 +168,7 @@ def build_personalize_canvas(
     oy = (h - shell_fit.height) // 2
     canvas.paste(shell_fit, (ox, oy))
     shell_rgba = canvas.convert("RGBA")
+    shell_layer = shell_rgba.copy()
 
     raw_photo = Image.open(photo_path)
     raw_logo = Image.open(logo_path)
@@ -217,10 +219,15 @@ def build_personalize_canvas(
 
     compose: ShellPass2Compose | None = None
     if shell is not None:
+        edit_zones = tuple(text_edit_zones(size, photo_clear_bbox, shell))
         compose = ShellPass2Compose(
             photo_bbox=photo_bbox,
             photo_clear_bbox=photo_clear_bbox,
             photo_layer=photo_layer.copy(),
+            logo_bbox=logo_bbox,
+            logo_layer=logo_layer.copy(),
+            shell_layer=shell_layer.copy(),
+            text_edit_zones=edit_zones,
             canvas_size=size,
             backdrop_rgb=backdrop,
         )
@@ -271,7 +278,9 @@ def personalize_shell_openai(
         else:
             raise RuntimeError("OpenAI returned no image data")
         if compose is not None:
+            enforce_shell_design(output_path, compose)
             enforce_shell_photo(output_path, compose)
+            enforce_shell_logo(output_path, compose)
     return output_path
 
 

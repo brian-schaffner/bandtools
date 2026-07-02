@@ -141,6 +141,10 @@ class ShellAssetIntegrateTest(unittest.TestCase):
             photo_bbox=bbox,
             photo_clear_bbox=clear_bbox,
             photo_layer=photo,
+            logo_bbox=(800, 800, 900, 880),
+            logo_layer=Image.new("RGBA", (100, 80), (0, 0, 0, 0)),
+            shell_layer=Image.new("RGBA", (1024, 1536), (242, 235, 220, 255)),
+            text_edit_zones=((40, 40, 980, 120),),
             canvas_size=(1024, 1536),
             backdrop_rgb=(242, 235, 220),
         )
