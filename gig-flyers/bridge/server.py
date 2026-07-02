@@ -688,6 +688,7 @@ async def prototype_page(gig_id: str) -> HTMLResponse:
 @add_post(app, "/prototype/{gig_id}/start")
 async def prototype_start(gig_id: str) -> Response:
     from bridge.prototype import prototype_page_path, render_prototype_generating_page
+    from gig_resolve import is_placeholder_gig_id, resolve_gig_event
 
     if is_placeholder_gig_id(gig_id):
         raise HTTPException(
@@ -699,7 +700,7 @@ async def prototype_start(gig_id: str) -> Response:
     if gig_id in _generate_in_flight:
         return HTMLResponse(render_prototype_generating_page(gig_id, record.get("event") or {}))
 
-    from gig_resolve import load_event_dict, resolve_gig_event
+    from gig_resolve import resolve_gig_event
 
     try:
         event_obj = resolve_gig_event(gig_id)
