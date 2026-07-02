@@ -14,7 +14,9 @@ from bridge.job_status import get_job_status
 from bridge.ui import page_close, page_head, progress_css, review_css, site_nav
 from state import ROOT, can_regenerate, get_gig_state, load_state
 
-OUTPUT_DIR = ROOT / "output"
+from output_paths import get_output_dir
+
+OUTPUT_DIR = get_output_dir()
 
 
 def root_path() -> str:

@@ -154,6 +154,11 @@ def _softmax_pick(
     return candidates[-1]
 
 
+def _feedback_wants_handbill(feedback_text: str) -> bool:
+    text = feedback_text.lower()
+    return any(w in text for w in ("handbill", "paste", "broadside", "simple stack", "conservative", "option b", "option a"))
+
+
 def select_prototype_specs(
     gig_id: str,
     *,
@@ -163,10 +168,18 @@ def select_prototype_specs(
     feedback_text: str = "",
     round_history: list[dict[str, Any]] | None = None,
 ) -> list[ExploreSpec]:
-    """Pick 3 diverse approaches — stochastic, anti-repeat, preference-informed."""
+    """Pick 3 diverse approaches — prototype defaults to creative Style DNA unless you ask for handbill."""
     import random
 
-    pool = enumerate_explore_specs(gig_id, max_count=999)
+    full_pool = enumerate_explore_specs(gig_id, max_count=999)
+    allow_handbill = _feedback_wants_handbill(feedback_text)
+    # Prototype = explore wild visuals; B/A only when feedback requests them.
+    pool = [s for s in full_pool if s.family == "C"]
+    if allow_handbill:
+        pool = full_pool
+    if len(pool) < 3:
+        pool = full_pool
+
     weights = preference_weights(preferences)
     if feedback_text.strip():
         weights = apply_feedback_text(weights, feedback_text, FEEDBACK_KEYWORDS)
@@ -200,10 +213,11 @@ def select_prototype_specs(
     chosen_families: set[str] = set()
     chosen_archetypes: set[str] = set()
 
-    def _available() -> list[ExploreSpec]:
+    def _available(from_pool: list[ExploreSpec] | None = None) -> list[ExploreSpec]:
+        src = from_pool if from_pool is not None else pool
         taken = {_base_spec_id(s.spec_id) for s in chosen}
         out: list[ExploreSpec] = []
-        for spec in pool:
+        for spec in src:
             if _base_spec_id(spec.spec_id) in taken:
                 continue
             sig = spec_signature(spec)
@@ -219,19 +233,32 @@ def select_prototype_specs(
         if arch:
             chosen_archetypes.add(arch)
 
-    # Slot 1: stochastic preference pick
+    def _pick(from_pool: list[ExploreSpec], temp: float) -> ExploreSpec | None:
+        avail = _available(from_pool)
+        if not avail:
+            return None
+        return _softmax_pick(rng, avail, scores, temperature=temp)
+
+    # When feedback asks for handbill, reserve one B layout first.
+    if allow_handbill:
+        b_pool = [s for s in full_pool if s.family == "B"]
+        pick = _pick(b_pool, 2.0)
+        if pick:
+            chosen.append(pick)
+            _track(pick)
+
+    # Remaining slots: creative Style DNA
     avail = _available()
     if avail:
         pick = _softmax_pick(rng, avail, scores, temperature=2.2)
         chosen.append(pick)
         _track(pick)
 
-    # Slot 2: different family or archetype when possible
+    # Slot 2: different archetype
     avail = _available()
     prefer = [
         s for s in avail
-        if s.family not in chosen_families
-        or (s.tags.get("archetype") and s.tags.get("archetype") not in chosen_archetypes)
+        if s.tags.get("archetype") and s.tags.get("archetype") not in chosen_archetypes
     ]
     if prefer:
         pick = _softmax_pick(rng, prefer, scores, temperature=2.0)
@@ -243,10 +270,10 @@ def select_prototype_specs(
         chosen.append(pick)
         _track(pick)
 
-    # Slot 3: wild or least-seen archetype
+    # Slot 3: wild variant when available
     avail = _available()
     wild = [s for s in avail if s.wild]
-    if wild and round_num % 2 == 0:
+    if wild:
         pick = _softmax_pick(rng, wild, scores, temperature=1.8)
     else:
         underused = sorted(

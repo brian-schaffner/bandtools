@@ -10,8 +10,9 @@ from typing import Any, Optional
 from gig_calendar import GigEvent, event_from_dict, find_gig_by_id, is_test_mode, _events_from_mock
 from state import get_gig_state
 
-ROOT = Path(__file__).resolve().parent
-OUTPUT_DIR = ROOT / "output"
+from output_paths import get_output_dir
+
+OUTPUT_DIR = get_output_dir()
 
 _PLACEHOLDER_IDS = frozenset({"gig_id", "your-gig-id", "undefined", "null", "none"})
 

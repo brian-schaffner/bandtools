@@ -84,6 +84,26 @@ class PrototypeSessionTest(unittest.TestCase):
                 self.assertEqual(result["status"], "forfeit")
 
 
+    def test_default_pool_is_creative_only(self) -> None:
+        specs = select_prototype_specs(
+            "2026-07-04_american-legion",
+            round_num=1,
+            preferences={},
+            used_spec_ids=[],
+        )
+        self.assertTrue(all(s.family == "C" for s in specs))
+
+    def test_handbill_feedback_opens_b_pool(self) -> None:
+        specs = select_prototype_specs(
+            "2026-07-04_american-legion",
+            round_num=2,
+            preferences={},
+            used_spec_ids=[],
+            feedback_text="try a paste up handbill",
+        )
+        families = {s.family for s in specs}
+        self.assertIn("B", families)
+
     def test_rounds_avoid_repeat_signatures(self) -> None:
         history = [
             {

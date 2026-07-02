@@ -73,7 +73,7 @@ def render_prototype_page(gig_id: str) -> str:
           <p>We generate <strong>3 flyer directions</strong>. You rank them and leave feedback.
              The next batch of 3 is shaped by what you liked — up to {max_rounds} rounds, then you
              pick a winner or call it quits.</p>
-          <p class="muted">Rules can be bent on purpose. Each round pulls from a larger style pool and avoids repeating last round's picks.</p>
+          <p class="muted">Each round shows <strong>3 Style DNA directions</strong> (wild visuals). Mention "handbill" or "simple" in feedback if you want Option A/B layouts mixed in.</p>
           <form method="post" action="{html.escape(prototype_start_action(gig_id))}">
             <button type="submit" class="btn btn-purple btn-block">Start prototype round 1</button>
           </form>

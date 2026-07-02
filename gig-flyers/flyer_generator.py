@@ -58,8 +58,7 @@ load_dotenv(ROOT / ".env")
 STYLE_PATH = ROOT / "style.yaml"
 
 
-def get_output_dir() -> Path:
-    return ROOT / "output"
+from output_paths import get_output_dir
 OPTION_LETTERS = ("A", "B", "C")
 
 
