@@ -16,15 +16,155 @@ from evaluation_card import build_evaluation_card
 from gig_calendar import GigEvent
 from output_paths import get_output_dir, output_relative
 from structured_layout.band_mark import find_band_logo
-from visual_constraints import hatch_predict_prompt_block
-from visual_studies import STUDY_CACHE, get_study
+from visual_studies import STUDY_CACHE, VisualStudy, get_study
 
 ROOT = Path(__file__).resolve().parent
 load_dotenv(ROOT / ".env")
 
 HATCH_REF = STUDY_CACHE / "hank_hatch.jpg"
+ALTAMONT_REF = STUDY_CACHE / "altamont2.jpg"
+WOODSTOCK_REF = STUDY_CACHE / "woodstock2.jpg"
+if not WOODSTOCK_REF.is_file():
+    WOODSTOCK_REF = STUDY_CACHE / "woodstock_thumb.jpg"
 DEFAULT_PHOTO = ROOT / "bandphotos" / "475779793_1030489528887965_3935557413007700748_n.jpg"
 OUT_DIR = get_output_dir() / "reference_study"
+
+REF_BY_STUDY: dict[str, Path] = {
+    "hatch_hank_williams_1953": HATCH_REF,
+    "altamont_free_concert_1969": ALTAMONT_REF,
+    "woodstock_festival_1969": WOODSTOCK_REF,
+}
+
+DEFAULT_STUDY_ID = "hatch_hank_williams_1953"
+
+
+def _event_facts_block(
+    *,
+    venue: str,
+    date: str,
+    time: str,
+    band: str,
+    address: str = "",
+) -> str:
+    lines = [
+        "EVENT FACTS (copy exactly):",
+        f"  Band / headliner: {band}",
+        f"  Venue: {venue}",
+        f"  Date: {date}",
+        f"  Time: {time}",
+    ]
+    if address:
+        lines.append(f"  Address: {address}")
+    return "\n".join(lines)
+
+
+def build_hatch_prompt(*, venue: str, date: str, time: str, band: str, address: str = "") -> str:
+    return (
+        "You are designing a letterpress-style country gig poster.\n\n"
+        "You will receive THREE images:\n"
+        "  IMAGE 1 — STYLE REFERENCE: a real 1953 Hatch Show Print poster (Hank Williams). "
+        "Match its layout structure, hierarchy, and red/black/cream letterpress feel.\n"
+        "  IMAGE 2 — BAND PHOTO: use this exact photo as the centered portrait. "
+        "Do not redraw, duplicate, or distort the musicians.\n"
+        "  IMAGE 3 — BAND LOGO: place this lockup near the band name or bottom hero type. "
+        "Do not alter the logo artwork.\n\n"
+        "Create ONE finished vertical flyer (2:3 aspect).\n"
+        "Stack top→bottom like the reference: venue, date, presenter bar, portrait, mega band name.\n"
+        "Use only cream paper + red + black ink. No gradients, no extra colors.\n\n"
+        f"{_event_facts_block(venue=venue, date=date, time=time, band=band, address=address)}\n\n"
+        "Output a single complete flyer image only."
+    )
+
+
+def build_altamont_prompt(*, venue: str, date: str, time: str, band: str, address: str = "") -> str:
+    return (
+        "You are designing a gritty 1969-style rock club / festival bill poster.\n\n"
+        "You will receive THREE images:\n"
+        "  IMAGE 1 — STYLE REFERENCE: the 1969 Altamont Free Concert poster. Match its "
+        "asymmetric layout, red/black line alternation, and high-contrast xerox/screen-print feel.\n"
+        "  IMAGE 2 — BAND PHOTO: use as high-contrast B&W performance photo, lower-left ~40% width.\n"
+        "  IMAGE 3 — BAND LOGO: place in sidebar or near headliner block.\n\n"
+        "Layout (like reference):\n"
+        "  • Headliner name largest at top\n"
+        "  • Promo hook line (e.g. LIVE AT / LIVE MUSIC) in red caps with star accents\n"
+        "  • Date line (black) then venue line (red) — alternate colors by line\n"
+        "  • Band photo gritty B&W lower-left\n"
+        "  • RIGHT SIDEBAR column: SPECIAL GUESTS / LOCAL OPENERS (not a bottom list)\n"
+        "  • Show time in footer\n"
+        "Palette: cream + red + black only.\n\n"
+        f"{_event_facts_block(venue=venue, date=date, time=time, band=band, address=address)}\n\n"
+        "Output one complete vertical flyer."
+    )
+
+
+def build_woodstock_prompt(*, venue: str, date: str, time: str, band: str, address: str = "") -> str:
+    return (
+        "You are designing a psychedelic 1969 festival poster — graphically complex.\n\n"
+        "You will receive THREE images:\n"
+        "  IMAGE 1 — STYLE REFERENCE: the original Woodstock poster. Match its complexity:\n"
+        "    - Bold symbolic hero illustration filling top ~45% (dove/guitar style — create ORIGINAL "
+        "symbolic art inspired by the reference, do not copy the Woodstock bird exactly)\n"
+        "    - Solid red field behind art\n"
+        "    - Large festival hook slogan in hand-drawn yellow lettering\n"
+        "    - THREE-COLUMN footer grid: lineup | logistics/dates | slogan\n"
+        "    - Flat 4-color palette: red, yellow, blue, black, white — no gradients\n"
+        "  IMAGE 2 — BAND PHOTO: incorporate as a small halftone inset in the footer grid OR "
+        "work into the hero art tastefully — do not redraw faces.\n"
+        "  IMAGE 3 — BAND LOGO: place in footer grid or below slogan.\n\n"
+        "Hierarchy: slogan + symbolic art dominate; band name is secondary to festival hook.\n"
+        "Include dense but readable small type in footer columns.\n\n"
+        f"{_event_facts_block(venue=venue, date=date, time=time, band=band, address=address)}\n\n"
+        "Festival hook suggestion: ONE NIGHT OF BLUES & ROCK (adapt to event).\n"
+        "Output one complete vertical festival poster."
+    )
+
+
+STUDY_PROMPT_BUILDERS = {
+    "hatch_hank_williams_1953": build_hatch_prompt,
+    "altamont_free_concert_1969": build_altamont_prompt,
+    "woodstock_festival_1969": build_woodstock_prompt,
+}
+
+
+def build_generation_prompt(
+    *,
+    study_id: str,
+    venue: str,
+    date: str,
+    time: str,
+    band: str,
+    address: str = "",
+) -> str:
+    builder = STUDY_PROMPT_BUILDERS.get(study_id, build_hatch_prompt)
+    return builder(venue=venue, date=date, time=time, band=band, address=address)
+
+
+def _collage_edit_preamble(study_id: str) -> str:
+    if study_id == "woodstock_festival_1969":
+        return (
+            "The input image is a briefing sheet. STYLE REFERENCE at top shows a psychedelic "
+            "1969 festival poster. BAND PHOTO and BAND LOGO are assets to include. "
+            "Render ONE finished vertical festival poster in the outlined area at bottom, "
+            "then expand to fill the entire canvas as a single cohesive poster. "
+            "Remove briefing labels and boxes. Match the reference complexity: hero art, slogan, "
+            "3-column footer grid, flat 4-color palette.\n\n"
+        )
+    if study_id == "altamont_free_concert_1969":
+        return (
+            "The input image is a briefing sheet. STYLE REFERENCE at top shows a gritty 1969 "
+            "multi-act bill poster. BAND PHOTO and BAND LOGO are assets to include. "
+            "Render ONE finished vertical flyer in the outlined area at bottom, "
+            "then expand to fill the entire canvas as a single cohesive poster. "
+            "Remove briefing labels and boxes. Match asymmetric layout, red/black alternation, "
+            "sidebar guest column.\n\n"
+        )
+    return (
+        "The input image is a briefing sheet. STYLE REFERENCE at top shows the target layout. "
+        "BAND PHOTO and BAND LOGO are assets to include exactly. "
+        "Render ONE finished vertical letterpress gig flyer in the outlined area at bottom, "
+        "then expand to fill the entire canvas as a single cohesive poster. "
+        "Remove briefing labels and boxes. Match the reference hierarchy and palette.\n\n"
+    )
 
 
 def _load_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
@@ -37,35 +177,6 @@ def _load_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     return ImageFont.load_default()
 
 
-def build_generation_prompt(
-    *,
-    venue: str,
-    date: str,
-    time: str,
-    band: str,
-    address: str = "",
-) -> str:
-    """Prompt when the model can see separate reference, photo, and logo images."""
-    facts = hatch_predict_prompt_block(
-        venue=venue, date=date, time=time, band=band, address=address
-    )
-    return (
-        "You are designing a letterpress-style country gig poster.\n\n"
-        "You will receive THREE images:\n"
-        "  IMAGE 1 — STYLE REFERENCE: a real 1953 Hatch Show Print poster (Hank Williams). "
-        "Match its layout structure, hierarchy, and red/black/cream letterpress feel.\n"
-        "  IMAGE 2 — BAND PHOTO: use this exact photo as the centered portrait. "
-        "Do not redraw, duplicate, or distort the musicians.\n"
-        "  IMAGE 3 — BAND LOGO: place this lockup near the band name or bottom hero type. "
-        "Do not alter the logo artwork.\n\n"
-        "Create ONE finished vertical flyer (2:3 aspect) for the event below.\n"
-        "Stack top→bottom like the reference: venue, date, presenter bar, portrait, mega band name.\n"
-        "Use only cream paper + red + black ink. No gradients, no extra colors.\n\n"
-        f"{facts}\n\n"
-        "Output a single complete flyer image only."
-    )
-
-
 def build_collage_input(
     *,
     reference_path: Path,
@@ -73,14 +184,16 @@ def build_collage_input(
     logo_path: Path,
     out_path: Path,
     size: tuple[int, int] = (1024, 1536),
+    study_id: str = "hatch_hank_williams_1953",
 ) -> Path:
     """Single-sheet fallback for APIs that accept one image: ref + assets + blank render zone."""
     w, h = size
-    sheet = Image.new("RGB", size, (242, 235, 220))
+    paper = (242, 235, 220) if study_id != "woodstock_festival_1969" else (211, 47, 47)
+    sheet = Image.new("RGB", size, paper)
     draw = ImageDraw.Draw(sheet)
     label = _load_font(18)
 
-    ref_h = int(h * 0.38)
+    ref_h = int(h * (0.42 if study_id == "woodstock_festival_1969" else 0.38))
     ref = Image.open(reference_path).convert("RGB")
     ref_fit = _fit(ref, w - 48, ref_h - 36)
     sheet.paste(ref_fit, ((w - ref_fit.width) // 2, 24))
@@ -128,6 +241,7 @@ def generate_openai_multiref(
     photo_path: Path,
     logo_path: Path,
     output_path: Path,
+    study_id: str = DEFAULT_STUDY_ID,
 ) -> None:
     """OpenAI: collage input sheet + images.edit to render final flyer."""
     from openai import OpenAI
@@ -148,15 +262,9 @@ def generate_openai_multiref(
             photo_path=photo_path,
             logo_path=logo_path,
             out_path=collage,
+            study_id=study_id,
         )
-        edit_prompt = (
-            "The input image is a briefing sheet. STYLE REFERENCE at top shows the target layout. "
-            "BAND PHOTO and BAND LOGO are assets to include exactly. "
-            "Render ONE finished vertical letterpress gig flyer in the outlined area at bottom, "
-            "then expand to fill the entire canvas as a single cohesive poster. "
-            "Remove briefing labels and boxes. Match the reference hierarchy and palette.\n\n"
-            f"{prompt}"
-        )
+        edit_prompt = f"{_collage_edit_preamble(study_id)}{prompt}"
         with collage.open("rb") as f:
             response = client.images.edit(
                 model=model,
@@ -233,6 +341,7 @@ def generate_gemini_multiref(
 def generate_reference_study_flyer(
     event: GigEvent,
     *,
+    study_id: str = DEFAULT_STUDY_ID,
     band: str = "Lindsey Lane Band",
     photo_path: Path | None = None,
     logo_path: Path | None = None,
@@ -241,7 +350,7 @@ def generate_reference_study_flyer(
     generator: Callable[..., None] | None = None,
 ) -> dict[str, Any]:
     """Show reference poster + photo + logo; generate similar flyer for gig."""
-    ref = reference_path or HATCH_REF
+    ref = reference_path or REF_BY_STUDY.get(study_id, HATCH_REF)
     photo = photo_path or DEFAULT_PHOTO
     logo = logo_path or find_band_logo(band, paper=(242, 235, 220))
     if logo is None or not logo.is_file():
@@ -253,6 +362,7 @@ def generate_reference_study_flyer(
     date_str = event.event_date.strftime("%A, %B %d, %Y")
     time_str = event.time_label or "TBA"
     prompt = build_generation_prompt(
+        study_id=study_id,
         venue=event.venue,
         date=date_str,
         time=time_str,
@@ -260,14 +370,16 @@ def generate_reference_study_flyer(
     )
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    out_path = OUT_DIR / f"{event.gig_id}_reference_gen.png"
-    card_path = OUT_DIR / f"{event.gig_id}_reference_eval.png"
-    sheet_path = OUT_DIR / f"{event.gig_id}_input_sheet.png"
+    stem = f"{event.gig_id}_{study_id}"
+    out_path = OUT_DIR / f"{stem}_reference_gen.png"
+    card_path = OUT_DIR / f"{stem}_reference_eval.png"
+    sheet_path = OUT_DIR / f"{stem}_input_sheet.png"
     build_collage_input(
         reference_path=ref,
         photo_path=photo,
         logo_path=logo,
         out_path=sheet_path,
+        study_id=study_id,
     )
 
     chosen = (provider or os.getenv("REFERENCE_STUDY_PROVIDER") or "openai").strip().lower()
@@ -281,20 +393,31 @@ def generate_reference_study_flyer(
         used = "gemini"
     else:
         generate_openai_multiref(
-            prompt, reference_path=ref, photo_path=photo, logo_path=logo, output_path=out_path
+            prompt,
+            reference_path=ref,
+            photo_path=photo,
+            logo_path=logo,
+            output_path=out_path,
+            study_id=study_id,
         )
         used = "openai"
 
-    study = get_study("hatch_hank_williams_1953")
+    study = get_study(study_id)
+    ref_label = {
+        "hatch_hank_williams_1953": "Hank Williams reference",
+        "altamont_free_concert_1969": "Altamont reference",
+        "woodstock_festival_1969": "Woodstock reference",
+    }.get(study_id, "Style reference")
     build_evaluation_card(
         reference_path=ref,
         generated_path=out_path,
         output_path=card_path,
-        study_title=study.title if study else "Hatch reference",
+        study_title=study.title if study else ref_label,
         method=f"Reference study generate ({used})",
-        panel_labels=("Hank Williams reference", "AI generated flyer", "Brief"),
+        panel_labels=(ref_label, "AI generated flyer", "Brief"),
         extra_checklist_lines=[
             "Inputs: reference poster + band photo + logo",
+            f"Study: {study_id}",
             f"Provider: {used}",
             f"Venue: {event.venue}",
             f"Date: {date_str}",
@@ -303,6 +426,7 @@ def generate_reference_study_flyer(
 
     manifest = {
         "gig_id": event.gig_id,
+        "study_id": study_id,
         "provider": used,
         "reference": str(ref),
         "photo": str(photo),
@@ -312,6 +436,6 @@ def generate_reference_study_flyer(
         "evaluation_card_rel": output_relative(card_path),
         "prompt": prompt,
     }
-    manifest_path = OUT_DIR / f"{event.gig_id}_manifest.json"
+    manifest_path = OUT_DIR / f"{stem}_manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     return manifest
