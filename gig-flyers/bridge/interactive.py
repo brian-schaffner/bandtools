@@ -79,6 +79,9 @@ def build_picker_data(max_days: int = _PICKER_MAX_DAYS) -> dict[str, Any]:
 
 def render_home_page() -> str:
     pick = html.escape(pick_page_path())
+    from bridge.review import route_path
+
+    shell_studio = html.escape(route_path("/shell"))
     return (
         page_head("Gig Flyers", extra_css=home_css())
         + site_nav(active="home")
@@ -96,6 +99,11 @@ def render_home_page() -> str:
         <h2>Mode 2 — Interactive</h2>
         <p>Pick any upcoming gig from the live calendar and trigger flyer generation on demand.</p>
         <a class="btn btn-block" href="{pick}">Choose a gig →</a>
+      </article>
+      <article class="mode-card mode-card-featured">
+        <h2>Shell Design Studio</h2>
+        <p>Two-pass AI poster design: pick a reference shell, generate a placeholder design, then personalize with your gig, band photo, and logo — all in the browser.</p>
+        <a class="btn btn-purple btn-block" href="{shell_studio}">Open shell studio →</a>
       </article>
       <article class="mode-card">
         <h2>Review</h2>

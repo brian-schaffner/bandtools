@@ -1,0 +1,524 @@
+"""Web UI for two-pass shell design studio."""
+
+from __future__ import annotations
+
+import html
+from typing import Any, Optional
+
+from bridge.review import asset_url, pick_page_path, route_path
+from bridge.shell_runner import VENUE_TYPES, demo_event_for_venue_type, load_job_summary
+from bridge.ui import page_close, page_head, progress_css, review_css, site_nav
+from gig_calendar import get_future_gigs, get_local_today
+from shell_references import ShellReference, all_shells, get_shell
+from state import get_gig_state
+
+from bridge.job_status import get_job_status
+
+
+def shell_studio_path() -> str:
+    return route_path("/shell")
+
+
+def shell_detail_path(shell_id: str) -> str:
+    return route_path(f"/shell/{shell_id}")
+
+
+def shell_ref_url(shell_id: str) -> str:
+    return route_path(f"/shell/ref/{shell_id}")
+
+
+def shell_run_action(shell_id: str) -> str:
+    return route_path(f"/shell/{shell_id}/run")
+
+
+def shell_job_path(job_id: str) -> str:
+    return route_path(f"/shell/job/{job_id}")
+
+
+def shell_job_status_path(job_id: str) -> str:
+    return route_path(f"/shell/job/{job_id}/status")
+
+
+def shell_job_status_stream_path(job_id: str) -> str:
+    return route_path(f"/shell/job/{job_id}/status/stream")
+
+
+def _shell_css() -> str:
+    return review_css() + """
+    .shell-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      align-items: center;
+      margin-bottom: 1.25rem;
+    }
+    .shell-filters label { font-size: 0.9rem; color: var(--muted); }
+    .shell-filters select {
+      min-height: var(--tap-min);
+      padding: 0.35rem 0.65rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      font-size: 1rem;
+    }
+    .shell-grid {
+      display: grid;
+      gap: 1rem;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    }
+    .shell-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      text-decoration: none;
+      color: inherit;
+      transition: box-shadow 0.15s, transform 0.15s;
+    }
+    .shell-card:hover {
+      text-decoration: none;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+      transform: translateY(-2px);
+    }
+    .shell-thumb-wrap {
+      aspect-ratio: 2/3;
+      background: var(--surface-2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    .shell-thumb-wrap img { width: 100%; height: 100%; object-fit: cover; }
+    .shell-thumb-missing {
+      color: var(--muted);
+      font-size: 0.85rem;
+      padding: 1rem;
+      text-align: center;
+    }
+    .shell-card-body { padding: 0.85rem 1rem 1rem; flex: 1; }
+    .shell-card-body h3 {
+      font-size: 0.95rem;
+      margin: 0 0 0.35rem;
+      line-height: 1.3;
+    }
+    .shell-meta { font-size: 0.8rem; color: var(--muted); margin-bottom: 0.5rem; }
+    .shell-chips { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+    .shell-chip {
+      font-size: 0.7rem;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      padding: 0.1rem 0.4rem;
+      border-radius: 999px;
+      color: var(--muted);
+    }
+    .shell-detail-layout {
+      display: grid;
+      gap: 1.5rem;
+    }
+    @media (min-width: 800px) {
+      .shell-detail-layout { grid-template-columns: minmax(200px, 280px) 1fr; }
+    }
+    .shell-detail-ref {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      background: var(--surface);
+    }
+    .shell-detail-ref img { width: 100%; display: block; }
+    .shell-form label {
+      display: block;
+      font-weight: 600;
+      margin: 0.75rem 0 0.25rem;
+      font-size: 0.95rem;
+    }
+    .shell-form select, .shell-form input[type="checkbox"] {
+      margin-top: 0.25rem;
+    }
+    .shell-form .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin: 1rem 0;
+    }
+    .shell-form .checkbox-row label { margin: 0; font-weight: 500; }
+    .shell-results-grid {
+      display: grid;
+      gap: 1rem;
+    }
+    @media (min-width: 720px) {
+      .shell-results-grid.cols-2 { grid-template-columns: 1fr 1fr; }
+      .shell-results-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+    }
+    .shell-result-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 0.75rem;
+    }
+    .shell-result-panel h3 { font-size: 0.95rem; margin-bottom: 0.5rem; }
+    .shell-result-panel img {
+      width: 100%;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    .eval-wide img { max-width: 100%; }
+    .layout-rules { font-size: 0.9rem; color: var(--muted); padding-left: 1.1rem; }
+    .palette-row { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0.5rem 0; }
+    .palette-swatch {
+      width: 1.75rem;
+      height: 1.75rem;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    """
+
+
+def _venue_type_options(selected: str = "") -> str:
+    opts = ['<option value="">All venue types</option>']
+    for vt in VENUE_TYPES:
+        sel = ' selected="selected"' if vt == selected else ""
+        label = vt.replace("_", " ").title()
+        opts.append(f'<option value="{html.escape(vt)}"{sel}>{html.escape(label)}</option>')
+    return "".join(opts)
+
+
+def _shell_card(shell: ShellReference) -> str:
+    href = html.escape(shell_detail_path(shell.id))
+    title = html.escape(shell.title[:72])
+    era = html.escape(shell.era)
+    family = html.escape(shell.design_family.replace("_", " "))
+    chips = "".join(
+        f'<span class="shell-chip">{html.escape(vt.replace("_", " "))}</span>'
+        for vt in shell.venue_types[:3]
+    )
+    if shell.has_image():
+        thumb = (
+            f'<img src="{html.escape(shell_ref_url(shell.id))}" '
+            f'alt="{title}" loading="lazy" />'
+        )
+    else:
+        thumb = '<div class="shell-thumb-missing">Reference image not cached</div>'
+    return f"""
+    <a class="shell-card" href="{href}">
+      <div class="shell-thumb-wrap">{thumb}</div>
+      <div class="shell-card-body">
+        <h3>{title}</h3>
+        <p class="shell-meta">{era} · {family}</p>
+        <div class="shell-chips">{chips or '<span class="shell-chip">general</span>'}</div>
+      </div>
+    </a>
+    """
+
+
+def render_shell_studio_page(*, venue_filter: str = "") -> str:
+    shells = all_shells()
+    if venue_filter:
+        shells = [s for s in shells if venue_filter in s.venue_types]
+    with_images = sum(1 for s in all_shells() if s.has_image())
+    cards = "".join(_shell_card(s) for s in shells) or '<p class="muted">No shells match that filter.</p>'
+
+    filter_form = f"""
+    <form class="shell-filters" method="get" action="{html.escape(shell_studio_path())}">
+      <label>Venue type
+        <select name="venue_type" onchange="this.form.submit()">
+          {_venue_type_options(venue_filter)}
+        </select>
+      </label>
+      {f'<a class="btn btn-secondary" href="{html.escape(shell_studio_path())}">Clear filter</a>' if venue_filter else ''}
+    </form>
+    """
+
+    return (
+        page_head("Shell Design Studio", extra_css=_shell_css())
+        + site_nav(active="shell", back_href=pick_page_path(), back_label="Pick gig")
+        + f"""
+  <main class="page-main">
+    <h1>Shell Design Studio</h1>
+    <p class="lead">Two-pass AI flyer design — pick a reference poster shell, generate a placeholder design (pass 1), then personalize with your gig, band photo, and logo (pass 2).</p>
+    <p class="muted">{len(all_shells())} shells · {with_images} with cached reference images</p>
+    {filter_form}
+    <div class="shell-grid">{cards}</div>
+  </main>
+"""
+        + page_close()
+    )
+
+
+def _gig_select_options(selected_gig_id: str = "", demo_mode: bool = False) -> str:
+    gigs = get_future_gigs(min_days=0, max_days=90, background_refresh=True)
+    opts = []
+    if demo_mode or not selected_gig_id:
+        opts.append('<option value="">— Demo gig (by venue type) —</option>')
+    for event in gigs:
+        record = get_gig_state(event.gig_id) or {}
+        label = f"{event.event_date.strftime('%b %d')} — {event.venue}"
+        sel = ' selected="selected"' if event.gig_id == selected_gig_id else ""
+        opts.append(f'<option value="{html.escape(event.gig_id)}"{sel}>{html.escape(label)}</option>')
+    return "".join(opts)
+
+
+def render_shell_detail_page(shell_id: str) -> str:
+    shell = get_shell(shell_id)
+    if shell is None:
+        return (
+            page_head("Shell not found", extra_css=_shell_css())
+            + site_nav(active="shell", back_href=shell_studio_path(), back_label="All shells")
+            + f"""
+  <main class="page-main">
+    <h1>Shell not found</h1>
+    <p>Unknown shell id: <code>{html.escape(shell_id)}</code></p>
+    <p><a class="btn" href="{html.escape(shell_studio_path())}">Browse shells</a></p>
+  </main>
+"""
+            + page_close()
+        )
+
+    title = html.escape(shell.title)
+    ref_html = (
+        f'<img src="{html.escape(shell_ref_url(shell.id))}" alt="{title}" />'
+        if shell.has_image()
+        else '<p class="muted">Reference image not cached — pass 1 may be weaker.</p>'
+    )
+    rules = "".join(f"<li>{html.escape(r)}</li>" for r in shell.layout_rules)
+    palette = "".join(
+        f'<span class="palette-swatch" style="background:{html.escape(c)}" title="{html.escape(c)}"></span>'
+        for c in shell.palette
+    )
+    venue_types = ", ".join(html.escape(vt.replace("_", " ")) for vt in shell.venue_types) or "general"
+
+    return (
+        page_head(f"Shell — {shell.design_family}", extra_css=_shell_css())
+        + site_nav(active="shell", back_href=shell_studio_path(), back_label="All shells")
+        + f"""
+  <main class="page-main">
+    <h1>{title}</h1>
+    <p class="muted">{html.escape(shell.era)} · {html.escape(shell.style.replace("_", " "))} · {venue_types}</p>
+    <div class="shell-detail-layout">
+      <figure class="shell-detail-ref">{ref_html}</figure>
+      <div>
+        <section class="panel">
+          <h2>Design family</h2>
+          <p>{html.escape(shell.design_family.replace("_", " "))}</p>
+          <p class="muted">{html.escape(shell.venue_context.replace("_", " "))}</p>
+          <h3>Palette</h3>
+          <div class="palette-row">{palette}</div>
+          <h3>Layout rules</h3>
+          <ul class="layout-rules">{rules}</ul>
+        </section>
+        <section class="panel shell-form">
+          <h2>Generate</h2>
+          <form method="post" action="{html.escape(shell_run_action(shell.id))}">
+            <label for="gig_id">Gig (calendar)</label>
+            <select name="gig_id" id="gig_id">
+              {_gig_select_options()}
+            </select>
+            <label for="venue_type">Or demo gig by venue type</label>
+            <select name="venue_type" id="venue_type">
+              {_venue_type_options(shell.venue_types[0] if shell.venue_types else "regional_club")}
+            </select>
+            <p class="muted">Leave gig blank to use the demo event for the venue type above.</p>
+            <div class="checkbox-row">
+              <input type="checkbox" name="pass1_only" id="pass1_only" value="1" />
+              <label for="pass1_only">Pass 1 only (design shell with placeholders — no band assets)</label>
+            </div>
+            <button type="submit" class="btn btn-purple btn-block">Start two-pass generation</button>
+          </form>
+        </section>
+      </div>
+    </div>
+  </main>
+"""
+        + page_close()
+    )
+
+
+def render_shell_generating_page(
+    job_id: str,
+    *,
+    shell_title: str,
+    detail: str = "",
+) -> str:
+    """Single-track progress page for shell design jobs."""
+    status_url = html.escape(shell_job_status_path(job_id))
+    stream_url = html.escape(shell_job_status_stream_path(job_id))
+    results_url = html.escape(shell_job_path(job_id))
+    studio = html.escape(shell_studio_path())
+    heading = "Generating shell design…"
+    subtitle = html.escape(shell_title[:80])
+    detail_html = f'<p class="muted"><em>{html.escape(detail)}</em></p>' if detail else ""
+
+    extra_css = progress_css() + """
+    .shell-progress-card { max-width: 36rem; }
+    .shell-vessel {
+      position: relative;
+      height: 220px;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #e8f5e0;
+      border: 3px solid #2d7a0e;
+      margin: 1rem 0;
+    }
+    .shell-vessel-fill {
+      position: absolute; left: 0; right: 0; bottom: 0; height: 0%;
+      background: linear-gradient(180deg, #818cf8 0%, #6366f1 100%);
+      transition: height 0.35s ease-out;
+    }
+    .shell-vessel-pct {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.5rem; font-weight: 700; color: var(--muted); z-index: 2;
+    }
+    """
+
+    return (
+        page_head(heading, extra_css=extra_css)
+        + site_nav(active="shell", back_href=studio, back_label="Shell studio")
+        + f"""
+  <main class="page-main">
+  <div class="progress-card shell-progress-card">
+    <h1>{html.escape(heading)}</h1>
+    <p class="gig-line"><strong>{subtitle}</strong></p>
+    {detail_html}
+    <p class="overall-status" id="overall-status">Starting…</p>
+    <p class="overall-detail" id="overall-detail"></p>
+    <div class="shell-vessel" aria-label="Generation progress">
+      <div class="shell-vessel-fill" id="shell-fill"></div>
+      <div class="shell-vessel-pct" id="shell-pct">—</div>
+    </div>
+    <div class="log-panel" id="log-panel" aria-live="polite"></div>
+    <p class="muted">Pass 1 builds the design shell; pass 2 adds your gig details with locked photo and logo.</p>
+  </div>
+  </main>
+  <script>
+    const statusUrl = "{status_url}";
+    const streamUrl = "{stream_url}";
+    const resultsUrl = "{results_url}";
+    let lastLogRevision = -1;
+
+    function applyStatus(data) {{
+      const status = data.status || "idle";
+      const msg = data.message || "";
+      const progress = Math.min(100, Math.max(0, parseInt(data.progress || 0, 10)));
+      document.getElementById("overall-status").textContent = msg || status;
+      document.getElementById("overall-detail").textContent = data.detail || "";
+      document.getElementById("shell-fill").style.height = progress + "%";
+      document.getElementById("shell-pct").textContent = progress + "%";
+      if (data.log_revision !== lastLogRevision && Array.isArray(data.log)) {{
+        lastLogRevision = data.log_revision;
+        const panel = document.getElementById("log-panel");
+        panel.innerHTML = data.log.map(e => '<div class="log-line">' + (e.text || '') + '</div>').join('');
+        panel.scrollTop = panel.scrollHeight;
+      }}
+      if (status === "done") {{
+        window.location.href = resultsUrl;
+      }}
+      if (status === "error") {{
+        document.getElementById("overall-status").className = "overall-status error";
+        document.getElementById("overall-status").textContent = data.error || msg || "Error";
+      }}
+    }}
+
+    if (typeof EventSource !== "undefined") {{
+      const es = new EventSource(streamUrl);
+      es.onmessage = (ev) => {{
+        try {{ applyStatus(JSON.parse(ev.data)); }} catch (e) {{}}
+        const d = JSON.parse(ev.data);
+        if (d.status === "done" || d.status === "error") es.close();
+      }};
+      es.onerror = () => es.close();
+    }} else {{
+      setInterval(async () => {{
+        const r = await fetch(statusUrl);
+        applyStatus(await r.json());
+      }}, 1200);
+    }}
+  </script>
+"""
+        + page_close()
+    )
+
+
+def render_shell_results_page(job_id: str) -> str:
+    summary = load_job_summary(job_id)
+    job = get_job_status(job_id)
+    if not summary and job.get("status") == "running":
+        shell_title = job.get("title") or "Shell design"
+        return render_shell_generating_page(job_id, shell_title=shell_title, detail=job.get("detail") or "")
+
+    if not summary:
+        return (
+            page_head("Shell job", extra_css=_shell_css())
+            + site_nav(active="shell", back_href=shell_studio_path(), back_label="All shells")
+            + f"""
+  <main class="page-main">
+    <h1>Job not found</h1>
+    <p class="muted">No results for job <code>{html.escape(job_id)}</code></p>
+    <p><a class="btn" href="{html.escape(shell_studio_path())}">Browse shells</a></p>
+  </main>
+"""
+            + page_close()
+        )
+
+    shell_title = html.escape(summary.get("shell_title") or "")
+    shell_id = summary.get("shell_id") or ""
+    pass1 = summary.get("pass1") or {}
+    pass2 = summary.get("pass2") or {}
+    pass1_only = bool(summary.get("pass1_only"))
+    event = summary.get("event") or {}
+
+    panels: list[str] = []
+    if pass1.get("shell_rel"):
+        panels.append(
+            _result_panel("Pass 1 — design shell", pass1["shell_rel"], "Placeholder text only")
+        )
+    if pass2.get("personalized_rel"):
+        panels.append(
+            _result_panel("Pass 2 — personalized", pass2["personalized_rel"], event.get("venue", ""))
+        )
+    eval_rel = summary.get("evaluation_rel")
+    eval_html = ""
+    if eval_rel:
+        eval_html = f"""
+        <section class="panel eval-wide">
+          <h2>Evaluation — reference · shell · personalized</h2>
+          <img src="{html.escape(asset_url(eval_rel))}" alt="Shell evaluation card" loading="lazy" />
+        </section>
+        """
+
+    venue_line = ""
+    if event.get("venue"):
+        venue_line = f'<p class="gig-line"><strong>{html.escape(event.get("short_date") or event.get("date", ""))}</strong> @ <strong>{html.escape(event.get("venue", ""))}</strong></p>'
+
+    rerun = shell_detail_path(shell_id) if shell_id else shell_studio_path()
+
+    return (
+        page_head(f"Results — {summary.get('design_family', 'shell')}", extra_css=_shell_css())
+        + site_nav(active="shell", back_href=shell_studio_path(), back_label="All shells")
+        + f"""
+  <main class="page-main">
+    <h1>Shell design results</h1>
+    <p class="muted">{shell_title}</p>
+    {venue_line}
+    <div class="shell-results-grid cols-{min(len(panels), 3) if panels else 1}">{''.join(panels)}</div>
+    {eval_html}
+    <p class="btn-row" style="margin-top:1.5rem">
+      <a class="btn btn-purple" href="{html.escape(rerun)}">Run again</a>
+      <a class="btn btn-secondary" href="{html.escape(shell_studio_path())}">Browse shells</a>
+    </p>
+  </main>
+"""
+        + page_close()
+    )
+
+
+def _result_panel(label: str, rel_path: str, caption: str) -> str:
+    cap = html.escape(caption) if caption else ""
+    return f"""
+    <figure class="shell-result-panel">
+      <h3>{html.escape(label)}</h3>
+      {f'<p class="muted">{cap}</p>' if cap else ''}
+      <img src="{html.escape(asset_url(rel_path))}" alt="{html.escape(label)}" loading="lazy" />
+    </figure>
+    """

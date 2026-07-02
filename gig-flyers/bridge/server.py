@@ -15,7 +15,7 @@ from typing import Any, Optional
 import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI, Form, Header, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -76,6 +76,7 @@ app.mount("/bandphotos", StaticFiles(directory=str(ROOT / "bandphotos")), name="
 POLL_SECONDS = int(os.getenv("BRIDGE_POLL_SECONDS", "30"))
 _revise_in_flight: set[str] = set()
 _generate_in_flight: set[str] = set()
+_shell_in_flight: set[str] = set()
 
 
 def _check_secret(secret: Optional[str]) -> None:
@@ -791,6 +792,165 @@ async def prototype_submit(
     )
     record = get_gig_state(gig_id) or {}
     return HTMLResponse(render_prototype_generating_page(gig_id, record.get("event") or {}))
+
+
+async def _run_shell_design_job(
+    job_id: str,
+    shell_id: str,
+    event: Optional[Any],
+    *,
+    pass1_only: bool,
+) -> None:
+    from bridge.shell_runner import run_shell_pipeline
+    from shell_references import get_shell
+
+    shell = get_shell(shell_id)
+    if shell is None:
+        fail_job(job_id, f"Unknown shell: {shell_id}")
+        return
+    callback = _progress_callback(job_id)
+    try:
+        await asyncio.to_thread(
+            run_shell_pipeline,
+            job_id,
+            shell,
+            event,
+            pass1_only=pass1_only,
+            on_progress=callback,
+        )
+    except Exception as exc:  # noqa: BLE001
+        _log_bridge_error(f"shell design error for {job_id}: {exc}")
+    finally:
+        _shell_in_flight.discard(job_id)
+
+
+@add_get(app, "/shell", response_class=HTMLResponse)
+async def shell_studio_page(venue_type: str = "") -> HTMLResponse:
+    from bridge.shell_design import render_shell_studio_page
+
+    return HTMLResponse(render_shell_studio_page(venue_filter=venue_type.strip()))
+
+
+@add_get(app, "/shell/ref/{shell_id}")
+async def shell_reference_image(shell_id: str) -> Response:
+    from shell_references import get_shell
+
+    shell = get_shell(shell_id)
+    if shell is None or not shell.has_image():
+        raise HTTPException(status_code=404, detail="Reference image not found")
+    path = shell.image_path()
+    media = "image/jpeg" if path.suffix.lower() in {".jpg", ".jpeg"} else "image/png"
+    return FileResponse(path, media_type=media)
+
+
+@add_get(app, "/shell/job/{job_id}", response_class=HTMLResponse)
+async def shell_job_page(job_id: str) -> HTMLResponse:
+    from bridge.shell_design import render_shell_results_page
+
+    return HTMLResponse(render_shell_results_page(job_id))
+
+
+@add_get(app, "/shell/job/{job_id}/status")
+async def shell_job_status(job_id: str) -> JSONResponse:
+    return JSONResponse(
+        content=get_job_status(job_id),
+        headers={
+            "Cache-Control": "no-store, no-cache, must-revalidate",
+            "Pragma": "no-cache",
+        },
+    )
+
+
+@add_get(app, "/shell/job/{job_id}/status/stream")
+async def shell_job_status_stream(job_id: str) -> StreamingResponse:
+    async def event_generator():
+        last_fp = ""
+        idle_ticks = 0
+        while idle_ticks < 180:
+            snap = get_job_status(job_id)
+            fp = (
+                f"{snap.get('log_revision')}:{snap.get('heartbeat_revision')}:"
+                f"{snap.get('updated_at')}:{snap.get('status')}:{snap.get('message')}"
+            )
+            if fp != last_fp:
+                yield f"data: {json.dumps(snap)}\n\n"
+                last_fp = fp
+            if snap.get("status") in ("done", "error"):
+                break
+            if snap.get("status") == "idle":
+                idle_ticks += 1
+            else:
+                idle_ticks = 0
+            await asyncio.sleep(0.5)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@add_get(app, "/shell/{shell_id}", response_class=HTMLResponse)
+async def shell_detail_page(shell_id: str) -> HTMLResponse:
+    from bridge.shell_design import render_shell_detail_page
+
+    return HTMLResponse(render_shell_detail_page(shell_id))
+
+
+@add_post(app, "/shell/{shell_id}/run")
+async def shell_run(
+    shell_id: str,
+    gig_id: str = Form(""),
+    venue_type: str = Form("regional_club"),
+    pass1_only: str = Form(""),
+) -> Response:
+    from bridge.shell_design import render_shell_generating_page
+    from bridge.shell_runner import demo_event_for_venue_type, new_shell_job_id
+    from gig_resolve import resolve_gig_event
+    from shell_references import get_shell
+
+    shell = get_shell(shell_id)
+    if shell is None:
+        raise HTTPException(status_code=404, detail=f"Unknown shell: {shell_id}")
+
+    only_pass1 = pass1_only in ("1", "on", "true", "yes")
+    event = None
+    cleaned_gig = (gig_id or "").strip()
+    if cleaned_gig and not only_pass1:
+        try:
+            event_obj = resolve_gig_event(cleaned_gig)
+            upsert_gig(cleaned_gig, event=event_obj.to_dict())
+            event = event_obj
+        except ValueError as exc:
+            body = f"""<!DOCTYPE html><html><body style="font-family:system-ui;margin:2rem">
+            <h1>Gig not found</h1>
+            <p>{html_module.escape(str(exc))}</p>
+            <p><a href="{html_module.escape(pick_page_path())}">Pick a gig</a></p>
+            </body></html>"""
+            return HTMLResponse(body, status_code=404)
+    elif not only_pass1:
+        event = demo_event_for_venue_type(venue_type)
+
+    job_id = new_shell_job_id()
+    if job_id in _shell_in_flight:
+        raise HTTPException(status_code=409, detail="Shell job already running")
+
+    detail = "Pass 1 only" if only_pass1 else (
+        f"{event.venue} · two-pass" if event else "Two-pass shell design"
+    )
+    title = shell.title[:60]
+    start_job(job_id, "shell_design", title=title, detail=detail)
+    _shell_in_flight.add(job_id)
+    asyncio.create_task(
+        _run_shell_design_job(job_id, shell_id, event, pass1_only=only_pass1)
+    )
+    return HTMLResponse(
+        render_shell_generating_page(job_id, shell_title=shell.title, detail=detail)
+    )
 
 
 @app.on_event("startup")
