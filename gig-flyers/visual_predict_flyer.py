@@ -1,4 +1,10 @@
-"""AI image prediction: style reference poster + band photo → predicted flyer."""
+"""AI image prediction — EXPERIMENTAL.
+
+Style reference poster + band photo canvas → model-generated typography.
+For study-constrained layouts (Hatch letterpress), the structured renderer
+(hatch_stack + visual_constraints) produces better, checkable results.
+Use this module only for exploration, not production flyers.
+"""
 
 from __future__ import annotations
 

@@ -1,4 +1,10 @@
-"""Run Hatch pilot: structured constraints vs AI prediction in parallel."""
+"""Run Hatch pilot: structured constraints (recommended) vs optional AI predict (experimental).
+
+The structured hatch_stack path passes machine-checkable constraints and matches
+the Hatch reference. OpenAI/Gemini image prediction is kept for experimentation
+only — it often hallucinates dates, omits the presenter bar, and mishandles the
+band photo. Prefer structured unless explicitly testing --predict-only.
+"""
 
 from __future__ import annotations
 
@@ -131,7 +137,11 @@ def main() -> int:
                 file=sys.stderr,
             )
             return 1
-        print("Running AI visual prediction (OpenAI)…")
+        print("Running AI visual prediction (OpenAI, experimental)…", file=sys.stderr)
+        print(
+            "  Note: structured hatch_stack usually beats AI predict for letterpress layouts.",
+            file=sys.stderr,
+        )
         predict = predict_visual_flyer(args.gig_id, dry_run=args.dry_run)
         results["outputs"]["ai_predict"] = predict
         print(f"  AI predict: {predict['path_rel']}")
