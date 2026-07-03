@@ -8,7 +8,7 @@ import os
 import tempfile
 import urllib.request
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from dotenv import load_dotenv
 from PIL import Image, ImageDraw, ImageFont
@@ -103,6 +103,7 @@ def generate_design_shell_openai(
     *,
     briefing_path: Path | None = None,
     model_choice: ShellModelChoice | None = None,
+    on_openai_call: Callable[[], None] | None = None,
 ) -> Path:
     from openai import OpenAI
 
@@ -125,6 +126,7 @@ def generate_design_shell_openai(
                 image=f,
                 prompt=prompt,
                 choice=choice,
+                on_call=on_openai_call,
             )
         item = response.data[0]
         output_path.parent.mkdir(parents=True, exist_ok=True)

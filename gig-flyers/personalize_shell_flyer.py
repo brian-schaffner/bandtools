@@ -8,7 +8,7 @@ import os
 import tempfile
 import urllib.request
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Callable, Literal
 
 from dotenv import load_dotenv
 from PIL import Image, ImageFont
@@ -340,6 +340,7 @@ def personalize_shell_typography_sequential(
     time: str,
     client: Any,
     model_choice: ShellModelChoice,
+    on_openai_call: Callable[[], None] | None = None,
 ) -> Path:
     """Replace each placeholder in a tight mask, restoring pass-1 art after every step."""
     spec = get_render_spec(shell)
@@ -385,6 +386,7 @@ def personalize_shell_typography_sequential(
                     mask=mask_f,
                     prompt=slot_prompt(label, value, shell),
                     choice=model_choice,
+                    on_call=on_openai_call,
                 )
             _write_openai_image(response.data[0], work)
             edited_zones.append(zone)
@@ -420,6 +422,9 @@ def personalize_shell_photo_registry(
     client: Any,
     model_choice: ShellModelChoice,
     asset_mode: AssetMode | None = None,
+    compose: ShellPass2Compose | None = None,
+    initial_canvas_path: Path | None = None,
+    on_openai_call: Callable[[], None] | None = None,
 ) -> Path:
     """Photo pass 2 driven by render spec — deterministic facts + tight OpenAI slots."""
     spec = get_render_spec(shell)
@@ -430,17 +435,21 @@ def personalize_shell_photo_registry(
     openai_labels = set(spec.openai_text_slots())
 
     with tempfile.TemporaryDirectory(prefix="shell-pass2-photo-") as tmp:
-        canvas_path, _, _, _, compose = build_personalize_canvas(
-            shell_image_path,
-            photo_path,
-            logo_path,
-            Path(tmp),
-            shell=shell,
-            size=canvas_size,
-            asset_mode=compose_mode,
-        )
         work = Path(tmp) / "work.png"
-        work.write_bytes(canvas_path.read_bytes())
+        if initial_canvas_path is not None and initial_canvas_path.is_file() and compose is not None:
+            work.write_bytes(initial_canvas_path.read_bytes())
+        else:
+            canvas_path, _, _, _, built_compose = build_personalize_canvas(
+                shell_image_path,
+                photo_path,
+                logo_path,
+                Path(tmp),
+                shell=shell,
+                size=canvas_size,
+                asset_mode=compose_mode,
+            )
+            work.write_bytes(canvas_path.read_bytes())
+            compose = built_compose
         assert compose is not None
 
         if spec.text_engine in {"deterministic", "hybrid"}:
@@ -474,6 +483,7 @@ def personalize_shell_photo_registry(
                     mask=mask_f,
                     prompt=slot_prompt(label, value, shell),
                     choice=model_choice,
+                    on_call=on_openai_call,
                 )
             _write_openai_image(response.data[0], work)
             edited_zones.append(zone)
@@ -513,6 +523,9 @@ def personalize_shell_openai(
     final_mode: FinalRoute | None = None,
     asset_mode: AssetMode | None = None,
     model_choice: ShellModelChoice | None = None,
+    compose: ShellPass2Compose | None = None,
+    initial_canvas_path: Path | None = None,
+    on_openai_call: Callable[[], None] | None = None,
 ) -> Path:
     from openai import OpenAI
 
@@ -551,6 +564,7 @@ def personalize_shell_openai(
             time=time,
             client=client,
             model_choice=text_choice,
+            on_openai_call=on_openai_call,
         )
 
     compose_mode = asset_mode or asset_mode_for_shell(shell)
@@ -573,6 +587,9 @@ def personalize_shell_openai(
             client=client,
             model_choice=photo_choice,
             asset_mode=compose_mode,
+            compose=compose,
+            initial_canvas_path=initial_canvas_path,
+            on_openai_call=on_openai_call,
         )
 
     with tempfile.TemporaryDirectory(prefix="shell-pass2-") as tmp:
@@ -591,6 +608,7 @@ def personalize_shell_openai(
                 mask=mask_f,
                 prompt=prompt,
                 choice=photo_choice,
+                on_call=on_openai_call,
             )
         item = response.data[0]
         _write_openai_image(item, output_path)

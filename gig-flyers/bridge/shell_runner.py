@@ -46,9 +46,16 @@ from shell_model_policy import (
     model_choice_for_step,
     select_model_for_step,
 )
+from shell_pass1_cache import (
+    annotate_pass1_manifest,
+    load_pass1_cache,
+    pass1_manifest_path,
+    pass1_shell_path,
+)
 from shell_pre_pass import build_prepass_mockup
 from shell_render_registry import get_render_spec
 from shell_references import ShellReference, get_shell
+from shell_step_timing import ShellStepTiming
 from text_validation import resolve_venue_address
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -128,6 +135,16 @@ def _step_api_message(step_label: str, choice: ShellModelChoice) -> str:
     return f"{step_label} · {choice.label()}"
 
 
+def _timing_from_summary(summary: dict[str, Any]) -> ShellStepTiming:
+    timing = ShellStepTiming()
+    state = summary.get("_timing_state") or summary.get("performance") or {}
+    if isinstance(state, dict):
+        timing.timings_ms = dict(state.get("timings_ms") or {})
+        timing.cache_hits = dict(state.get("cache_hits") or {})
+        timing.openai_calls = int(state.get("openai_calls") or 0)
+    return timing
+
+
 def _run_pass1(
     job_id: str,
     shell: ShellReference,
@@ -135,11 +152,31 @@ def _run_pass1(
     progress: ProgressCallback,
     *,
     model_plan: dict[str, Any],
+    timing: ShellStepTiming,
 ) -> tuple[dict[str, Any], Path]:
     stem = shell.id
     briefing_path = output_dir / f"{stem}_pass1_briefing.png"
-    shell_path = output_dir / f"{stem}_design_shell.png"
+    shell_path = pass1_shell_path(output_dir, shell.id)
+    prompt = build_shell_prompt(shell)
 
+    timing.start("pass1")
+    pass1_choice = model_choice_for_step(model_plan, "pass1") or select_model_for_step(
+        shell, "pass1",
+    )
+    cached = load_pass1_cache(shell, output_dir, prompt=prompt, choice=pass1_choice)
+    if cached is not None:
+        timing.mark_cache("pass1", True)
+        timing.stop("pass1")
+        progress(
+            step="pass1",
+            substep="cached",
+            message="Pass 1 · reusing cached design shell",
+            progress=40,
+            log=True,
+        )
+        return cached, shell_path
+
+    timing.mark_cache("pass1", False)
     progress(
         step="pass1",
         substep="briefing",
@@ -148,9 +185,6 @@ def _run_pass1(
         log=True,
     )
     build_shell_briefing_sheet(shell, briefing_path)
-    pass1_choice = model_choice_for_step(model_plan, "pass1") or select_model_for_step(
-        shell, "pass1",
-    )
     progress(
         step="pass1",
         substep="api",
@@ -163,21 +197,28 @@ def _run_pass1(
         shell_path,
         briefing_path=briefing_path,
         model_choice=pass1_choice,
+        on_openai_call=timing.add_openai_calls,
     )
     if not shell_path.is_file():
         raise FileNotFoundError(f"Pass 1 shell image missing: {shell_path}")
 
-    pass1 = {
-        "shell_id": shell.id,
-        "shell_title": shell.title,
-        "design_family": shell.design_family,
-        "briefing_rel": output_relative(briefing_path),
-        "shell_rel": output_relative(shell_path),
-        "prompt": build_shell_prompt(shell),
-        "model": pass1_choice.to_dict(),
-    }
-    manifest_path = output_dir / f"{stem}_pass1_manifest.json"
+    pass1 = annotate_pass1_manifest(
+        {
+            "shell_id": shell.id,
+            "shell_title": shell.title,
+            "design_family": shell.design_family,
+            "briefing_rel": output_relative(briefing_path),
+            "shell_rel": output_relative(shell_path),
+            "prompt": prompt,
+            "model": pass1_choice.to_dict(),
+        },
+        shell,
+        prompt=prompt,
+        choice=pass1_choice,
+    )
+    manifest_path = pass1_manifest_path(output_dir, shell.id)
     manifest_path.write_text(json.dumps(pass1, indent=2), encoding="utf-8")
+    timing.stop("pass1")
     progress(
         step="pass1",
         substep="saved",
@@ -197,6 +238,7 @@ def _run_prepass(
     progress: ProgressCallback,
     *,
     model_plan: dict[str, Any],
+    timing: ShellStepTiming,
 ) -> dict[str, Any]:
     band, date_str, time_str = _event_context(event)
     pass_stem = f"{event.gig_id}_{shell.id}"
@@ -206,10 +248,11 @@ def _run_prepass(
     prepass_choice = model_choice_for_step(model_plan, "prepass") or select_model_for_step(
         shell, "prepass",
     )
+    timing.start("prepass")
     progress(
         step="prepass",
         substep="api",
-        message=_step_api_message("Pre-pass · text-only mockup", prepass_choice),
+        message="Pre-pass · text preview (PIL)",
         progress=46,
         log=True,
     )
@@ -222,7 +265,10 @@ def _run_prepass(
         date=date_str,
         time=time_str,
         model_choice=prepass_choice,
+        on_openai_call=timing.add_openai_calls,
     )
+    timing.mark_cache("prepass_openai", used_choice.model == "pil")
+    timing.stop("prepass")
     if not mockup_path.is_file():
         raise FileNotFoundError(f"Pre-pass mockup missing: {mockup_path}")
 
@@ -238,6 +284,7 @@ def _run_prepass(
         "mockup_rel": output_relative(mockup_path),
         "model": used_choice.to_dict(),
         "suggested_route": suggested,
+        "pil_only": used_choice.model == "pil",
     }
 
 
@@ -251,6 +298,7 @@ def _run_final_pass(
     progress: ProgressCallback,
     *,
     model_plan: dict[str, Any],
+    timing: ShellStepTiming,
 ) -> tuple[dict[str, Any], Path]:
     set_test_mode(True)
     band, date_str, time_str = _event_context(event)
@@ -280,6 +328,9 @@ def _run_final_pass(
         shell, final_step, route=route,
     )
 
+    timing.start("final")
+    compose = None
+    initial_canvas_path: Path | None = None
     if route == "text_only":
         pass2_msg = _step_api_message("Final pass · typography only", final_choice)
     else:
@@ -295,7 +346,7 @@ def _run_final_pass(
         log=True,
     )
     if route == "photo_logo":
-        c_path, _, _, _, _ = build_personalize_canvas(
+        c_path, _, _, _, compose = build_personalize_canvas(
             shell_path,
             photo,
             logo,
@@ -303,6 +354,7 @@ def _run_final_pass(
             shell=shell,
             asset_mode=compose_mode,
         )
+        initial_canvas_path = c_path
         canvas_preview.write_bytes(c_path.read_bytes())
 
     progress(
@@ -326,7 +378,11 @@ def _run_final_pass(
         final_mode=route,
         asset_mode=compose_mode,
         model_choice=final_choice,
+        compose=compose,
+        initial_canvas_path=initial_canvas_path,
+        on_openai_call=timing.add_openai_calls,
     )
+    timing.stop("final")
 
     pass2 = {
         "gig_id": event.gig_id,
@@ -366,7 +422,10 @@ def _run_eval_card(
     *,
     model_plan: dict[str, Any] | None = None,
     route: FinalRoute | None = None,
+    timing: ShellStepTiming | None = None,
 ) -> str:
+    if timing is not None:
+        timing.start("eval")
     progress(
         step="eval",
         substep="start",
@@ -396,6 +455,8 @@ def _run_eval_card(
         date=date_str,
         extra_lines=extra_lines,
     )
+    if timing is not None:
+        timing.stop("eval")
     progress(
         step="eval",
         substep="saved",
@@ -432,10 +493,11 @@ def run_shell_pipeline(
     try:
         output_dir = OUT_DIR
         output_dir.mkdir(parents=True, exist_ok=True)
+        timing = ShellStepTiming()
         model_plan = build_run_model_plan(shell)
         render_spec = get_render_spec(shell)
         pass1, shell_path = _run_pass1(
-            job_id, shell, output_dir, progress, model_plan=model_plan,
+            job_id, shell, output_dir, progress, model_plan=model_plan, timing=timing,
         )
 
         summary: dict[str, Any] = {
@@ -448,6 +510,7 @@ def run_shell_pipeline(
             "model_plan": model_plan,
             "render_spec": render_spec.to_dict(),
             "pass1": pass1,
+            "performance": timing.to_dict(),
         }
 
         if pass1_only:
@@ -465,9 +528,17 @@ def run_shell_pipeline(
 
         if final_route is None and not skip_prepass:
             prepass = _run_prepass(
-                job_id, shell, shell_path, event, output_dir, progress, model_plan=model_plan,
+                job_id,
+                shell,
+                shell_path,
+                event,
+                output_dir,
+                progress,
+                model_plan=model_plan,
+                timing=timing,
             )
             summary["prepass"] = prepass
+            summary["performance"] = timing.to_dict()
             summary["status"] = "awaiting_route"
             _save_job_summary(job_id, summary)
             pause_job_for_route(job_id, "Pre-pass mockup ready — choose your final path")
@@ -475,6 +546,8 @@ def run_shell_pipeline(
 
         route: FinalRoute = final_route or suggest_final_route(shell)
         summary["route"]["chosen"] = route
+        summary["_timing_state"] = timing.to_dict()
+        _save_job_summary(job_id, summary)
         return run_shell_final(job_id, route, on_progress=on_progress, summary=summary)
     except Exception as exc:  # noqa: BLE001
         fail_job(job_id, str(exc))
@@ -524,6 +597,7 @@ def run_shell_final(
         summary.setdefault("route", {})
         summary["route"]["chosen"] = route
         model_plan = summary.get("model_plan") or build_run_model_plan(shell)
+        timing = _timing_from_summary(summary)
         pass2, out_path = _run_final_pass(
             job_id,
             shell,
@@ -533,6 +607,7 @@ def run_shell_final(
             output_dir,
             progress,
             model_plan=model_plan,
+            timing=timing,
         )
         _, date_str, _ = _event_context(event)
         eval_rel = _run_eval_card(
@@ -544,6 +619,7 @@ def run_shell_final(
             progress,
             model_plan=model_plan,
             route=route,
+            timing=timing,
         )
 
         summary.update(
@@ -551,8 +627,10 @@ def run_shell_final(
                 "status": "done",
                 "pass2": pass2,
                 "evaluation_rel": eval_rel,
+                "performance": timing.to_dict(),
             }
         )
+        summary.pop("_timing_state", None)
         _save_job_summary(job_id, summary)
         complete_job(job_id, "Shell design complete")
         return summary

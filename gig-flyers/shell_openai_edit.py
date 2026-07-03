@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, BinaryIO
+from typing import Any, BinaryIO, Callable, Callable
 
 from shell_model_policy import ShellModelChoice
 
@@ -14,6 +14,7 @@ def shell_images_edit(
     prompt: str,
     choice: ShellModelChoice,
     mask: BinaryIO | None = None,
+    on_call: Callable[[], None] | None = None,
 ) -> Any:
     kwargs: dict[str, Any] = {
         "model": choice.model,
@@ -27,4 +28,7 @@ def shell_images_edit(
         kwargs["mask"] = mask
     if choice.input_fidelity:
         kwargs["input_fidelity"] = choice.input_fidelity
-    return client.images.edit(**kwargs)
+    result = client.images.edit(**kwargs)
+    if on_call is not None:
+        on_call()
+    return result

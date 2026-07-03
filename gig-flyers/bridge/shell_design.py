@@ -753,6 +753,42 @@ def _model_plan_html(summary: dict[str, Any]) -> str:
     """
 
 
+def _performance_html(summary: dict[str, Any]) -> str:
+    perf = summary.get("performance") or {}
+    timings = perf.get("timings_ms") or {}
+    if not timings:
+        return ""
+    cache_hits = perf.get("cache_hits") or {}
+    openai_calls = perf.get("openai_calls")
+    rows: list[str] = []
+    labels = {
+        "pass1": "Pass 1",
+        "prepass": "Pre-pass",
+        "final": "Final pass",
+        "eval": "Eval card",
+    }
+    for key, label in labels.items():
+        ms = timings.get(key)
+        if ms is None:
+            continue
+        suffix = ""
+        if key == "pass1" and cache_hits.get("pass1"):
+            suffix = ' <span class="shell-route-badge">cached</span>'
+        if key == "prepass" and cache_hits.get("prepass_openai"):
+            suffix = ' <span class="shell-route-badge">PIL-only</span>'
+        rows.append(f"<li><strong>{html.escape(label)}:</strong> {ms:,} ms{suffix}</li>")
+    calls_line = ""
+    if openai_calls is not None:
+        calls_line = f'<p class="muted">OpenAI image calls: <strong>{int(openai_calls)}</strong></p>'
+    return f"""
+    <section class="panel">
+      <h2>Performance</h2>
+      {calls_line}
+      <ul class="layout-rules">{''.join(rows)}</ul>
+    </section>
+    """
+
+
 def render_shell_review_page(job_id: str, summary: dict[str, Any]) -> str:
     """Mockup review — user chooses text-only final vs photo/logo final."""
     shell_title = html.escape(summary.get("shell_title") or "")
@@ -826,6 +862,7 @@ def render_shell_review_page(job_id: str, summary: dict[str, Any]) -> str:
 
     <div class="shell-compare-grid">{''.join(compare_panels)}</div>
     {_model_plan_html(summary)}
+    {_performance_html(summary)}
     {render_html}
 
     <section class="panel">
@@ -939,6 +976,7 @@ def render_shell_results_page(job_id: str) -> str:
     {venue_line}
     <div class="shell-results-grid cols-{min(len(panels), 3) if panels else 1}">{''.join(panels)}</div>
     {_model_plan_html(summary)}
+    {_performance_html(summary)}
     {eval_html}
     <p class="btn-row" style="margin-top:1.5rem">
       <a class="btn btn-purple" href="{html.escape(rerun)}">Run again</a>
