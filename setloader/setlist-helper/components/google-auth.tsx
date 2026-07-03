@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { LogIn, LogOut, User, Mail, Calendar } from "lucide-react"
-import { apiService, getApiAuthHeaders } from "@/lib/api"
+import { apiService, getApiAuthHeaders, persistSessionToken, clearSessionToken } from "@/lib/api"
 
 interface UserInfo {
   user_id: string
@@ -33,6 +33,10 @@ export function GoogleAuth({ onAuthChange }: GoogleAuthProps) {
         if (response.ok && response.data) {
           const data = response.data
           if (data.authenticated && data.user_email) {
+            const existing = localStorage.getItem('session_token')
+            if (existing) {
+              persistSessionToken(existing)
+            }
             setIsAuthenticated(true)
             setUser({
               user_id: data.user_id || `user_${data.user_email.split('@')[0]}`,
@@ -89,7 +93,7 @@ export function GoogleAuth({ onAuthChange }: GoogleAuthProps) {
         const { user_id, session_token, user_email, user_name } = loginResponse.data
 
         if (session_token) {
-          localStorage.setItem('session_token', session_token)
+          persistSessionToken(session_token)
         }
 
         const authResponse = await apiService.getUserStatus()
@@ -121,8 +125,7 @@ export function GoogleAuth({ onAuthChange }: GoogleAuthProps) {
       await apiService.logout()
       setIsAuthenticated(false)
       setUser(null)
-      // Clear localStorage to remove session data
-      localStorage.removeItem('session_id')
+      clearSessionToken()
       // Call onAuthChange to notify parent component of logout
       if (onAuthChange) {
         onAuthChange(false)

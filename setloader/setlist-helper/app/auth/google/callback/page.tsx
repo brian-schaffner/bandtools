@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { getApiAuthHeaders, getApiBaseUrl } from "@/lib/api"
+import { getApiAuthHeaders, getApiBaseUrl, persistSessionToken } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Loader2, CheckCircle, XCircle } from "lucide-react"
@@ -41,7 +41,7 @@ function GoogleCallbackContent() {
           const data = await response.json()
 
           if (data.session_token) {
-            localStorage.setItem('session_token', data.session_token)
+            persistSessionToken(data.session_token)
           }
 
           setStatus('success')

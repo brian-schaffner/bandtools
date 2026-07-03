@@ -23,6 +23,7 @@ from flyer_agent.ui import (
     render_login_page,
     render_research_page,
 )
+from flyer_agent.session_sync import render_session_bootstrap
 from gig_calendar import CalendarUnavailableError, find_gig_by_id
 from state import append_feedback, get_gig_state, upsert_gig
 
@@ -83,7 +84,7 @@ def register_agent_routes(app: FastAPI) -> None:
     async def agent_dashboard(request: Request) -> HTMLResponse:
         user = await validate_session(extract_session_token(request))
         if not user:
-            return RedirectResponse(route_path("/agent/login"), status_code=302)
+            return HTMLResponse(render_session_bootstrap(redirect_to=route_path("/agent")))
         try:
             board = _agent.gig_board()
         except CalendarUnavailableError as exc:
@@ -100,7 +101,9 @@ def register_agent_routes(app: FastAPI) -> None:
     async def agent_gig_page(gig_id: str, request: Request) -> HTMLResponse:
         user = await validate_session(extract_session_token(request))
         if not user:
-            return RedirectResponse(route_path("/agent/login"), status_code=302)
+            return HTMLResponse(
+                render_session_bootstrap(redirect_to=route_path(f"/agent/gig/{gig_id}"))
+            )
         detail = _agent.gig_detail(gig_id)
         if not detail:
             raise HTTPException(status_code=404, detail="Gig not found")
@@ -197,12 +200,16 @@ def register_agent_routes(app: FastAPI) -> None:
 
     @add_get(app, "/agent/catalog", response_class=HTMLResponse)
     async def agent_catalog_page(request: Request) -> HTMLResponse:
-        await require_agent_user(request)
+        user = await validate_session(extract_session_token(request))
+        if not user:
+            return HTMLResponse(render_session_bootstrap(redirect_to=route_path("/agent/catalog")))
         return HTMLResponse(render_catalog_page(_agent.catalog(limit=50)))
 
     @add_get(app, "/agent/research", response_class=HTMLResponse)
     async def agent_research_page(request: Request) -> HTMLResponse:
-        await require_agent_user(request)
+        user = await validate_session(extract_session_token(request))
+        if not user:
+            return HTMLResponse(render_session_bootstrap(redirect_to=route_path("/agent/research")))
         return HTMLResponse(render_research_page(_agent.design_research(limit=30)))
 
     @add_post(app, "/agent/research/refresh")

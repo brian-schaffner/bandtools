@@ -8,6 +8,7 @@ from typing import Any, Optional
 
 from bridge.review import asset_url, review_page_path, route_path
 from bridge.ui import base_css, page_close, page_head, site_nav
+from flyer_agent.session_sync import agent_session_sync_script
 
 
 def agent_css() -> str:
@@ -95,26 +96,8 @@ def render_login_page(*, band_tools_url: str = "/") -> str:
       <p class="muted" style="margin-top:1rem" id="agent-auth-status">Checking session…</p>
     </div>
   </main>
-  <script>
-  (function(){
-    var token = localStorage.getItem('session_token') || localStorage.getItem('session_id');
-    var status = document.getElementById('agent-auth-status');
-    if (!token || token === 'guest-session') {
-      status.textContent = 'Not signed in yet.';
-      return;
-    }
-    fetch('""" + html.escape(route_path("/agent/api/session")) + """', {
-      headers: { 'X-Session-ID': token }
-    }).then(function(r){ return r.json(); }).then(function(d){
-      if (d.authenticated) {
-        window.location.href = '""" + html.escape(route_path("/agent")) + """';
-      } else {
-        status.textContent = 'Session expired — sign in again.';
-      }
-    }).catch(function(){ status.textContent = 'Could not verify session.'; });
-  })();
-  </script>
 """
+        + agent_session_sync_script(redirect_to=route_path("/agent"))
         + page_close()
     )
 

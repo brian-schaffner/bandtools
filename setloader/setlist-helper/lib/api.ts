@@ -27,6 +27,26 @@ function getSessionId(): string {
   return localStorage.getItem('session_token') || localStorage.getItem('session_id') || 'guest-session';
 }
 
+const SESSION_COOKIE_MAX_AGE = 60 * 60 * 24 * 30;
+
+/** Mirror localStorage session into a site-wide cookie for /flyers HTML routes. */
+export function persistSessionToken(token: string): void {
+  if (typeof window === 'undefined' || !token) {
+    return;
+  }
+  localStorage.setItem('session_token', token);
+  document.cookie = `session_token=${encodeURIComponent(token)}; path=/; max-age=${SESSION_COOKIE_MAX_AGE}; SameSite=Lax`;
+}
+
+export function clearSessionToken(): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  localStorage.removeItem('session_token');
+  localStorage.removeItem('session_id');
+  document.cookie = 'session_token=; path=/; max-age=0; SameSite=Lax';
+}
+
 export function getApiAuthHeaders(): Record<string, string> {
   return {
     'X-Secret': API_SECRET,
@@ -279,9 +299,8 @@ class ApiService {
       throw new Error(`Failed to logout: ${response.status}`);
     }
     
-    // Clear session token from localStorage
-    localStorage.removeItem('session_token');
-    localStorage.removeItem('session_id');
+    // Clear session token from localStorage and cookie
+    clearSessionToken();
   }
 
   getBaseUrl(): string {
