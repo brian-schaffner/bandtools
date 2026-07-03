@@ -104,7 +104,7 @@ def agent_chat_reply(
         blurb = research_note or "Standard regional promoter handbill language applies."
         return {
             "reply": (
-                f"For **{venue}**: {blurb}. "
+                f"For {venue}: {blurb}. "
                 f"Current status: {detail.get('workflow_label', 'unknown')}. {rec.get('message', '')}"
             ),
             "actions": actions,
