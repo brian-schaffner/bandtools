@@ -75,8 +75,9 @@ def _anti_patterns(style: dict[str, Any], *, limit: int = 8) -> list[str]:
 
 def band_asset_summary() -> dict[str, Any]:
     photos = list_band_photos()
-    logo_dark = find_band_logo("Lindsey Lane Band", paper="dark")
-    logo_light = find_band_logo("Lindsey Lane Band", paper="light")
+    # find_band_logo paper= expects RGB tuple (luminance), not a label string.
+    logo_dark = find_band_logo("Lindsey Lane Band", paper=(245, 240, 230))
+    logo_light = find_band_logo("Lindsey Lane Band", paper=(30, 30, 30))
     return {
         "photo_count": len(photos),
         "photos": [p.to_dict() for p in photos[:8]],

@@ -118,6 +118,14 @@ class FlyerAgentRecommendTest(unittest.TestCase):
         self.assertGreater(len(summary["reference_models"]), 0)
         self.assertIsInstance(summary["anti_patterns"], list)
 
+    def test_band_asset_summary_does_not_crash(self) -> None:
+        from flyer_agent.context import band_asset_summary
+
+        assets = band_asset_summary()
+        self.assertIn("photo_count", assets)
+        self.assertIn("logo_dark", assets)
+        self.assertIn("logo_light", assets)
+
 
 if __name__ == "__main__":
     unittest.main()
