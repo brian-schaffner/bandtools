@@ -76,7 +76,8 @@ class AgentChatTest(unittest.TestCase):
         }
         agent.recommend_action.return_value = {"message": "Ready"}
         result = agent_chat_reply("please generate posters", gig_id="gig-1", agent=agent)
-        self.assertIn("generate", result["reply"].lower())
+        self.assertEqual(result["execution"]["type"], "generate")
+        self.assertIn("generating", result["reply"].lower())
 
 
 if __name__ == "__main__":

@@ -437,7 +437,8 @@ def _posters_panel(detail: Optional[dict[str, Any]]) -> str:
 
 def _chat_panel(*, initial_message: str, gig_label: str) -> str:
     chat_api = html.escape(route_path("/agent/api/chat"))
-    revise_url_tpl = html.escape(route_path("/agent/gig/"))  # + gig_id + /revise via JS
+    gig_api_tpl = html.escape(route_path("/agent/api/gig/"))
+    job_api_tpl = html.escape(route_path("/agent/api/gig/"))
     welcome = html.escape(initial_message)
     label = html.escape(gig_label or "Flyer Agent")
     return f"""
@@ -449,16 +450,20 @@ def _chat_panel(*, initial_message: str, gig_label: str) -> str:
       <form class="agent-chat-compose" id="agent-chat-form">
         <textarea id="agent-chat-input" rows="2"
           placeholder="Ask about design, say generate, or describe revisions…"></textarea>
-        <button type="submit">Send</button>
+        <button type="submit" id="agent-chat-send">Send</button>
       </form>
     </section>
     <script>
     (function() {{
       var chatApi = "{chat_api}";
+      var gigApiTpl = "{gig_api_tpl}";
+      var jobApiTpl = "{job_api_tpl}";
       var logEl = document.getElementById("agent-chat-log");
       var form = document.getElementById("agent-chat-form");
       var input = document.getElementById("agent-chat-input");
+      var sendBtn = document.getElementById("agent-chat-send");
       var gigInput = document.getElementById("agent-gig-id");
+      var pollTimer = null;
 
       function appendMsg(role, text) {{
         var div = document.createElement("div");
@@ -466,10 +471,97 @@ def _chat_panel(*, initial_message: str, gig_label: str) -> str:
         div.textContent = text;
         logEl.appendChild(div);
         logEl.scrollTop = logEl.scrollHeight;
+        return div;
       }}
 
       function token() {{
         return localStorage.getItem("session_token") || localStorage.getItem("session_id") || "";
+      }}
+
+      function authHeaders() {{
+        return {{ "X-Session-ID": token() }};
+      }}
+
+      function gigId() {{
+        return gigInput ? gigInput.value : "";
+      }}
+
+      function renderPosters(detail) {{
+        var panel = document.querySelector(".agent-posters-panel");
+        if (!panel || !detail) return;
+        var flyers = detail.flyers || [];
+        if (!flyers.length) {{
+          panel.innerHTML = '<h2>Posters</h2><div class="agent-empty-state">No posters yet — ask the agent to generate options, or use Generate above.</div>';
+          return;
+        }}
+        var cards = flyers.map(function(f) {{
+          var opt = f.option || "?";
+          var url = f.url || f.path || "";
+          return '<article class="agent-flyer-card" data-option="' + opt + '">' +
+            '<img src="' + url + '" alt="Option ' + opt + '" loading="lazy" />' +
+            '<div class="flyer-cap"><strong>Option ' + opt + '</strong>' +
+            '<button type="button" class="btn-secondary agent-select-option" data-option="' + opt + '">Revise</button></div></article>';
+        }}).join("");
+        panel.innerHTML = '<h2>Posters — round ' + (detail.round || 0) + '</h2><div class="agent-flyer-grid">' + cards + '</div>';
+        bindReviseButtons();
+      }}
+
+      function bindReviseButtons() {{
+        document.querySelectorAll(".agent-select-option").forEach(function(btn) {{
+          btn.addEventListener("click", function() {{
+            var opt = btn.getAttribute("data-option");
+            document.querySelectorAll(".agent-flyer-card").forEach(function(c) {{
+              c.classList.toggle("selected", c.getAttribute("data-option") === opt);
+            }});
+            input.value = "Revise option " + opt + ": ";
+            input.focus();
+          }});
+        }});
+      }}
+
+      function refreshGigDetail() {{
+        var id = gigId();
+        if (!id) return Promise.resolve(null);
+        return fetch(gigApiTpl + encodeURIComponent(id), {{ headers: authHeaders() }})
+          .then(function(r) {{ return r.ok ? r.json() : null; }})
+          .then(function(data) {{
+            if (data && data.detail) renderPosters(data.detail);
+            return data;
+          }});
+      }}
+
+      function stopPolling() {{
+        if (pollTimer) {{
+          clearInterval(pollTimer);
+          pollTimer = null;
+        }}
+      }}
+
+      function pollJob(jobInfo) {{
+        var id = gigId();
+        if (!id) return;
+        stopPolling();
+        var statusEl = appendMsg("agent", "Generating…");
+        pollTimer = setInterval(function() {{
+          fetch(jobApiTpl + encodeURIComponent(id) + "/job", {{ headers: authHeaders() }})
+            .then(function(r) {{ return r.json(); }})
+            .then(function(status) {{
+              var msg = status.message || status.detail || status.status || "Working…";
+              statusEl.textContent = msg.charAt(0).toUpperCase() + msg.slice(1);
+              if (status.status === "done") {{
+                stopPolling();
+                refreshGigDetail().then(function() {{
+                  var round = (jobInfo && jobInfo.expected_round) ? jobInfo.expected_round : "";
+                  var suffix = round ? (" Round " + round + " is ready above.") : " Posters updated above.";
+                  appendMsg("agent", "Done —" + suffix);
+                }});
+              }} else if (status.status === "error") {{
+                stopPolling();
+                appendMsg("agent", "Generation failed: " + (status.message || status.detail || "unknown error"));
+              }}
+            }})
+            .catch(function() {{ /* keep polling */ }});
+        }}, 1500);
       }}
 
       form.addEventListener("submit", function(ev) {{
@@ -478,31 +570,25 @@ def _chat_panel(*, initial_message: str, gig_label: str) -> str:
         if (!msg) return;
         appendMsg("user", msg);
         input.value = "";
-        var gigId = gigInput ? gigInput.value : "";
+        sendBtn.disabled = true;
         fetch(chatApi, {{
           method: "POST",
-          headers: {{
-            "Content-Type": "application/json",
-            "X-Session-ID": token()
-          }},
-          body: JSON.stringify({{ gig_id: gigId || null, message: msg }})
+          headers: Object.assign({{ "Content-Type": "application/json" }}, authHeaders()),
+          body: JSON.stringify({{ gig_id: gigId() || null, message: msg }})
         }}).then(function(r) {{ return r.json(); }}).then(function(data) {{
           appendMsg("agent", data.reply || "OK");
+          if (data.job && data.job.started) {{
+            pollJob(data.job);
+          }}
         }}).catch(function() {{
           appendMsg("agent", "Sorry, I could not reach the agent. Try again.");
-        }});
-      }});
-
-      document.querySelectorAll(".agent-select-option").forEach(function(btn) {{
-        btn.addEventListener("click", function() {{
-          var opt = btn.getAttribute("data-option");
-          document.querySelectorAll(".agent-flyer-card").forEach(function(c) {{
-            c.classList.toggle("selected", c.getAttribute("data-option") === opt);
-          }});
-          input.value = "Revise option " + opt + ": ";
+        }}).finally(function() {{
+          sendBtn.disabled = false;
           input.focus();
         }});
       }});
+
+      bindReviseButtons();
     }})();
     </script>
     """
