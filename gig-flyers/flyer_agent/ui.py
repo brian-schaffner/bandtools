@@ -513,7 +513,7 @@ def _chat_panel(*, initial_message: str, gig_label: str) -> str:
             document.querySelectorAll(".agent-flyer-card").forEach(function(c) {{
               c.classList.toggle("selected", c.getAttribute("data-option") === opt);
             }});
-            input.value = "Revise option " + opt + ": ";
+            input.value = "Revise option " + opt + " — ";
             input.focus();
           }});
         }});

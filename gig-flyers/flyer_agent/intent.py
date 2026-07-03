@@ -10,12 +10,14 @@ REVISE_WORDS = ("revise", "change", "fix", "tweak", "adjust", "update", "feedbac
 GENERATE_WORDS = ("generate", "create", "make posters", "make flyer", "make options")
 REGENERATE_WORDS = ("regenerate", "fresh round", "start over", "redo", "from scratch")
 
+_DASH_CHARS = r"\-–—"  # hyphen, en dash, em dash
+
 _OPTION_MARKER = re.compile(
     r"(?:"
-    r"option\s*([abc])\b"
-    r"|revise\s+([abc])\b"
-    r"|^([abc])\s*[:\-—]"
-    r"|\b([abc])\s*[:\-—]"
+    rf"option\s*([abc])\b"
+    rf"|revise\s+([abc])\b"
+    rf"|^([abc])\s*[:{_DASH_CHARS}]"
+    rf"|\b([abc])\s*[:{_DASH_CHARS}]"
     r")",
     re.IGNORECASE,
 )
@@ -40,7 +42,7 @@ def _extract_option_and_feedback(text: str) -> tuple[Optional[str], Optional[str
 
     option = next(g.upper() for g in match.groups() if g)
     tail = text[match.end() :].strip()
-    tail = re.sub(r"^[\s:\-—]+", "", tail).strip()
+    tail = re.sub(rf"^[\s:{_DASH_CHARS}]+", "", tail).strip()
     if not tail:
         # Feedback may precede option in rare phrasing; use full message minus option token.
         head = text[: match.start()].strip()

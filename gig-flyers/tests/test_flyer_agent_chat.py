@@ -77,6 +77,19 @@ class ChatExecutionReplyTest(unittest.TestCase):
         self.assertEqual(result["execution"]["option"], "A")
         self.assertIn("new round", result["reply"].lower())
         self.assertIn("Option A", result["reply"])
+        self.assertNotIn("I'll apply that as revision feedback", result["reply"])
+
+    def test_revise_with_en_dash(self) -> None:
+        agent = MagicMock()
+        agent.gig_detail.return_value = _revise_detail()
+        agent.recommend_action.return_value = {"message": "Ready"}
+        result = agent_chat_reply(
+            "Revise option A – larger font",
+            gig_id="gig-1",
+            agent=agent,
+        )
+        self.assertEqual(result["execution"]["type"], "revise")
+        self.assertIn("larger font", result["execution"]["feedback"])
 
     def test_incomplete_revise_returns_hint_not_execution(self) -> None:
         agent = MagicMock()
