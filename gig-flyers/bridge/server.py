@@ -74,6 +74,10 @@ app = FastAPI(title="Gig Flyer Bridge", version="2.0.0")
 app.mount("/output", StaticFiles(directory=str(ROOT / "output")), name="output")
 app.mount("/bandphotos", StaticFiles(directory=str(ROOT / "bandphotos")), name="bandphotos")
 
+from flyer_agent.routes import register_agent_routes  # noqa: E402
+
+register_agent_routes(app)
+
 POLL_SECONDS = int(os.getenv("BRIDGE_POLL_SECONDS", "30"))
 _revise_in_flight: set[str] = set()
 _generate_in_flight: set[str] = set()
@@ -310,7 +314,7 @@ async def _run_interactive_generation(gig_id: str) -> None:
         gig_id,
         "generate",
         detail="Initial generation from gig picker",
-        generate_kwargs={"count": 3},
+        generate_kwargs={"count": 3, "generation_source": "interactive"},
         send_link=True,
     )
 
@@ -376,7 +380,7 @@ async def pick_generate(gig_id: str) -> Response:
     if not gig:
         raise HTTPException(status_code=404, detail="Gig not found on calendar")
     event = gig.to_dict()
-    upsert_gig(gig_id, event=event)
+    upsert_gig(gig_id, event=event, generation_source="interactive")
     _generate_in_flight.add(gig_id)
     title = f"{event.get('short_date') or event.get('date', '')} @ {event.get('venue', 'Venue TBA')}".strip()
     start_job(gig_id, "generate", title=title, detail="Initial generation from gig picker")
@@ -1095,6 +1099,15 @@ async def shell_run(
 @app.on_event("startup")
 async def startup_event() -> None:
     asyncio.create_task(_poll_loop())
+    if os.getenv("FLYER_AGENT_RESEARCH_ON_STARTUP", "").strip().lower() in {"1", "true", "yes"}:
+        from flyer_agent.agent import FlyerAgent
+
+        async def _research_startup() -> None:
+            agent = FlyerAgent()
+            await asyncio.to_thread(agent.refresh_research, use_llm=False)
+            await asyncio.to_thread(agent.sync_catalog_from_approvals)
+
+        asyncio.create_task(_research_startup())
 
 
 if __name__ == "__main__":

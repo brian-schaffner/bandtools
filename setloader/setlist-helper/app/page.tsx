@@ -19,6 +19,16 @@ const tools = [
     available: true,
   },
   {
+    id: "flyer-agent",
+    title: "Flyer Agent",
+    description:
+      "Sign in with Google, pick an upcoming gig, and generate or revise concert posters with an expert design agent.",
+    href: "/flyers/agent",
+    icon: Megaphone,
+    accent: "from-violet-600 to-purple-700",
+    available: true,
+  },
+  {
     id: "gig-flyers",
     title: "Gig Flyers",
     description:

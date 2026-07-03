@@ -6,7 +6,7 @@ import html
 import os
 from typing import Any
 
-from bridge.review import pick_action, pick_page_path, pick_regenerate_action, render_job_progress_page, review_page_path
+from bridge.review import pick_action, pick_page_path, pick_regenerate_action, render_job_progress_page, review_page_path, route_path
 from bridge.ui import home_css, page_close, page_head, picker_css, site_nav
 from gig_calendar import get_cache_info, get_future_gigs, get_local_today
 from state import can_regenerate, get_gig_state, has_existing_generation, is_approved
@@ -99,6 +99,11 @@ def render_home_page() -> str:
         <h2>Mode 2 — Interactive</h2>
         <p>Pick any upcoming gig from the live calendar and trigger flyer generation on demand.</p>
         <a class="btn btn-block" href="{pick}">Choose a gig →</a>
+      </article>
+      <article class="mode-card mode-card-featured">
+        <h2>Flyer Agent</h2>
+        <p>Sign in with Google, pick an upcoming gig, and generate or revise posters with an expert design agent.</p>
+        <a class="btn btn-block" href="{html.escape(route_path("/agent"))}">Open Flyer Agent →</a>
       </article>
       <article class="mode-card mode-card-featured">
         <h2>Shell Design Studio</h2>

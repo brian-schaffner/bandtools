@@ -1134,6 +1134,7 @@ def generate_for_gig(
     dry_run: bool = False,
     fresh_start: bool = False,
     on_progress: Optional[ProgressCallback] = None,
+    generation_source: Optional[str] = None,
 ) -> dict[str, Any]:
     event = resolve_gig_event(gig_id)
 
@@ -1237,6 +1238,7 @@ def generate_for_gig(
         research=research,
         selected_photo=selected_photo,
         reviewer_verdicts=reviewer_verdicts,
+        **({"generation_source": generation_source} if generation_source else {}),
     )
 
     manifest: dict[str, Any] = {
@@ -1349,9 +1351,9 @@ def cmd_auto_scan(
             )
             continue
 
-        upsert_gig(gig_id, event=event.to_dict())
+        upsert_gig(gig_id, event=event.to_dict(), generation_source="auto")
         try:
-            manifest = generate_for_gig(gig_id, count=count, dry_run=dry_run)
+            manifest = generate_for_gig(gig_id, count=count, dry_run=dry_run, generation_source="auto")
             if manifest.get("skipped"):
                 results.append(manifest)
                 continue
