@@ -79,6 +79,7 @@ def run_design_research(*, use_llm: bool = False) -> dict[str, Any]:
     from flyer_generator import load_style
     from gig_calendar import get_future_gigs
     from gig_research import research_gig
+    from flyer_agent.context import _anti_patterns, _style_list
 
     style = load_style()
     findings = list(_read_research_file().get("findings") or [])
@@ -108,14 +109,14 @@ def run_design_research(*, use_llm: bool = False) -> dict[str, Any]:
         )
 
     # Style doctrine refresh
-    anti = style.get("anti_patterns") or []
+    anti = _anti_patterns(style, limit=5)
     if anti:
         findings.insert(
             0,
             {
                 "id": f"doctrine-{datetime.now(timezone.utc).strftime('%Y%m%d')}",
                 "topic": "Style doctrine refresh",
-                "summary": "Avoid: " + "; ".join(str(a) for a in anti[:5]),
+                "summary": "Avoid: " + "; ".join(anti[:5]),
                 "tags": ["doctrine", "anti-patterns"],
                 "source": "style.yaml",
                 "researched_at": _now_iso(),
@@ -144,10 +145,13 @@ def _llm_design_research(style: dict[str, Any]) -> Optional[dict[str, Any]]:
         from openai import OpenAI
 
         client = OpenAI()
-        models = style.get("reference_models") or []
+        ref = style.get("reference_models") or {}
+        models = _style_list(ref.get("primary") if isinstance(ref, dict) else ref, limit=4)
+        if not models:
+            models = _style_list(ref, limit=4)
         prompt = (
             "You are a concert poster design researcher. Given these reference models: "
-            f"{models[:4]}. Suggest ONE fresh design idea for a regional cover-band gig flyer "
+            f"{models}. Suggest ONE fresh design idea for a regional cover-band gig flyer "
             "in 2 sentences. Focus on layout, typography, and print texture — no band names."
         )
         response = client.chat.completions.create(

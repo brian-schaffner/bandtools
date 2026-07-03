@@ -17,6 +17,62 @@ from flyer_agent.research_worker import load_design_research
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def _style_list(value: Any, *, limit: int | None = None) -> list[str]:
+    """Normalize style.yaml fields that may be list, dict, or string."""
+    items: list[str] = []
+    if value is None:
+        pass
+    elif isinstance(value, list):
+        items = [str(v).strip() for v in value if str(v).strip()]
+    elif isinstance(value, dict):
+        for key in ("primary", "secondary", "avoid", "reject_if_present", "summary", "description"):
+            nested = value.get(key)
+            if isinstance(nested, list):
+                items.extend(str(v).strip() for v in nested if str(v).strip())
+            elif isinstance(nested, str) and nested.strip():
+                items.append(nested.strip())
+        if not items:
+            items = [f"{k}: {v}" for k, v in value.items() if v][: limit or 8]
+    elif isinstance(value, str) and value.strip():
+        items = [value.strip()]
+    else:
+        items = [str(value)]
+    return items[:limit] if limit is not None else items
+
+
+def _doctrine_summary(style: dict[str, Any]) -> str:
+    doctrine = style.get("doctrine")
+    if isinstance(doctrine, str):
+        return doctrine.strip()[:500]
+    if isinstance(doctrine, dict):
+        return str(doctrine.get("summary") or doctrine.get("description") or "")[:500]
+    photo = style.get("photo_treatment") or {}
+    if isinstance(photo, dict):
+        raw = photo.get("doctrine")
+        if isinstance(raw, str) and raw.strip():
+            return raw.strip()[:500]
+    return ""
+
+
+def _anti_patterns(style: dict[str, Any], *, limit: int = 8) -> list[str]:
+    items = _style_list(style.get("anti_patterns"), limit=limit)
+    if items:
+        return items
+    ref = style.get("reference_models") or {}
+    if isinstance(ref, dict):
+        items = _style_list(ref.get("avoid"), limit=limit)
+    if items:
+        return items
+    anti_ai = style.get("anti_ai_rules") or {}
+    if isinstance(anti_ai, dict):
+        for section in anti_ai.values():
+            if isinstance(section, dict):
+                items.extend(_style_list(section.get("reject_if_present")))
+            if len(items) >= limit:
+                break
+    return items[:limit]
+
+
 def band_asset_summary() -> dict[str, Any]:
     photos = list_band_photos()
     logo_dark = find_band_logo("Lindsey Lane Band", paper="dark")
@@ -29,18 +85,37 @@ def band_asset_summary() -> dict[str, Any]:
     }
 
 
+def _variation_map(style: dict[str, Any]) -> dict[str, Any]:
+    raw = style.get("variations") or {}
+    if isinstance(raw, dict):
+        return {letter: raw.get(letter, {}) for letter in ("A", "B", "C")}
+    if isinstance(raw, list):
+        letters = ("A", "B", "C")
+        mapped: dict[str, Any] = {}
+        for idx, entry in enumerate(raw[:3]):
+            if isinstance(entry, dict):
+                mapped[letters[idx]] = {
+                    "id": entry.get("id"),
+                    "label": entry.get("label"),
+                    "tier": entry.get("tier"),
+                    "description": str(entry.get("description") or "")[:200],
+                }
+        return mapped
+    return {}
+
+
 def layout_expertise_summary() -> dict[str, Any]:
     style = load_style()
-    doctrine = style.get("doctrine") or {}
+    ref = style.get("reference_models") or {}
+    reference_items = _style_list(ref.get("primary") if isinstance(ref, dict) else ref, limit=6)
+    if not reference_items:
+        reference_items = _style_list(ref, limit=6)
     return {
         "band": style.get("band", "Lindsey Lane Band"),
-        "reference_models": (style.get("reference_models") or [])[:6],
-        "anti_patterns": (style.get("anti_patterns") or [])[:8],
-        "variations": {
-            letter: (style.get("variations") or {}).get(letter, {})
-            for letter in ("A", "B", "C")
-        },
-        "doctrine_summary": str(doctrine.get("summary") or doctrine.get("description") or "")[:500],
+        "reference_models": reference_items,
+        "anti_patterns": _anti_patterns(style, limit=8),
+        "variations": _variation_map(style),
+        "doctrine_summary": _doctrine_summary(style),
     }
 
 

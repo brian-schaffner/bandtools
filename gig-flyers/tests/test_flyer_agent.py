@@ -110,6 +110,14 @@ class FlyerAgentRecommendTest(unittest.TestCase):
             rec = agent.recommend_action("test-gig")
             self.assertEqual(rec["action"], "generate")
 
+    def test_layout_expertise_summary_loads_style_yaml(self) -> None:
+        from flyer_agent.context import layout_expertise_summary
+
+        summary = layout_expertise_summary()
+        self.assertIsInstance(summary["reference_models"], list)
+        self.assertGreater(len(summary["reference_models"]), 0)
+        self.assertIsInstance(summary["anti_patterns"], list)
+
 
 if __name__ == "__main__":
     unittest.main()
