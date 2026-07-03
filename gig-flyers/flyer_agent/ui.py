@@ -1,4 +1,4 @@
-"""Flyer Agent HTML UI."""
+"""Flyer Agent HTML UI — three-panel workspace layout."""
 
 from __future__ import annotations
 
@@ -8,51 +8,259 @@ from typing import Any, Optional
 
 from bridge.review import asset_url, review_page_path, route_path
 from bridge.ui import base_css, page_close, page_head, site_nav
-from flyer_agent.session_sync import agent_session_sync_script
 
 
 def agent_css() -> str:
     return base_css() + """
-    .agent-hero {
-      background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4c1d95 100%);
-      color: #fff;
-      border-radius: 16px;
-      padding: 1.25rem 1.5rem;
-      margin-bottom: 1.25rem;
-      box-shadow: 0 8px 24px rgba(30,27,75,0.25);
+    :root {
+      --agent-sidebar-w: 280px;
+      --agent-header-h: auto;
+      --agent-chat-min: 220px;
+      --agent-chat-max: 320px;
+      --agent-ink: #0f172a;
+      --agent-panel: #ffffff;
+      --agent-panel-border: rgba(15, 23, 42, 0.08);
+      --agent-accent: #4f46e5;
+      --agent-accent-soft: #eef2ff;
     }
-    .agent-hero h1 { color: #fff; margin-bottom: 0.35rem; }
-    .agent-hero .lead { color: rgba(255,255,255,0.85); margin-bottom: 0; }
-    .agent-user { font-size: 0.9rem; color: rgba(255,255,255,0.75); margin-top: 0.5rem; }
+    .page-main.agent-workspace-wrap {
+      max-width: none;
+      padding: 0.75rem var(--page-pad) var(--page-pad-bottom);
+      margin: 0;
+    }
+    .agent-workspace {
+      display: grid;
+      grid-template-columns: var(--agent-sidebar-w) minmax(0, 1fr);
+      gap: 0.75rem;
+      min-height: calc(100dvh - 9rem);
+      align-items: stretch;
+    }
+    .agent-sidebar {
+      background: var(--agent-panel);
+      border: 1px solid var(--agent-panel-border);
+      border-radius: 14px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+    }
+    .agent-sidebar-head {
+      padding: 0.85rem 1rem;
+      border-bottom: 1px solid var(--agent-panel-border);
+      background: linear-gradient(180deg, #f8fafc 0%, #fff 100%);
+    }
+    .agent-sidebar-head h2 { margin: 0; font-size: 0.95rem; }
+    .agent-sidebar-head .muted { margin: 0.15rem 0 0; font-size: 0.78rem; }
+    .agent-gig-nav {
+      list-style: none;
+      margin: 0;
+      padding: 0.35rem;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .agent-gig-nav li { margin: 0; }
+    .agent-gig-nav a {
+      display: block;
+      padding: 0.65rem 0.75rem;
+      border-radius: 10px;
+      color: var(--agent-ink);
+      text-decoration: none;
+      border: 1px solid transparent;
+    }
+    .agent-gig-nav a:hover { background: #f8fafc; text-decoration: none; }
+    .agent-gig-nav a.active {
+      background: var(--agent-accent-soft);
+      border-color: rgba(79, 70, 229, 0.18);
+      color: #312e81;
+    }
+    .agent-gig-nav .gig-line-1 { font-weight: 600; font-size: 0.92rem; }
+    .agent-gig-nav .gig-line-2 {
+      font-size: 0.76rem;
+      color: #64748b;
+      margin-top: 0.15rem;
+      display: flex;
+      gap: 0.35rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .agent-main {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) minmax(var(--agent-chat-min), var(--agent-chat-max));
+      gap: 0.75rem;
+      min-width: 0;
+    }
+    .agent-gig-meta {
+      background: var(--agent-panel);
+      border: 1px solid var(--agent-panel-border);
+      border-radius: 14px;
+      padding: 1rem 1.1rem;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+    }
+    .agent-gig-meta-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+    .agent-gig-meta h1 {
+      margin: 0;
+      font-size: 1.35rem;
+      color: var(--agent-ink);
+    }
+    .agent-gig-meta .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 0.65rem 1rem;
+      margin-top: 0.85rem;
+      font-size: 0.86rem;
+    }
+    .agent-gig-meta .meta-item label {
+      display: block;
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #64748b;
+      margin-bottom: 0.15rem;
+    }
+    .agent-gig-meta .meta-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    .agent-posters-panel {
+      background: var(--agent-panel);
+      border: 1px solid var(--agent-panel-border);
+      border-radius: 14px;
+      padding: 1rem;
+      overflow: auto;
+      min-height: 0;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+    }
+    .agent-posters-panel h2 {
+      margin: 0 0 0.75rem;
+      font-size: 0.95rem;
+      color: #334155;
+    }
+    .agent-flyer-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 0.85rem;
+    }
+    .agent-flyer-card {
+      border: 1px solid var(--agent-panel-border);
+      border-radius: 12px;
+      overflow: hidden;
+      background: #f8fafc;
+    }
+    .agent-flyer-card.selected {
+      border-color: var(--agent-accent);
+      box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.15);
+    }
+    .agent-flyer-card img {
+      width: 100%;
+      display: block;
+      aspect-ratio: 2/3;
+      object-fit: cover;
+      background: #e2e8f0;
+    }
+    .agent-flyer-card .flyer-cap {
+      padding: 0.55rem 0.65rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.82rem;
+    }
+    .agent-empty-state {
+      color: #64748b;
+      padding: 2rem 1rem;
+      text-align: center;
+    }
+    .agent-chat-panel {
+      background: var(--agent-panel);
+      border: 1px solid var(--agent-panel-border);
+      border-radius: 14px;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+    }
+    .agent-chat-head {
+      padding: 0.65rem 1rem;
+      border-bottom: 1px solid var(--agent-panel-border);
+      font-size: 0.86rem;
+      font-weight: 600;
+      color: #334155;
+      background: #f8fafc;
+    }
+    .agent-chat-log {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.85rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+      min-height: 120px;
+    }
+    .agent-chat-msg {
+      max-width: 92%;
+      padding: 0.65rem 0.8rem;
+      border-radius: 12px;
+      font-size: 0.88rem;
+      line-height: 1.45;
+      white-space: pre-wrap;
+    }
+    .agent-chat-msg.user {
+      align-self: flex-end;
+      background: var(--agent-accent);
+      color: #fff;
+      border-bottom-right-radius: 4px;
+    }
+    .agent-chat-msg.agent {
+      align-self: flex-start;
+      background: #f1f5f9;
+      color: #0f172a;
+      border-bottom-left-radius: 4px;
+    }
+    .agent-chat-compose {
+      border-top: 1px solid var(--agent-panel-border);
+      padding: 0.75rem;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 0.5rem;
+      align-items: end;
+      background: #fff;
+    }
+    .agent-chat-compose textarea {
+      width: 100%;
+      min-height: 44px;
+      max-height: 120px;
+      resize: vertical;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 0.6rem 0.75rem;
+      font: inherit;
+    }
+    .agent-chat-compose button {
+      min-height: 44px;
+      white-space: nowrap;
+    }
     .source-badge {
       display: inline-block;
-      font-size: 0.72rem;
+      font-size: 0.68rem;
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.04em;
-      padding: 0.15rem 0.45rem;
+      padding: 0.12rem 0.4rem;
       border-radius: 999px;
-      margin-right: 0.35rem;
     }
     .source-background { background: #dbeafe; color: #1d4ed8; }
     .source-interactive { background: #fef3c7; color: #b45309; }
     .source-agent { background: #ede9fe; color: #6d28d9; }
-    .source-none { background: #f3f4f6; color: #6b7280; }
-    .gig-agent-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 1rem;
-      margin-bottom: 0.75rem;
-    }
-    .gig-agent-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-    .gig-agent-head { display: flex; justify-content: space-between; gap: 0.75rem; align-items: flex-start; }
-    .gig-agent-meta { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0.5rem 0; }
-    .flyer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin: 1rem 0; }
-    .flyer-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
-    .flyer-card img { width: 100%; display: block; aspect-ratio: 2/3; object-fit: cover; background: #eee; }
-    .flyer-card-body { padding: 0.75rem; }
-    .agent-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; }
+    .source-none { background: #f1f5f9; color: #64748b; }
     .login-panel {
       max-width: 420px;
       margin: 2rem auto;
@@ -63,17 +271,27 @@ def agent_css() -> str:
       box-shadow: 0 8px 32px rgba(0,0,0,0.12);
     }
     .login-panel .btn { width: 100%; margin-top: 1rem; }
-    .recommendation {
-      background: #f0fdf4;
-      border: 1px solid #86efac;
-      border-radius: 10px;
-      padding: 0.75rem 1rem;
-      margin: 1rem 0;
-      color: #166534;
+    .catalog-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 0.75rem;
     }
-    .catalog-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.75rem; }
-    .catalog-item { background: var(--surface-2); border-radius: 8px; padding: 0.75rem; font-size: 0.9rem; }
-    textarea.feedback-input { width: 100%; min-height: 80px; padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border); }
+    .catalog-item {
+      background: var(--surface-2);
+      border-radius: 8px;
+      padding: 0.75rem;
+      font-size: 0.9rem;
+    }
+    @media (max-width: 900px) {
+      .agent-workspace {
+        grid-template-columns: 1fr;
+        min-height: auto;
+      }
+      .agent-sidebar { max-height: 220px; }
+      .agent-main {
+        grid-template-rows: auto minmax(280px, 1fr) minmax(240px, 300px);
+      }
+    }
     """
 
 
@@ -82,7 +300,217 @@ def _source_badge(source_key: str, label: str) -> str:
     return f'<span class="{cls}">{html.escape(label)}</span>'
 
 
+def _sidebar_nav(board: dict[str, Any], selected_gig_id: Optional[str]) -> str:
+    items: list[str] = []
+    for gig in board.get("gigs", []):
+        gid = gig["gig_id"]
+        active = "active" if gid == selected_gig_id else ""
+        href = html.escape(route_path(f"/agent/gig/{gid}"))
+        venue = html.escape(gig["venue"])
+        short_date = html.escape(gig["short_date"])
+        badge = _source_badge(gig.get("generation_source", "none"), gig.get("generation_source_label", ""))
+        workflow = html.escape(gig.get("workflow_label", ""))
+        items.append(
+            f"""
+            <li>
+              <a class="{active}" href="{href}">
+                <div class="gig-line-1">{short_date} · {venue}</div>
+                <div class="gig-line-2">{badge}<span>{workflow}</span></div>
+              </a>
+            </li>
+            """
+        )
+    if not items:
+        return '<ul class="agent-gig-nav"><li class="agent-empty-state">No upcoming gigs</li></ul>'
+    return f'<ul class="agent-gig-nav">{"".join(items)}</ul>'
+
+
+def _meta_panel(
+    detail: Optional[dict[str, Any]],
+    recommendation: dict[str, Any],
+) -> str:
+    if not detail:
+        return """
+        <section class="agent-gig-meta">
+          <div class="agent-empty-state">
+            <h1>Select a gig</h1>
+            <p class="muted">Choose an upcoming show from the left to view details and posters.</p>
+          </div>
+        </section>
+        """
+
+    event = detail.get("event") or {}
+    venue = html.escape(event.get("venue") or detail.get("gig_id", ""))
+    short_date = html.escape(event.get("short_date") or event.get("date") or "")
+    time_label = html.escape(event.get("time") or "TBA")
+    title = html.escape(event.get("title") or "")
+    gig_id = html.escape(detail["gig_id"])
+    source_badge = _source_badge(detail.get("generation_source", "none"), detail.get("generation_source_label", ""))
+    workflow = html.escape(detail.get("workflow_label", ""))
+    round_num = detail.get("round") or 0
+    research = detail.get("research") or {}
+    venue_type = html.escape(str(research.get("venue_type") or "—"))
+    design_lang = html.escape(str(research.get("design_language") or "—"))
+    photo = detail.get("selected_photo") or {}
+    photo_label = html.escape(str(photo.get("id") or photo.get("type") or "—"))
+
+    actions: list[str] = []
+    if detail.get("can_generate"):
+        actions.append(
+            f'<form method="post" action="{html.escape(route_path(f"/agent/gig/{detail["gig_id"]}/generate"))}">'
+            f'<button type="submit">Generate 3 options</button></form>'
+        )
+    if detail.get("can_regenerate"):
+        actions.append(
+            f'<form method="post" action="{html.escape(route_path(f"/agent/gig/{detail["gig_id"]}/regenerate"))}"'
+            f' onsubmit="return confirm(\'Regenerate fresh options?\');">'
+            f'<button type="submit" class="btn-purple">Regenerate</button></form>'
+        )
+    if detail.get("flyers"):
+        review = html.escape(review_page_path(detail["gig_id"]))
+        actions.append(f'<a class="btn btn-secondary" href="{review}">Full review</a>')
+
+    actions_html = "".join(actions) or '<span class="muted">No actions yet</span>'
+
+    return f"""
+    <section class="agent-gig-meta">
+      <div class="agent-gig-meta-top">
+        <div>
+          <h1>{short_date} @ {venue}</h1>
+          <p class="muted" style="margin:0.25rem 0 0">{title}</p>
+        </div>
+        <div class="meta-actions">{actions_html}</div>
+      </div>
+      <div class="meta-grid">
+        <div class="meta-item"><label>When</label>{time_label}</div>
+        <div class="meta-item"><label>Status</label>{source_badge} {workflow}</div>
+        <div class="meta-item"><label>Round</label>{round_num}</div>
+        <div class="meta-item"><label>Venue type</label>{venue_type}</div>
+        <div class="meta-item"><label>Design language</label>{design_lang}</div>
+        <div class="meta-item"><label>Band photo</label>{photo_label}</div>
+      </div>
+      <p class="muted" style="margin:0.75rem 0 0;font-size:0.84rem">{html.escape(recommendation.get("message", ""))}</p>
+      <input type="hidden" id="agent-gig-id" value="{gig_id}" />
+    </section>
+    """
+
+
+def _posters_panel(detail: Optional[dict[str, Any]]) -> str:
+    if not detail:
+        return """
+        <section class="agent-posters-panel">
+          <h2>Posters</h2>
+          <div class="agent-empty-state">Posters for the selected gig will appear here.</div>
+        </section>
+        """
+    flyers = detail.get("flyers") or []
+    if not flyers:
+        return """
+        <section class="agent-posters-panel">
+          <h2>Posters</h2>
+          <div class="agent-empty-state">No posters yet — ask the agent to generate options, or use Generate above.</div>
+        </section>
+        """
+
+    cards: list[str] = []
+    for flyer in flyers:
+        opt = html.escape(flyer["option"])
+        img_url = html.escape(asset_url(flyer["path"]))
+        cards.append(
+            f"""
+            <article class="agent-flyer-card" data-option="{opt}">
+              <img src="{img_url}" alt="Option {opt}" loading="lazy" />
+              <div class="flyer-cap">
+                <strong>Option {opt}</strong>
+                <button type="button" class="btn-secondary agent-select-option" data-option="{opt}">Revise</button>
+              </div>
+            </article>
+            """
+        )
+    return f"""
+    <section class="agent-posters-panel">
+      <h2>Posters — round {detail.get("round") or 0}</h2>
+      <div class="agent-flyer-grid">{"".join(cards)}</div>
+    </section>
+    """
+
+
+def _chat_panel(*, initial_message: str, gig_label: str) -> str:
+    chat_api = html.escape(route_path("/agent/api/chat"))
+    revise_url_tpl = html.escape(route_path("/agent/gig/"))  # + gig_id + /revise via JS
+    welcome = html.escape(initial_message)
+    label = html.escape(gig_label or "Flyer Agent")
+    return f"""
+    <section class="agent-chat-panel" id="agent-chat-panel">
+      <div class="agent-chat-head">Agent chat · {label}</div>
+      <div class="agent-chat-log" id="agent-chat-log" aria-live="polite">
+        <div class="agent-chat-msg agent">{welcome}</div>
+      </div>
+      <form class="agent-chat-compose" id="agent-chat-form">
+        <textarea id="agent-chat-input" rows="2"
+          placeholder="Ask about design, say generate, or describe revisions…"></textarea>
+        <button type="submit">Send</button>
+      </form>
+    </section>
+    <script>
+    (function() {{
+      var chatApi = "{chat_api}";
+      var logEl = document.getElementById("agent-chat-log");
+      var form = document.getElementById("agent-chat-form");
+      var input = document.getElementById("agent-chat-input");
+      var gigInput = document.getElementById("agent-gig-id");
+
+      function appendMsg(role, text) {{
+        var div = document.createElement("div");
+        div.className = "agent-chat-msg " + role;
+        div.textContent = text;
+        logEl.appendChild(div);
+        logEl.scrollTop = logEl.scrollHeight;
+      }}
+
+      function token() {{
+        return localStorage.getItem("session_token") || localStorage.getItem("session_id") || "";
+      }}
+
+      form.addEventListener("submit", function(ev) {{
+        ev.preventDefault();
+        var msg = (input.value || "").trim();
+        if (!msg) return;
+        appendMsg("user", msg);
+        input.value = "";
+        var gigId = gigInput ? gigInput.value : "";
+        fetch(chatApi, {{
+          method: "POST",
+          headers: {{
+            "Content-Type": "application/json",
+            "X-Session-ID": token()
+          }},
+          body: JSON.stringify({{ gig_id: gigId || null, message: msg }})
+        }}).then(function(r) {{ return r.json(); }}).then(function(data) {{
+          appendMsg("agent", data.reply || "OK");
+        }}).catch(function() {{
+          appendMsg("agent", "Sorry, I could not reach the agent. Try again.");
+        }});
+      }});
+
+      document.querySelectorAll(".agent-select-option").forEach(function(btn) {{
+        btn.addEventListener("click", function() {{
+          var opt = btn.getAttribute("data-option");
+          document.querySelectorAll(".agent-flyer-card").forEach(function(c) {{
+            c.classList.toggle("selected", c.getAttribute("data-option") === opt);
+          }});
+          input.value = "Revise option " + opt + ": ";
+          input.focus();
+        }});
+      }});
+    }})();
+    </script>
+    """
+
+
 def render_login_page(*, band_tools_url: str = "/") -> str:
+    from flyer_agent.session_sync import agent_session_sync_script
+
     home = html.escape(band_tools_url.rstrip("/") + "/")
     return (
         page_head("Flyer Agent — Sign In", extra_css=agent_css())
@@ -102,61 +530,93 @@ def render_login_page(*, band_tools_url: str = "/") -> str:
     )
 
 
+def render_agent_workspace(
+    *,
+    user: dict[str, Any],
+    board: dict[str, Any],
+    selected_gig_id: Optional[str] = None,
+    detail: Optional[dict[str, Any]] = None,
+    recommendation: Optional[dict[str, Any]] = None,
+) -> str:
+    user_name = html.escape(user.get("name") or user.get("email") or "User")
+    rec = recommendation or {"message": "Select a gig to begin."}
+    event = (detail or {}).get("event") or {}
+    gig_label = event.get("venue") or "Select a gig"
+
+    if selected_gig_id and detail:
+        welcome = (
+            f"Hi {user.get('name') or 'there'} — I'm your concert poster agent. "
+            f"{rec.get('message', '')} Ask me to generate, revise, or explain the design for this gig."
+        )
+    else:
+        welcome = (
+            f"Hi {user.get('name') or 'there'} — pick an upcoming gig from the left. "
+            "I know your calendar, band photo, logo, and layout best practices."
+        )
+
+    sidebar = _sidebar_nav(board, selected_gig_id)
+    meta = _meta_panel(detail, rec)
+    posters = _posters_panel(detail)
+    chat = _chat_panel(initial_message=welcome, gig_label=str(gig_label))
+
+    count = board.get("count", 0)
+    today = html.escape(str(board.get("today", "")))
+
+    return (
+        page_head("Flyer Agent", extra_css=agent_css())
+        + site_nav(active="agent")
+        + f"""
+  <main class="page-main agent-workspace-wrap">
+    <div class="agent-workspace">
+      <aside class="agent-sidebar">
+        <div class="agent-sidebar-head">
+          <h2>Upcoming gigs</h2>
+          <p class="muted">{count} shows · from {today}</p>
+          <p class="muted">Signed in as {user_name}</p>
+        </div>
+        {sidebar}
+      </aside>
+      <div class="agent-main">
+        {meta}
+        {posters}
+        {chat}
+      </div>
+    </div>
+    <p class="muted" style="margin-top:0.75rem;font-size:0.82rem">
+      <a href="{html.escape(route_path('/agent/catalog'))}">Design catalog</a> ·
+      <a href="{html.escape(route_path('/agent/research'))}">Design research</a>
+    </p>
+  </main>
+"""
+        + page_close()
+    )
+
+
 def render_agent_dashboard(
     *,
     user: dict[str, Any],
     board: dict[str, Any],
     system: dict[str, Any],
 ) -> str:
-    cards: list[str] = []
-    for gig in board.get("gigs", []):
-        venue = html.escape(gig["venue"])
-        short_date = html.escape(gig["short_date"])
-        time_label = html.escape(gig.get("time") or "TBA")
-        workflow = html.escape(gig.get("workflow_label", ""))
-        source_badge = _source_badge(gig.get("generation_source", "none"), gig.get("generation_source_label", ""))
-        gig_url = html.escape(route_path(f"/agent/gig/{gig['gig_id']}"))
-        cards.append(
-            f"""
-            <article class="gig-agent-card">
-              <div class="gig-agent-head">
-                <div>
-                  <strong>{short_date}</strong> · {venue}
-                  <div class="muted">{time_label} · {gig['days_out']}d out</div>
-                </div>
-                <a class="btn btn-secondary" href="{gig_url}">Open →</a>
-              </div>
-              <div class="gig-agent-meta">
-                {source_badge}
-                <span class="badge">{workflow}</span>
-              </div>
-            </article>
-            """
-        )
+    _ = system
+    selected: Optional[str] = None
+    detail = None
+    recommendation = None
+    gigs = board.get("gigs") or []
+    if gigs:
+        selected = gigs[0]["gig_id"]
+        from flyer_agent.agent import FlyerAgent
 
-    cards_html = "".join(cards) or '<p class="muted">No upcoming gigs in the calendar window.</p>'
-    user_name = html.escape(user.get("name") or user.get("email") or "User")
-    expertise = system.get("expertise") or {}
-    band = html.escape(str(expertise.get("band", "Band")))
-
-    return (
-        page_head("Flyer Agent", extra_css=agent_css())
-        + site_nav(active="agent")
-        + f"""
-  <main class="page-main">
-    <div class="agent-hero">
-      <h1>Flyer Agent</h1>
-      <p class="lead">Expert concert poster design for {band} — upcoming gigs, band assets, and layout best practices.</p>
-      <p class="agent-user">Signed in as {user_name}</p>
-    </div>
-    <h2>Upcoming gigs</h2>
-    <p class="meta">Select a gig to view existing posters, generate new options, revise, or regenerate.</p>
-    <div class="gig-agent-list">{cards_html}</div>
-    <p class="muted"><a href="{html.escape(route_path('/agent/catalog'))}">Design catalog</a> ·
-    <a href="{html.escape(route_path('/agent/research'))}">Design research</a></p>
-  </main>
-"""
-        + page_close()
+        agent = FlyerAgent()
+        detail = agent.gig_detail(selected)
+        if detail:
+            recommendation = agent.recommend_action(selected)
+    return render_agent_workspace(
+        user=user,
+        board=board,
+        selected_gig_id=selected,
+        detail=detail,
+        recommendation=recommendation,
     )
 
 
@@ -165,82 +625,18 @@ def render_gig_detail_page(
     user: dict[str, Any],
     detail: dict[str, Any],
     recommendation: dict[str, Any],
+    board: Optional[dict[str, Any]] = None,
 ) -> str:
-    event = detail.get("event") or {}
-    venue = html.escape(event.get("venue") or detail.get("gig_id", ""))
-    short_date = html.escape(event.get("short_date") or event.get("date") or "")
-    gig_id = html.escape(detail["gig_id"])
-    rec_msg = html.escape(recommendation.get("message", ""))
-    source_badge = _source_badge(detail.get("generation_source", "none"), detail.get("generation_source_label", ""))
+    if board is None:
+        from flyer_agent.gig_board import build_agent_gig_board
 
-    flyer_cards: list[str] = []
-    for flyer in detail.get("flyers") or []:
-        opt = html.escape(flyer["option"])
-        img_url = html.escape(asset_url(flyer["path"]))
-        flyer_cards.append(
-            f"""
-            <div class="flyer-card">
-              <img src="{img_url}" alt="Option {opt}" loading="lazy" />
-              <div class="flyer-card-body">
-                <strong>Option {opt}</strong>
-              </div>
-            </div>
-            """
-        )
-    flyers_html = "".join(flyer_cards) or '<p class="muted">No flyer images yet.</p>'
-
-    actions: list[str] = []
-    if detail.get("can_generate"):
-        actions.append(
-            f'<form method="post" action="{html.escape(route_path(f"/agent/gig/{detail["gig_id"]}/generate"))}">'
-            f'<button type="submit">Generate 3 options</button></form>'
-        )
-    if detail.get("can_regenerate"):
-        actions.append(
-            f'<form method="post" action="{html.escape(route_path(f"/agent/gig/{detail["gig_id"]}/regenerate"))}"'
-            f' onsubmit="return confirm(\'Regenerate fresh options from scratch?\');">'
-            f'<button type="submit" class="btn-purple">Regenerate</button></form>'
-        )
-    if detail.get("can_revise") and detail.get("flyers"):
-        review = html.escape(review_page_path(detail["gig_id"]))
-        actions.append(f'<a class="btn" href="{review}">Full review UI</a>')
-
-    revise_form = ""
-    if detail.get("can_revise") and detail.get("flyers"):
-        options = "".join(
-            f'<option value="{html.escape(f["option"])}">{html.escape(f["option"])}</option>'
-            for f in detail["flyers"]
-        )
-        revise_form = f"""
-        <section style="margin-top:1.5rem">
-          <h2>Revise an option</h2>
-          <form method="post" action="{html.escape(route_path(f"/agent/gig/{detail['gig_id']}/revise"))}">
-            <label>Option<br/><select name="option">{options}</select></label><br/><br/>
-            <label>Feedback<br/><textarea class="feedback-input" name="feedback" required
-              placeholder="e.g. Make the headline larger, warmer mustard background"></textarea></label><br/>
-            <button type="submit" class="btn-secondary">Revise with feedback</button>
-          </form>
-        </section>
-        """
-
-    actions_html = "".join(actions) or '<span class="muted">No actions available</span>'
-
-    return (
-        page_head(f"{short_date} @ {venue} — Flyer Agent", extra_css=agent_css())
-        + site_nav(active="agent")
-        + f"""
-  <main class="page-main">
-    <p><a href="{html.escape(route_path('/agent'))}">← All gigs</a></p>
-    <h1>{short_date} @ {venue}</h1>
-    <div class="gig-agent-meta">{source_badge} <span class="badge">{html.escape(detail.get('workflow_label',''))}</span></div>
-    <div class="recommendation">{rec_msg}</div>
-    <div class="agent-actions">{actions_html}</div>
-    <h2>Current flyers</h2>
-    <div class="flyer-grid">{flyers_html}</div>
-    {revise_form}
-  </main>
-"""
-        + page_close()
+        board = build_agent_gig_board()
+    return render_agent_workspace(
+        user=user,
+        board=board,
+        selected_gig_id=detail.get("gig_id"),
+        detail=detail,
+        recommendation=recommendation,
     )
 
 
@@ -252,7 +648,7 @@ def render_generating_page(gig_id: str, event: dict[str, Any]) -> str:
         "Back to Flyer Agent",
     ).replace(
         html.escape(route_path("/pick")),
-        html.escape(route_path("/agent")),
+        html.escape(route_path(f"/agent/gig/{gig_id}")),
     )
 
 
@@ -262,7 +658,10 @@ def render_catalog_page(entries: list[dict[str, Any]]) -> str:
         title = html.escape(entry.get("title", ""))
         notes = html.escape(entry.get("notes", ""))
         tags = ", ".join(html.escape(t) for t in (entry.get("tags") or []))
-        items.append(f'<div class="catalog-item"><strong>{title}</strong><br/><span class="muted">{tags}</span><p>{notes}</p></div>')
+        items.append(
+            f'<div class="catalog-item"><strong>{title}</strong><br/>'
+            f'<span class="muted">{tags}</span><p>{notes}</p></div>'
+        )
     grid = "".join(items) or '<p class="muted">Catalog is empty.</p>'
     return (
         page_head("Design Catalog — Flyer Agent", extra_css=agent_css())
@@ -285,7 +684,10 @@ def render_research_page(findings: list[dict[str, Any]]) -> str:
         topic = html.escape(f.get("topic", ""))
         summary = html.escape(f.get("summary", ""))
         tags = ", ".join(html.escape(t) for t in (f.get("tags") or []))
-        items.append(f'<div class="catalog-item"><strong>{topic}</strong><br/><span class="muted">{tags}</span><p>{summary}</p></div>')
+        items.append(
+            f'<div class="catalog-item"><strong>{topic}</strong><br/>'
+            f'<span class="muted">{tags}</span><p>{summary}</p></div>'
+        )
     grid = "".join(items) or '<p class="muted">No research findings yet.</p>'
     return (
         page_head("Design Research — Flyer Agent", extra_css=agent_css())

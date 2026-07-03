@@ -9,11 +9,13 @@ from typing import Any
 
 from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from pydantic import BaseModel, Field
 
 from bridge.job_status import complete_job, fail_job, is_job_active, report_progress, start_job
 from bridge.review import band_tools_home_path, route_path
 from bridge.routing import add_get, add_post
 from flyer_agent.agent import FlyerAgent
+from flyer_agent.chat import agent_chat_reply
 from flyer_agent.auth import extract_session_token, require_agent_user, user_to_dict, validate_session
 from flyer_agent.ui import (
     render_agent_dashboard,
@@ -29,6 +31,11 @@ from state import append_feedback, get_gig_state, upsert_gig
 
 _agent = FlyerAgent()
 _generate_in_flight: set[str] = set()
+
+
+class AgentChatRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=4000)
+    gig_id: str | None = None
 
 
 def _band_tools_url() -> str:
@@ -80,6 +87,25 @@ def register_agent_routes(app: FastAPI) -> None:
             raise HTTPException(status_code=503, detail=str(exc)) from exc
         return JSONResponse(board)
 
+    @add_post(app, "/agent/api/chat")
+    async def agent_chat_api(request: Request, body: AgentChatRequest) -> JSONResponse:
+        await require_agent_user(request)
+        result = agent_chat_reply(body.message, gig_id=body.gig_id, agent=_agent)
+        return JSONResponse(result)
+
+    @add_get(app, "/agent/api/gig/{gig_id}")
+    async def agent_gig_api(gig_id: str, request: Request) -> JSONResponse:
+        await require_agent_user(request)
+        detail = _agent.gig_detail(gig_id)
+        if not detail:
+            raise HTTPException(status_code=404, detail="Gig not found")
+        return JSONResponse(
+            {
+                "detail": detail,
+                "recommendation": _agent.recommend_action(gig_id),
+            }
+        )
+
     @add_get(app, "/agent", response_class=HTMLResponse)
     async def agent_dashboard(request: Request) -> HTMLResponse:
         user = await validate_session(extract_session_token(request))
@@ -107,11 +133,16 @@ def register_agent_routes(app: FastAPI) -> None:
         detail = _agent.gig_detail(gig_id)
         if not detail:
             raise HTTPException(status_code=404, detail="Gig not found")
+        try:
+            board = _agent.gig_board()
+        except CalendarUnavailableError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
         return HTMLResponse(
             render_gig_detail_page(
                 user=user_to_dict(user),
                 detail=detail,
                 recommendation=_agent.recommend_action(gig_id),
+                board=board,
             )
         )
 
