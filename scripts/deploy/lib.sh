@@ -78,27 +78,35 @@ sync_fly_secrets() {
   set -a
   source "$env_file"
   set +a
-  fly secrets set -a "$app" \
-    SECRET="${SECRET:-change-me}" \
-    OPENAI_API_KEY="${OPENAI_API_KEY:-}" \
-    GOOGLE_API_KEY="${GOOGLE_API_KEY:-${GEMINI_API_KEY:-}}" \
-    GEMINI_API_KEY="${GEMINI_API_KEY:-${GOOGLE_API_KEY:-}}" \
-    GOOGLE_CLIENT_ID="${GOOGLE_CLIENT_ID:-}" \
-    GOOGLE_CLIENT_SECRET="${GOOGLE_CLIENT_SECRET:-}" \
-    GOOGLE_REDIRECT_URI="https://${app}.fly.dev/auth/google/callback" \
-    APP_URL="https://${app}.fly.dev" \
-    NEXT_PUBLIC_API_SECRET="${NEXT_PUBLIC_API_SECRET:-${SECRET:-change-me}}" \
-    BRIDGE_SECRET="${BRIDGE_SECRET:-${SECRET:-change-me}}" \
-    BRIDGE_PUBLIC_URL="https://${app}.fly.dev/flyers" \
-    BAND_TOOLS_URL="https://${app}.fly.dev" \
-    GIG_IMAGE_PROVIDER="${GIG_IMAGE_PROVIDER:-openai}" \
-    GIG_IMAGE_PROVIDER_SPLIT="${GIG_IMAGE_PROVIDER_SPLIT:-0}" \
-    GIG_IMAGE_PROVIDER_A="${GIG_IMAGE_PROVIDER_A:-}" \
-    GIG_IMAGE_PROVIDER_B="${GIG_IMAGE_PROVIDER_B:-}" \
-    GIG_IMAGE_PROVIDER_C="${GIG_IMAGE_PROVIDER_C:-}" \
-    GEMINI_IMAGE_MODEL="${GEMINI_IMAGE_MODEL:-gemini-2.5-flash-image}" \
-    GEMINI_IMAGE_ASPECT_RATIO="${GEMINI_IMAGE_ASPECT_RATIO:-2:3}" \
-    GEMINI_IMAGE_SIZE="${GEMINI_IMAGE_SIZE:-}"
+
+  local set_args=(
+    "SECRET=${SECRET:-change-me}"
+    "OPENAI_API_KEY=${OPENAI_API_KEY:-}"
+    "GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}"
+    "GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}"
+    "GOOGLE_REDIRECT_URI=https://${app}.fly.dev/auth/google/callback"
+    "APP_URL=https://${app}.fly.dev"
+    "NEXT_PUBLIC_API_SECRET=${NEXT_PUBLIC_API_SECRET:-${SECRET:-change-me}}"
+    "BRIDGE_SECRET=${BRIDGE_SECRET:-${SECRET:-change-me}}"
+    "BRIDGE_PUBLIC_URL=https://${app}.fly.dev/flyers"
+    "BAND_TOOLS_URL=https://${app}.fly.dev"
+    "GIG_IMAGE_PROVIDER=${GIG_IMAGE_PROVIDER:-openai}"
+    "GIG_IMAGE_PROVIDER_SPLIT=${GIG_IMAGE_PROVIDER_SPLIT:-0}"
+    "GIG_IMAGE_PROVIDER_A=${GIG_IMAGE_PROVIDER_A:-}"
+    "GIG_IMAGE_PROVIDER_B=${GIG_IMAGE_PROVIDER_B:-}"
+    "GIG_IMAGE_PROVIDER_C=${GIG_IMAGE_PROVIDER_C:-}"
+    "GEMINI_IMAGE_MODEL=${GEMINI_IMAGE_MODEL:-gemini-2.5-flash-image}"
+    "GEMINI_IMAGE_ASPECT_RATIO=${GEMINI_IMAGE_ASPECT_RATIO:-2:3}"
+    "GEMINI_IMAGE_SIZE=${GEMINI_IMAGE_SIZE:-}"
+  )
+
+  # Preserve Gemini keys already on Fly when absent from .env (avoid wiping manual setup).
+  local google_key="${GOOGLE_API_KEY:-${GEMINI_API_KEY:-}}"
+  if [[ -n "$google_key" ]]; then
+    set_args+=("GOOGLE_API_KEY=${google_key}" "GEMINI_API_KEY=${GEMINI_API_KEY:-${google_key}}")
+  fi
+
+  fly secrets set -a "$app" "${set_args[@]}"
 }
 
 fly_deploy_image() {
