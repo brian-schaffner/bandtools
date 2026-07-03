@@ -46,6 +46,7 @@ from shell_model_policy import (
     model_choice_for_step,
     select_model_for_step,
 )
+from shell_pre_pass import build_prepass_mockup
 from shell_render_registry import get_render_spec
 from shell_references import ShellReference, get_shell
 from text_validation import resolve_venue_address
