@@ -69,3 +69,12 @@ scripts/
 ## Secrets
 
 Copy `.env.example` → `.env` and fill values. The deploy script pushes them to Fly when `.env` exists. Without `.env`, existing Fly secrets are kept.
+
+**Gemini (options B/C):** add `GOOGLE_API_KEY` from [Google AI Studio](https://aistudio.google.com/apikey). Staging enables split mode (`A=openai`, `B/C=gemini`) via `fly.test.toml`.
+
+Verify locally:
+
+```bash
+cd gig-flyers
+python3 scripts/gemini_smoke_test.py
+```

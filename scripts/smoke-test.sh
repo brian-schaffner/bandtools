@@ -21,6 +21,12 @@ echo "Smoke testing ${BASE}"
 check /health 200
 check /api/health 200
 check /flyers/health 200
+GEMINI_STATUS=$(curl -sS "${BASE}/flyers/health" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('providers',{}).get('gemini_configured',''))" 2>/dev/null || echo "")
+if [[ "$GEMINI_STATUS" == "True" ]]; then
+  echo "OK   Gemini API key configured"
+elif [[ "$GEMINI_STATUS" == "False" ]]; then
+  echo "WARN Gemini API key not configured (options B/C will fall back to OpenAI if set)"
+fi
 check /flyers 301
 check /flyers/ 200
 check /flyers/pick 200

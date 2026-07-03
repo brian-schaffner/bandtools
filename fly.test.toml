@@ -18,6 +18,15 @@ primary_region = 'ord'
   GIG_OUTPUT_DIR = '/data/flyers-output'
   GIG_CALENDAR_CACHE_PATH = '/data/cache/calendar.json'
   SETLOADER_DATA_DIR = '/data/setloader'
+  # A/B/C split: OpenAI for A, Gemini for B/C (requires GOOGLE_API_KEY secret)
+  GIG_IMAGE_PROVIDER_SPLIT = '1'
+  GIG_IMAGE_PROVIDER_A = 'openai'
+  GIG_IMAGE_PROVIDER_B = 'gemini'
+  GIG_IMAGE_PROVIDER_C = 'gemini'
+  GEMINI_IMAGE_MODEL = 'gemini-2.5-flash-image'
+  GEMINI_IMAGE_ASPECT_RATIO = '2:3'
+  OPENAI_IMAGE_USE_REFERENCE = '1'
+  OPENAI_IMAGE_POST_COMPOSE = '1'
 
 [mounts]
   source = 'bandtools_test_data'

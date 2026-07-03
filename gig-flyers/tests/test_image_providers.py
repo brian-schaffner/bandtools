@@ -329,7 +329,10 @@ class ImageProviderTest(unittest.TestCase):
             with patch.dict(
                 "os.environ",
                 {"GOOGLE_API_KEY": "test", "GEMINI_IMAGE_MODEL": "gemini-2.5-flash-image"},
-            ):
+            ), patch(
+                "image_providers.gemini.validate_flyer_photo",
+                return_value=MagicMock(passed=True, checks=[]),
+            ), patch("image_providers.gemini.enforce_photo_bbox"):
                 provider = GeminiImageProvider()
                 provider.generate("prompt", out, reference_photo_path=ref)
             self.assertTrue(out.is_file())

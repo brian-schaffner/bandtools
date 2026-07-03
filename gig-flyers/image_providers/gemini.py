@@ -40,6 +40,15 @@ def _gemini_model() -> str:
     return MODEL_ALIASES.get(raw, raw)
 
 
+def _image_config(aspect_ratio: str) -> Any:
+    from google.genai import types
+
+    size = (os.getenv("GEMINI_IMAGE_SIZE") or "").strip()
+    if size:
+        return types.ImageConfig(aspect_ratio=aspect_ratio, image_size=size)
+    return types.ImageConfig(aspect_ratio=aspect_ratio)
+
+
 def _mime_type(path: Path) -> str:
     guessed, _ = mimetypes.guess_type(path.name)
     return guessed or "image/jpeg"
@@ -144,7 +153,7 @@ class GeminiImageProvider(ImageProvider):
 
         config = types.GenerateContentConfig(
             response_modalities=["IMAGE"],
-            image_config=types.ImageConfig(aspect_ratio=aspect_ratio),
+            image_config=_image_config(aspect_ratio),
         )
 
         def _call_api():

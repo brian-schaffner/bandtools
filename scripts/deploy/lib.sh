@@ -81,6 +81,8 @@ sync_fly_secrets() {
   fly secrets set -a "$app" \
     SECRET="${SECRET:-change-me}" \
     OPENAI_API_KEY="${OPENAI_API_KEY:-}" \
+    GOOGLE_API_KEY="${GOOGLE_API_KEY:-${GEMINI_API_KEY:-}}" \
+    GEMINI_API_KEY="${GEMINI_API_KEY:-${GOOGLE_API_KEY:-}}" \
     GOOGLE_CLIENT_ID="${GOOGLE_CLIENT_ID:-}" \
     GOOGLE_CLIENT_SECRET="${GOOGLE_CLIENT_SECRET:-}" \
     GOOGLE_REDIRECT_URI="https://${app}.fly.dev/auth/google/callback" \
@@ -88,7 +90,15 @@ sync_fly_secrets() {
     NEXT_PUBLIC_API_SECRET="${NEXT_PUBLIC_API_SECRET:-${SECRET:-change-me}}" \
     BRIDGE_SECRET="${BRIDGE_SECRET:-${SECRET:-change-me}}" \
     BRIDGE_PUBLIC_URL="https://${app}.fly.dev/flyers" \
-    BAND_TOOLS_URL="https://${app}.fly.dev"
+    BAND_TOOLS_URL="https://${app}.fly.dev" \
+    GIG_IMAGE_PROVIDER="${GIG_IMAGE_PROVIDER:-openai}" \
+    GIG_IMAGE_PROVIDER_SPLIT="${GIG_IMAGE_PROVIDER_SPLIT:-0}" \
+    GIG_IMAGE_PROVIDER_A="${GIG_IMAGE_PROVIDER_A:-}" \
+    GIG_IMAGE_PROVIDER_B="${GIG_IMAGE_PROVIDER_B:-}" \
+    GIG_IMAGE_PROVIDER_C="${GIG_IMAGE_PROVIDER_C:-}" \
+    GEMINI_IMAGE_MODEL="${GEMINI_IMAGE_MODEL:-gemini-2.5-flash-image}" \
+    GEMINI_IMAGE_ASPECT_RATIO="${GEMINI_IMAGE_ASPECT_RATIO:-2:3}" \
+    GEMINI_IMAGE_SIZE="${GEMINI_IMAGE_SIZE:-}"
 }
 
 fly_deploy_image() {
