@@ -134,4 +134,5 @@ def build_gig_detail(gig_id: str) -> Optional[dict[str, Any]]:
         "selected_photo": record.get("selected_photo"),
         "feedback_history": record.get("feedback_history") or [],
         "round": int(record.get("round") or 0),
+        "updated_at": record.get("updated_at") or "",
     }

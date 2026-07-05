@@ -12,10 +12,11 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
 
 from bridge.job_status import complete_job, fail_job, get_job_status, is_job_active, report_progress, start_job
-from bridge.review import asset_url, band_tools_home_path, route_path
+from bridge.review import band_tools_home_path, route_path
 from bridge.routing import add_get, add_post
 from flyer_agent.agent import FlyerAgent
 from flyer_agent.chat import agent_chat_reply
+from flyer_agent.urls import flyer_asset_url
 from flyer_agent.auth import extract_session_token, require_agent_user, user_to_dict, validate_session
 from flyer_agent.ui import (
     render_agent_dashboard,
@@ -72,9 +73,16 @@ def _gig_detail_payload(gig_id: str) -> dict[str, Any]:
     detail = _agent.gig_detail(gig_id)
     if not detail:
         raise HTTPException(status_code=404, detail="Gig not found")
+    round_num = int(detail.get("round") or 0)
+    updated_at = str(detail.get("updated_at") or "")
     flyers = []
     for flyer in detail.get("flyers") or []:
-        flyers.append({**flyer, "url": asset_url(flyer["path"])})
+        flyers.append(
+            {
+                **flyer,
+                "url": flyer_asset_url(flyer["path"], round_num=round_num, updated_at=updated_at),
+            }
+        )
     payload = {**detail, "flyers": flyers}
     return {
         "detail": payload,

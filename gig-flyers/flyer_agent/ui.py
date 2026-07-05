@@ -6,8 +6,9 @@ import html
 import json
 from typing import Any, Optional
 
-from bridge.review import asset_url, review_page_path, route_path
+from bridge.review import review_page_path, route_path
 from bridge.ui import base_css, page_close, page_head, site_nav
+from flyer_agent.urls import flyer_asset_url
 
 
 def agent_css() -> str:
@@ -145,14 +146,17 @@ def agent_css() -> str:
     }
     .agent-flyer-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-      gap: 0.85rem;
+      grid-template-columns: repeat(3, minmax(0, 120px));
+      gap: 0.5rem;
+      justify-content: start;
+      align-items: start;
     }
     .agent-flyer-card {
       border: 1px solid var(--agent-panel-border);
-      border-radius: 12px;
+      border-radius: 10px;
       overflow: hidden;
       background: #f8fafc;
+      max-width: 120px;
     }
     .agent-flyer-card.selected {
       border-color: var(--agent-accent);
@@ -166,12 +170,16 @@ def agent_css() -> str:
       background: #e2e8f0;
     }
     .agent-flyer-card .flyer-cap {
-      padding: 0.55rem 0.65rem;
+      padding: 0.35rem 0.45rem;
       display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 0.35rem;
-      font-size: 0.82rem;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0.25rem;
+      font-size: 0.68rem;
+    }
+    .agent-flyer-card .flyer-cap .btn-secondary {
+      font-size: 0.65rem;
+      padding: 0.2rem 0.35rem;
     }
     .agent-empty-state {
       color: #64748b;
@@ -384,7 +392,7 @@ def _meta_panel(
       <div class="meta-grid">
         <div class="meta-item"><label>When</label>{time_label}</div>
         <div class="meta-item"><label>Status</label>{source_badge} {workflow}</div>
-        <div class="meta-item"><label>Round</label>{round_num}</div>
+        <div class="meta-item"><label>Round</label><span id="agent-gig-round">{round_num}</span></div>
         <div class="meta-item"><label>Venue type</label>{venue_type}</div>
         <div class="meta-item"><label>Design language</label>{design_lang}</div>
         <div class="meta-item"><label>Band photo</label>{photo_label}</div>
@@ -413,9 +421,13 @@ def _posters_panel(detail: Optional[dict[str, Any]]) -> str:
         """
 
     cards: list[str] = []
+    round_num = int(detail.get("round") or 0)
+    updated_at = str(detail.get("updated_at") or "")
     for flyer in flyers:
         opt = html.escape(flyer["option"])
-        img_url = html.escape(asset_url(flyer["path"]))
+        img_url = html.escape(
+            flyer_asset_url(flyer["path"], round_num=round_num, updated_at=updated_at)
+        )
         cards.append(
             f"""
             <article class="agent-flyer-card" data-option="{opt}">
@@ -486,6 +498,21 @@ def _chat_panel(*, initial_message: str, gig_label: str) -> str:
         return gigInput ? gigInput.value : "";
       }}
 
+      function posterUrl(flyer, detail) {{
+        var url = flyer.url || flyer.path || "";
+        if (!url) return "";
+        if (url.indexOf("?") >= 0) return url;
+        var round = detail && detail.round ? detail.round : "";
+        var stamp = (detail && detail.updated_at) ? detail.updated_at : round;
+        return url + "?v=" + encodeURIComponent(round) + "&t=" + encodeURIComponent(String(stamp).slice(0, 32));
+      }}
+
+      function updateMeta(detail) {{
+        if (!detail) return;
+        var roundEl = document.getElementById("agent-gig-round");
+        if (roundEl) roundEl.textContent = String(detail.round || 0);
+      }}
+
       function renderPosters(detail) {{
         var panel = document.querySelector(".agent-posters-panel");
         if (!panel || !detail) return;
@@ -496,14 +523,42 @@ def _chat_panel(*, initial_message: str, gig_label: str) -> str:
         }}
         var cards = flyers.map(function(f) {{
           var opt = f.option || "?";
-          var url = f.url || f.path || "";
+          var url = posterUrl(f, detail);
           return '<article class="agent-flyer-card" data-option="' + opt + '">' +
             '<img src="' + url + '" alt="Option ' + opt + '" loading="lazy" />' +
             '<div class="flyer-cap"><strong>Option ' + opt + '</strong>' +
             '<button type="button" class="btn-secondary agent-select-option" data-option="' + opt + '">Revise</button></div></article>';
         }}).join("");
         panel.innerHTML = '<h2>Posters — round ' + (detail.round || 0) + '</h2><div class="agent-flyer-grid">' + cards + '</div>';
+        updateMeta(detail);
         bindReviseButtons();
+      }}
+
+      function pathsMatchRound(detail, expectedRound) {{
+        if (!expectedRound) return true;
+        var flyers = detail.flyers || [];
+        if (!flyers.length) return false;
+        return flyers.every(function(f) {{
+          var p = f.path || f.url || "";
+          return p.indexOf("_r" + expectedRound) >= 0;
+        }});
+      }}
+
+      function refreshGigDetailUntilRound(expectedRound, attempt) {{
+        attempt = attempt || 0;
+        return refreshGigDetail().then(function(data) {{
+          var detail = data && data.detail;
+          if (!detail) return data;
+          if (!expectedRound || (detail.round >= expectedRound && pathsMatchRound(detail, expectedRound))) {{
+            return data;
+          }}
+          if (attempt >= 10) return data;
+          return new Promise(function(resolve) {{
+            setTimeout(function() {{
+              resolve(refreshGigDetailUntilRound(expectedRound, attempt + 1));
+            }}, 600);
+          }});
+        }});
       }}
 
       function bindReviseButtons() {{
@@ -542,17 +597,25 @@ def _chat_panel(*, initial_message: str, gig_label: str) -> str:
         if (!id) return;
         stopPolling();
         var statusEl = appendMsg("agent", "Generating…");
+        var sawRunning = false;
+        var pollStartedAt = Date.now();
         pollTimer = setInterval(function() {{
           fetch(jobApiTpl + encodeURIComponent(id) + "/job", {{ headers: authHeaders() }})
             .then(function(r) {{ return r.json(); }})
             .then(function(status) {{
+              if (status.status === "running") sawRunning = true;
               var msg = status.message || status.detail || status.status || "Working…";
               statusEl.textContent = msg.charAt(0).toUpperCase() + msg.slice(1);
               if (status.status === "done") {{
+                if (!sawRunning && status.updated_at) {{
+                  var doneAt = Date.parse(status.updated_at);
+                  if (!isNaN(doneAt) && doneAt < pollStartedAt - 500) return;
+                }}
                 stopPolling();
-                refreshGigDetail().then(function() {{
-                  var round = (jobInfo && jobInfo.expected_round) ? jobInfo.expected_round : "";
-                  var suffix = round ? (" Round " + round + " is ready above.") : " Posters updated above.";
+                var expected = jobInfo && jobInfo.expected_round;
+                refreshGigDetailUntilRound(expected).then(function(data) {{
+                  var actualRound = data && data.detail ? data.detail.round : expected;
+                  var suffix = actualRound ? (" Round " + actualRound + " is ready above.") : " Posters updated above.";
                   appendMsg("agent", "Done —" + suffix);
                 }});
               }} else if (status.status === "error") {{
@@ -561,7 +624,7 @@ def _chat_panel(*, initial_message: str, gig_label: str) -> str:
               }}
             }})
             .catch(function() {{ /* keep polling */ }});
-        }}, 1500);
+        }}, 1200);
       }}
 
       form.addEventListener("submit", function(ev) {{

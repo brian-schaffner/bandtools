@@ -614,6 +614,8 @@ def _generate_structured_layout_option(
     out_dir: Path,
     dry_run: bool,
     on_progress: Optional[ProgressCallback],
+    feedback: Optional[str] = None,
+    base_letter: Optional[str] = None,
 ) -> dict[str, Any]:
     """Generate a flyer using Structured Layout Mode.
     
@@ -684,6 +686,18 @@ def _generate_structured_layout_option(
             quality_threshold=quality_threshold,
             max_attempts=max_attempts,
             on_progress=on_progress,
+            option=letter,
+        )
+
+    if feedback and base_letter and letter.upper() == base_letter.upper():
+        from structured_layout.feedback_tweaks import apply_revision_feedback
+
+        layout = apply_revision_feedback(layout, feedback)
+        emit_progress(
+            on_progress,
+            step="layout",
+            substep="feedback",
+            message=f"Applied revision feedback to option {letter}",
             option=letter,
         )
     
@@ -815,6 +829,8 @@ def _generate_single_option(
             out_dir=out_dir,
             dry_run=dry_run,
             on_progress=on_progress,
+            feedback=feedback,
+            base_letter=base_letter,
         )
     
     stagger = _gemini_stagger_seconds(option_index, letter)
