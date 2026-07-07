@@ -18,6 +18,7 @@ def agent_css() -> str:
       --agent-header-h: auto;
       --agent-chat-min: 220px;
       --agent-chat-max: 320px;
+      --agent-poster-w: 200px;
       --agent-ink: #0f172a;
       --agent-panel: #ffffff;
       --agent-panel-border: rgba(15, 23, 42, 0.08);
@@ -146,8 +147,8 @@ def agent_css() -> str:
     }
     .agent-flyer-grid {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 120px));
-      gap: 0.5rem;
+      grid-template-columns: repeat(3, minmax(0, var(--agent-poster-w)));
+      gap: 0.65rem;
       justify-content: start;
       align-items: start;
     }
@@ -156,7 +157,7 @@ def agent_css() -> str:
       border-radius: 10px;
       overflow: hidden;
       background: #f8fafc;
-      max-width: 120px;
+      max-width: var(--agent-poster-w);
     }
     .agent-flyer-card.selected {
       border-color: var(--agent-accent);
@@ -170,16 +171,16 @@ def agent_css() -> str:
       background: #e2e8f0;
     }
     .agent-flyer-card .flyer-cap {
-      padding: 0.35rem 0.45rem;
+      padding: 0.45rem 0.55rem;
       display: flex;
-      flex-direction: column;
-      align-items: stretch;
-      gap: 0.25rem;
-      font-size: 0.68rem;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.78rem;
     }
     .agent-flyer-card .flyer-cap .btn-secondary {
-      font-size: 0.65rem;
-      padding: 0.2rem 0.35rem;
+      font-size: 0.72rem;
+      padding: 0.25rem 0.45rem;
     }
     .agent-empty-state {
       color: #64748b;
