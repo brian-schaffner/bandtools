@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from typing import Any, Optional
 
 from flyer_agent.agent import FlyerAgent
@@ -20,27 +19,14 @@ def _research_blurb(research: Optional[dict[str, Any]]) -> str:
     return text[:240]
 
 
-def _uses_structured_layout() -> bool:
-    disabled = os.getenv("STRUCTURED_LAYOUT_DISABLED", "").strip().lower() in {"1", "true", "yes"}
-    if disabled:
-        return False
-    options = os.getenv("STRUCTURED_LAYOUT_OPTIONS", "A,B,C").upper()
-    return bool(options.strip())
-
-
 def _revise_explanation(*, option: str, feedback: str, current_round: int) -> str:
     next_round = max(current_round, 0) + 1
-    layout_note = (
-        " Layout revisions adjust typography, color, and template composition within the structured poster engine."
-        if _uses_structured_layout()
-        else " Revisions use the image generation pipeline with your feedback applied to the chosen option."
-    )
     return (
-        f"Got it — revising from Option {option.upper()} with your feedback:\n"
+        f"Got it — you like Option {option.upper()} and want to explore:\n"
         f"“{feedback}”\n\n"
-        f"This creates a new round (r{next_round}) of all three posters (A/B/C). "
-        f"Option {option.upper()} will reflect your notes; B and C get fresh variations."
-        f"{layout_note}\n\n"
+        f"This creates a new round (r{next_round}) with **three variants of Option {option.upper()}** "
+        f"— same layout direction, each applying your notes differently "
+        f"(e.g. blush / sky / mint pastels when you ask for pastel).\n\n"
         "Working on it now — I’ll update the posters when the round is ready."
     )
 

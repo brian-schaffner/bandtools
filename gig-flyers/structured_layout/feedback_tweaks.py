@@ -9,6 +9,19 @@ from typing import Optional
 
 from structured_layout.layout_spec import ColorSpec, LayoutSpec, TextElement
 
+# Distinct palettes when fanning out one base option into three variants (e.g. pastel).
+PASTEL_VARIANTS = (
+    {"bg": "#FADADD", "text": "#7A5C6A", "label": "blush pastel"},
+    {"bg": "#D4E4F7", "text": "#4A5F7A", "label": "sky pastel"},
+    {"bg": "#D8F3DC", "text": "#4A6B55", "label": "mint pastel"},
+)
+
+WARM_VARIANTS = (
+    {"bg": "#F5E6C8", "text": "#6B4E2E", "label": "warm cream"},
+    {"bg": "#E8C872", "text": "#5C4518", "label": "mustard gold"},
+    {"bg": "#D4A017", "text": "#3D2E08", "label": "deep amber"},
+)
+
 
 def _hex_to_rgb(hex_color: str) -> tuple[float, float, float]:
     raw = (hex_color or "#000000").lstrip("#")
@@ -53,8 +66,24 @@ def _font_scale(feedback: str) -> float:
     return 1.0
 
 
-def apply_revision_feedback(layout: LayoutSpec, feedback: Optional[str]) -> LayoutSpec:
-    """Return a copy of layout with simple feedback-driven tweaks applied."""
+def _variant_palette(feedback: str, variant_index: int, variant_count: int) -> Optional[dict[str, str]]:
+    lower = feedback.lower()
+    idx = variant_index % max(variant_count, 1)
+    if "pastel" in lower or "soft color" in lower or "muted color" in lower:
+        return PASTEL_VARIANTS[idx % len(PASTEL_VARIANTS)]
+    if any(word in lower for word in ("warmer", "mustard", "gold", "amber")):
+        return WARM_VARIANTS[idx % len(WARM_VARIANTS)]
+    return None
+
+
+def apply_revision_feedback(
+    layout: LayoutSpec,
+    feedback: Optional[str],
+    *,
+    variant_index: int = 0,
+    variant_count: int = 1,
+) -> LayoutSpec:
+    """Return a copy of layout with feedback-driven tweaks (and optional variant palette)."""
     text = (feedback or "").strip()
     if not text:
         return layout
@@ -62,10 +91,14 @@ def apply_revision_feedback(layout: LayoutSpec, feedback: Optional[str]) -> Layo
     spec = deepcopy(layout)
     scale = _font_scale(text)
     lower = text.lower()
+    palette = _variant_palette(text, variant_index, variant_count)
 
     if scale != 1.0:
         updated: list[TextElement] = []
         for element in spec.text_elements:
+            text_color = element.color
+            if palette:
+                text_color = ColorSpec(hex=palette["text"], opacity=element.color.opacity)
             updated.append(
                 TextElement(
                     content=element.content,
@@ -75,7 +108,7 @@ def apply_revision_feedback(layout: LayoutSpec, feedback: Optional[str]) -> Layo
                     font_size=max(12, int(round(element.font_size * scale))),
                     font_family=element.font_family,
                     font_weight=element.font_weight,
-                    color=element.color,
+                    color=text_color,
                     alignment=element.alignment,
                     rotation=element.rotation,
                     letter_spacing=element.letter_spacing,
@@ -84,18 +117,43 @@ def apply_revision_feedback(layout: LayoutSpec, feedback: Optional[str]) -> Layo
                 )
             )
         spec.text_elements = updated
+    elif palette:
+        spec.text_elements = [
+            TextElement(
+                content=element.content,
+                x=element.x,
+                y=element.y,
+                width=element.width,
+                font_size=element.font_size,
+                font_family=element.font_family,
+                font_weight=element.font_weight,
+                color=ColorSpec(hex=palette["text"], opacity=element.color.opacity),
+                alignment=element.alignment,
+                rotation=element.rotation,
+                letter_spacing=element.letter_spacing,
+                line_height=element.line_height,
+                all_caps=element.all_caps,
+            )
+            for element in spec.text_elements
+        ]
 
-    bg = spec.background.color.hex
-    if any(word in lower for word in ("vibrant", "saturated", "bold color", "pop")):
-        bg = _adjust_color(bg, saturation=1.35, lightness=1.05)
-    if any(word in lower for word in ("warmer", "mustard", "gold", "amber")):
-        bg = _adjust_color(bg, saturation=1.2, lightness=1.08)
-        if "mustard" in lower or "gold" in lower:
-            bg = "#D4A017"
-    if any(word in lower for word in ("darker", "moody")):
-        bg = _adjust_color(bg, saturation=1.05, lightness=0.82)
+    if palette:
+        bg = palette["bg"]
+    else:
+        bg = spec.background.color.hex
+        if any(word in lower for word in ("vibrant", "saturated", "bold color", "pop")):
+            bg = _adjust_color(bg, saturation=1.35, lightness=1.05)
+        if any(word in lower for word in ("warmer", "mustard", "gold", "amber")):
+            bg = _adjust_color(bg, saturation=1.2, lightness=1.08)
+            if "mustard" in lower or "gold" in lower:
+                bg = "#D4A017"
+        if any(word in lower for word in ("darker", "moody")):
+            bg = _adjust_color(bg, saturation=1.05, lightness=0.82)
+        if "pastel" in lower:
+            bg = PASTEL_VARIANTS[variant_index % len(PASTEL_VARIANTS)]["bg"]
 
     spec.background.color = ColorSpec(hex=bg, opacity=spec.background.color.opacity)
-    note = f"Revision feedback: {text[:120]}"
+    variant_note = palette["label"] if palette else f"variant {variant_index + 1}"
+    note = f"Revision feedback ({variant_note}): {text[:100]}"
     spec.style_notes = f"{spec.style_notes} | {note}".strip(" |")
     return spec

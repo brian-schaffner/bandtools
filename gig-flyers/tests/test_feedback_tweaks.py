@@ -24,10 +24,25 @@ class FeedbackTweaksTest(unittest.TestCase):
         updated = apply_revision_feedback(layout, "larger font, more vibrant colors")
         self.assertGreater(updated.text_elements[0].font_size, 40)
 
-    def test_vibrant_adjusts_background(self) -> None:
+    def test_pastel_variants_differ(self) -> None:
         layout = LayoutSpec()
-        updated = apply_revision_feedback(layout, "more vibrant colors")
-        self.assertNotEqual(updated.background.color.hex, layout.background.color.hex)
+        first = apply_revision_feedback(layout, "pastel colors", variant_index=0, variant_count=3)
+        second = apply_revision_feedback(layout, "pastel colors", variant_index=1, variant_count=3)
+        self.assertNotEqual(first.background.color.hex, second.background.color.hex)
+
+    def test_like_option_pastel_intent(self) -> None:
+        from flyer_agent.intent import parse_chat_intent
+
+        detail = {
+            "can_revise": True,
+            "can_generate": False,
+            "can_regenerate": False,
+            "flyers": [{"option": "A"}],
+        }
+        intent = parse_chat_intent("I like option A, but I want it in pastel", detail=detail)
+        self.assertEqual(intent.kind, "revise")
+        self.assertEqual(intent.option, "A")
+        self.assertIn("pastel", (intent.feedback or "").lower())
 
 
 if __name__ == "__main__":

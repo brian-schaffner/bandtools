@@ -521,6 +521,19 @@ def select_variations(style: dict[str, Any], count: int, used: list[str]) -> lis
     return ordered[:count]
 
 
+def _variations_for_base_option(style: dict[str, Any], count: int, base_letter: str) -> list[dict[str, Any]]:
+    """Repeat the chosen option's creativity tier for all revision slots."""
+    ordered = select_variations(style, 3, [])
+    index = {"A": 0, "B": 1, "C": 2}.get(base_letter.upper(), 0)
+    base_var = ordered[min(index, len(ordered) - 1)]
+    return [dict(base_var) for _ in range(count)]
+
+
+def _fan_out_revision(base_letter: Optional[str], feedback: Optional[str]) -> bool:
+    """True when revision should produce N variants of the base option, not fresh B/C."""
+    return bool(base_letter and (feedback or "").strip())
+
+
 def _gemini_stagger_seconds(option_index: int, letter: str = "") -> float:
     """Light stagger when an option uses Gemini to reduce simultaneous 429s."""
     if option_index <= 0:
@@ -616,6 +629,7 @@ def _generate_structured_layout_option(
     on_progress: Optional[ProgressCallback],
     feedback: Optional[str] = None,
     base_letter: Optional[str] = None,
+    fan_out_base: Optional[str] = None,
 ) -> dict[str, Any]:
     """Generate a flyer using Structured Layout Mode.
     
@@ -626,17 +640,22 @@ def _generate_structured_layout_option(
     var_id = variation.get("id", letter)
     option_num = option_index + 1
     slot_base = 20 + option_index * 22
-    layout_label = variation.get("label") or variation.get("id", letter)
+    template_letter = (fan_out_base or letter).upper()
+    layout_label = variation.get("label") or variation.get("id", template_letter)
     filename = f"option-{letter}_r{current_round}.png"
     path = out_dir / filename
     
-    design_style = _get_design_style_for_option(letter)
+    design_style = _get_design_style_for_option(template_letter)
     
     emit_progress(
         on_progress,
         step="generate",
         substep="start",
-        message=f"Generating option {letter} via Structured Layout Mode ({design_style.value})…",
+        message=(
+            f"Generating option {letter} as variant {option_num}/{count} of Option {fan_out_base}…"
+            if fan_out_base
+            else f"Generating option {letter} via Structured Layout Mode ({design_style.value})…"
+        ),
         progress=slot_base,
         option=letter,
         attempt=1,
@@ -656,13 +675,13 @@ def _generate_structured_layout_option(
     if dry_run:
         band = os.getenv("GIG_CALENDAR_BAND", "Lindsey Lane Band")
         layout = _build_fixed_layout(
-            letter, event, design_style, band=band, research=research, round_num=current_round
+            template_letter, event, design_style, band=band, research=research, round_num=current_round
         )
         layout_score = 8.0
     elif _use_fixed_templates():
         band = os.getenv("GIG_CALENDAR_BAND", "Lindsey Lane Band")
         layout = _build_fixed_layout(
-            letter, event, design_style, band=band, research=research, round_num=current_round
+            template_letter, event, design_style, band=band, research=research, round_num=current_round
         )
         from structured_layout.layout_scorer import score_layout
 
@@ -689,15 +708,30 @@ def _generate_structured_layout_option(
             option=letter,
         )
 
-    if feedback and base_letter and letter.upper() == base_letter.upper():
+    apply_feedback = bool(
+        feedback
+        and (
+            fan_out_base
+            or (base_letter and letter.upper() == base_letter.upper())
+        )
+    )
+    if apply_feedback:
         from structured_layout.feedback_tweaks import apply_revision_feedback
 
-        layout = apply_revision_feedback(layout, feedback)
+        layout = apply_revision_feedback(
+            layout,
+            feedback,
+            variant_index=option_index,
+            variant_count=count,
+        )
         emit_progress(
             on_progress,
             step="layout",
             substep="feedback",
-            message=f"Applied revision feedback to option {letter}",
+            message=(
+                f"Applied “{feedback[:48]}…” to Option {letter} "
+                f"(variant {option_num} of {template_letter})"
+            ),
             option=letter,
         )
     
@@ -804,6 +838,7 @@ def _generate_single_option(
     feedback: Optional[str],
     base_letter: Optional[str],
     base_prior_prompt: Optional[str],
+    fan_out_base: Optional[str],
     dry_run: bool,
     on_progress: Optional[ProgressCallback],
 ) -> dict[str, Any]:
@@ -831,6 +866,7 @@ def _generate_single_option(
             on_progress=on_progress,
             feedback=feedback,
             base_letter=base_letter,
+            fan_out_base=fan_out_base,
         )
     
     stagger = _gemini_stagger_seconds(option_index, letter)
@@ -841,7 +877,7 @@ def _generate_single_option(
     option_num = option_index + 1
     slot_base = 20 + option_index * 22
     layout_label = variation.get("label") or variation.get("id", letter)
-    letter_prior = base_prior_prompt if feedback and letter == base_letter else None
+    letter_prior = base_prior_prompt if feedback and (fan_out_base or letter == base_letter) else None
     extra_feedback: Optional[str] = None
     filename = f"option-{letter}_r{current_round}.png"
     path = out_dir / filename
@@ -852,7 +888,13 @@ def _generate_single_option(
 
     for attempt in range(max_remakes + 1):
         attempt_num = attempt + 1
-        attempt_feedback = feedback if letter == base_letter else None
+        attempt_feedback = feedback if (fan_out_base or letter == base_letter) else None
+        if attempt_feedback and fan_out_base:
+            attempt_feedback = (
+                f"{attempt_feedback}\n\n"
+                f"Variation {option_index + 1} of {count}: distinct interpretation of Option {fan_out_base} "
+                f"with the same revision direction."
+            )
         if extra_feedback:
             attempt_feedback = (
                 f"{attempt_feedback}\n\n{extra_feedback}" if attempt_feedback else extra_feedback
@@ -1173,13 +1215,21 @@ def generate_for_gig(
     prior_prompts = record.get("prompts", {})
     base_letter = (base_option or "").upper() or None
     base_prior_prompt = prior_prompts.get(base_letter, None) if base_letter else None
+    fan_out_base = base_letter if _fan_out_revision(base_letter, feedback) else None
 
-    variations = select_variations(style, count, used_variations)
+    if fan_out_base:
+        variations = _variations_for_base_option(style, count, fan_out_base)
+    else:
+        variations = select_variations(style, count, used_variations)
     emit_progress(
         on_progress,
         step="starting",
         substep="variations",
-        message=f"Selected creativity tiers: {', '.join(v.get('tier', v.get('id', '?')) for v in variations)}",
+        message=(
+            f"Fan-out revision: 3 variants of Option {fan_out_base}"
+            if fan_out_base
+            else f"Selected creativity tiers: {', '.join(v.get('tier', v.get('id', '?')) for v in variations)}"
+        ),
         progress=4,
     )
 
@@ -1224,6 +1274,7 @@ def generate_for_gig(
                     feedback=feedback,
                     base_letter=base_letter,
                     base_prior_prompt=base_prior_prompt,
+                    fan_out_base=fan_out_base,
                     dry_run=dry_run,
                     on_progress=on_progress,
                 )
@@ -1274,6 +1325,8 @@ def generate_for_gig(
         manifest["feedback"] = feedback
     if base_letter:
         manifest["base_option"] = base_letter
+    if fan_out_base:
+        manifest["fan_out_base"] = fan_out_base
     if fresh_start:
         manifest["regenerate"] = True
 

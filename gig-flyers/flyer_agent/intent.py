@@ -6,7 +6,9 @@ import re
 from dataclasses import dataclass
 from typing import Any, Optional
 
-REVISE_WORDS = ("revise", "change", "fix", "tweak", "adjust", "update", "feedback", "modify")
+REVISE_WORDS = (
+    "revise", "change", "fix", "tweak", "adjust", "update", "feedback", "modify", "like", "love", "prefer",
+)
 GENERATE_WORDS = ("generate", "create", "make posters", "make flyer", "make options")
 REGENERATE_WORDS = ("regenerate", "fresh round", "start over", "redo", "from scratch")
 
@@ -43,6 +45,7 @@ def _extract_option_and_feedback(text: str) -> tuple[Optional[str], Optional[str
     option = next(g.upper() for g in match.groups() if g)
     tail = text[match.end() :].strip()
     tail = re.sub(rf"^[\s:{_DASH_CHARS}]+", "", tail).strip()
+    tail = re.sub(r"^(but|and)\s+", "", tail, flags=re.I).strip()
     if not tail:
         # Feedback may precede option in rare phrasing; use full message minus option token.
         head = text[: match.start()].strip()

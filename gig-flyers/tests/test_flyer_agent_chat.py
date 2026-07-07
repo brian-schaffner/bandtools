@@ -76,6 +76,7 @@ class ChatExecutionReplyTest(unittest.TestCase):
         self.assertEqual(result["execution"]["type"], "revise")
         self.assertEqual(result["execution"]["option"], "A")
         self.assertIn("new round", result["reply"].lower())
+        self.assertIn("three variants", result["reply"].lower())
         self.assertIn("Option A", result["reply"])
         self.assertNotIn("I'll apply that as revision feedback", result["reply"])
 
