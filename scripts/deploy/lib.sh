@@ -8,11 +8,16 @@ deploy_repo_root() {
 
 require_fly_cli() {
   if ! command -v fly >/dev/null 2>&1; then
+    if command -v flyctl >/dev/null 2>&1; then
+      ln -sf "$(command -v flyctl)" "$(dirname "$(command -v flyctl)")/fly" 2>/dev/null || true
+    fi
+  fi
+  if ! command -v fly >/dev/null 2>&1; then
     echo "ERROR: fly CLI not found. Install: https://fly.io/docs/hands-on/install-flyctl/" >&2
     return 1
   fi
   if ! fly auth whoami >/dev/null 2>&1; then
-    echo "ERROR: fly CLI is not authenticated. Run: fly auth login" >&2
+    echo "ERROR: fly CLI is not authenticated. Run: fly auth login or set FLY_API_TOKEN" >&2
     return 1
   fi
 }

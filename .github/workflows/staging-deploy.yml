@@ -39,6 +39,18 @@ jobs:
       - name: Setup Fly CLI
         uses: superfly/flyctl-actions/setup-flyctl@master
 
+      - name: Preflight Fly auth
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          if [[ -z "${FLY_API_TOKEN}" ]]; then
+            echo "ERROR: GitHub secret FLY_API_TOKEN is not set." >&2
+            echo "Add it at: Settings → Secrets and variables → Actions → New repository secret" >&2
+            exit 1
+          fi
+          flyctl version
+          flyctl auth whoami
+
       - name: Deploy to staging
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
