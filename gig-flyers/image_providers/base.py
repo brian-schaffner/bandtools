@@ -10,8 +10,8 @@ from typing import Optional
 from image_providers.errors import ImageGenerationError, friendly_generation_error, is_quota_error
 from progress_helper import ProgressCallback, emit_progress
 
-OPTION_LETTERS = ("A", "B", "C")
-_DEFAULT_SPLIT_PROVIDERS = {"A": "openai", "B": "gemini", "C": "gemini"}
+OPTION_LETTERS = ("A", "B", "C", "D")
+_DEFAULT_SPLIT_PROVIDERS = {"A": "openai", "B": "gemini", "C": "gemini", "D": "gemini"}
 _GEMINI_ALIASES = frozenset({"gemini", "nano_banana", "google", "nano-banana"})
 
 

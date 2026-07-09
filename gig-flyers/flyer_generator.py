@@ -58,8 +58,17 @@ load_dotenv(ROOT / ".env")
 STYLE_PATH = ROOT / "style.yaml"
 
 
+from option_slots import (
+    is_wild_option,
+    round_option_letters,
+    select_round_variations as _select_round_variations_from_slots,
+    uses_structured_layout,
+    wild_variation,
+)
 from output_paths import get_output_dir, output_relative
-OPTION_LETTERS = ("A", "B", "C")
+from wild_design import build_wild_design_prompt
+
+OPTION_LETTERS = ("A", "B", "C", "D")
 
 
 def load_style() -> dict[str, Any]:
@@ -523,10 +532,16 @@ def select_variations(style: dict[str, Any], count: int, used: list[str]) -> lis
 
 def _variations_for_base_option(style: dict[str, Any], count: int, base_letter: str) -> list[dict[str, Any]]:
     """Repeat the chosen option's creativity tier for all revision slots."""
+    if is_wild_option(base_letter):
+        return [dict(wild_variation()) for _ in range(count)]
     ordered = select_variations(style, 3, [])
-    index = {"A": 0, "B": 1, "C": 2}.get(base_letter.upper(), 0)
+    index = {"A": 0, "B": 1, "C": 2, "D": 3}.get(base_letter.upper(), 0)
     base_var = ordered[min(index, len(ordered) - 1)]
     return [dict(base_var) for _ in range(count)]
+
+
+def select_round_variations(style: dict[str, Any], used: list[str]) -> list[dict[str, Any]]:
+    return _select_round_variations_from_slots(style, used, select_variations_fn=select_variations)
 
 
 def _fan_out_revision(base_letter: Optional[str], feedback: Optional[str]) -> bool:
@@ -545,16 +560,10 @@ def _gemini_stagger_seconds(option_index: int, letter: str = "") -> float:
 
 
 def _use_structured_layout(letter: str) -> bool:
-    """All options A/B/C use fixed_templates + structured_renderer in production.
-
-    Override with STRUCTURED_LAYOUT_OPTIONS (default A,B,C) or STRUCTURED_LAYOUT_DISABLED=1.
-    """
+    """Structured fixed templates for safe options; wild option D uses full-canvas image gen."""
     if os.getenv("STRUCTURED_LAYOUT_DISABLED", "").strip().lower() in {"1", "true", "yes"}:
         return False
-
-    override = os.getenv("STRUCTURED_LAYOUT_OPTIONS", "A,B,C").strip().upper()
-    letters = {part.strip() for part in override.split(",") if part.strip()}
-    return letter.upper() in letters
+    return uses_structured_layout(letter)
 
 
 def _get_design_style_for_option(letter: str) -> DesignStyle:
@@ -943,7 +952,15 @@ def _generate_single_option(
             attempt=attempt_num,
             option_phase=phase,
         )
-        final_prompt = build_prompt(
+        final_prompt = build_wild_design_prompt(
+            style,
+            event,
+            variation,
+            current_round,
+            feedback=attempt_feedback,
+            research=research,
+            selected_photo=selected_photo,
+        ) if is_wild_option(letter) else build_prompt(
             style,
             event,
             variation,
@@ -956,14 +973,16 @@ def _generate_single_option(
             option_letter=letter,
         )
         tier = str(variation.get("tier", letter))
+        wild_gen = is_wild_option(letter)
+        effective_reference = None if wild_gen else reference_photo_path
         provider_name = resolve_image_provider_for_option(letter)
-        use_reference = bool(reference_photo_path and reference_photo_path.is_file())
+        use_reference = bool(effective_reference and effective_reference.is_file())
         image_quality = _image_quality_for_tier(tier, use_reference=use_reference)
         generate_image(
             final_prompt,
             path,
             dry_run=dry_run,
-            reference_photo_path=reference_photo_path,
+            reference_photo_path=effective_reference,
             on_progress=on_progress,
             option=letter,
             attempt=attempt_num,
@@ -1026,7 +1045,7 @@ def _generate_single_option(
             retry_count=attempt,
             option=letter,
             on_progress=on_progress,
-            reference_photo_path=reference_photo_path,
+            reference_photo_path=None if wild_gen else reference_photo_path,
             selected_photo=selected_photo,
             tier=tier,
         )
@@ -1225,7 +1244,9 @@ def generate_for_gig(
     if fan_out_base:
         variations = _variations_for_base_option(style, count, fan_out_base)
     else:
-        variations = select_variations(style, count, used_variations)
+        variations = select_round_variations(style, used_variations)
+    letters = round_option_letters()
+    count = min(count, len(letters))
     emit_progress(
         on_progress,
         step="starting",
@@ -1260,7 +1281,7 @@ def generate_for_gig(
     workers = min(3, max(1, count))
     futures = {}
     with ThreadPoolExecutor(max_workers=workers) as executor:
-        for idx, (letter, variation) in enumerate(zip(OPTION_LETTERS[:count], variations)):
+        for idx, (letter, variation) in enumerate(zip(letters[:count], variations)):
             futures[
                 executor.submit(
                     _generate_single_option,

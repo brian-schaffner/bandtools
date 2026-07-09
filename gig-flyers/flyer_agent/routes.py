@@ -15,6 +15,7 @@ from bridge.job_status import complete_job, fail_job, get_job_status, is_job_act
 from bridge.review import band_tools_home_path, route_path
 from bridge.routing import add_get, add_post
 from flyer_agent.agent import FlyerAgent
+from option_slots import valid_option_letters
 from flyer_agent.chat import agent_chat_reply
 from flyer_agent.urls import flyer_asset_url
 from flyer_agent.auth import extract_session_token, require_agent_user, user_to_dict, validate_session
@@ -259,7 +260,7 @@ def register_agent_routes(app: FastAPI) -> None:
     async def agent_approve_api(gig_id: str, request: Request, body: AgentApproveRequest) -> JSONResponse:
         await require_agent_user(request)
         option = body.option.upper().strip()
-        if option not in {"A", "B", "C"}:
+        if option not in valid_option_letters():
             raise HTTPException(status_code=400, detail="Invalid option")
         try:
             result = await asyncio.to_thread(_agent.approve, gig_id, option=option)

@@ -31,6 +31,11 @@ primary_region = 'ord'
   FLYER_AGENT_LLM_CHAT = '1'
   FLYER_AGENT_CHAT_MODEL = 'gpt-4o-mini'
   FLYER_AGENT_REVISION_MODEL = 'gpt-4o-mini'
+  # Wild full-canvas option D (Gemini); A/B stay structured
+  WILD_DESIGN_ENABLED = '1'
+  WILD_DESIGN_OPTION = 'D'
+  GIG_IMAGE_PROVIDER_D = 'gemini'
+  STRUCTURED_LAYOUT_OPTIONS = 'A,B'
 
 [mounts]
   source = 'bandtools_test_data'

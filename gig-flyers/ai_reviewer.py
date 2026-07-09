@@ -734,7 +734,9 @@ def review_flyer_image(
         )
 
     photo_validation: Optional[dict[str, Any]] = None
-    if has_reference and reference_photo_path is not None:
+    resolved_tier = tier or str(variation.get("tier") or variation.get("id") or "medium")
+    wild_mode = resolved_tier == "wild" or variation.get("generation_mode") == "full_canvas_wild"
+    if has_reference and reference_photo_path is not None and not wild_mode:
         try:
             import tempfile
 
@@ -829,7 +831,7 @@ def review_flyer_image(
             has_reference=has_reference,
         )
 
-        if has_reference and reference_photo_path is not None:
+        if has_reference and reference_photo_path is not None and not wild_mode:
             try:
                 import tempfile
 

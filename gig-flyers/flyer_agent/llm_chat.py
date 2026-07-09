@@ -8,6 +8,9 @@ import re
 from typing import Any, Optional
 
 from flyer_agent.intent import ChatIntent, parse_chat_intent
+from option_slots import valid_option_letters
+
+_VALID_OPTIONS = valid_option_letters()
 
 _CHAT_ACTIONS = frozenset({"generate", "regenerate", "revise", "approve", "explain", "clarify", "none"})
 
@@ -51,7 +54,7 @@ def _call_llm(message: str, detail: dict[str, Any]) -> Optional[dict[str, Any]]:
             "You are the Flyer Agent for concert poster design. "
             "Return ONLY valid JSON with keys: action, option, feedback, reply.\n"
             "action must be one of: generate, regenerate, revise, approve, explain, clarify, none.\n"
-            "option is A, B, or C when relevant, else null.\n"
+            "option is A, B, C, or D when relevant, else null.\n"
             "feedback is the user's revision notes when action=revise, else null.\n"
             "reply is a concise friendly message to show the user before acting.\n"
             "For revise: user likes a chosen option and wants variants of THAT option with their feedback "
@@ -80,7 +83,7 @@ def _call_llm(message: str, detail: dict[str, Any]) -> Optional[dict[str, Any]]:
         option = data.get("option")
         if option:
             option = str(option).upper().strip()[:1]
-            if option not in {"A", "B", "C"}:
+            if option not in _VALID_OPTIONS:
                 option = None
         feedback = data.get("feedback")
         feedback = str(feedback).strip() if feedback else None

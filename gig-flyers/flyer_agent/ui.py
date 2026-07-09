@@ -191,6 +191,17 @@ def agent_css() -> str:
       border-radius: 6px;
       cursor: pointer;
     }
+    .agent-wild-badge {
+      display: block;
+      font-size: 0.65rem;
+      font-weight: 600;
+      color: #9a3412;
+      background: #ffedd5;
+      border-radius: 4px;
+      padding: 0.12rem 0.35rem;
+      margin-top: 0.2rem;
+      line-height: 1.3;
+    }
     .agent-empty-state {
       color: #64748b;
       padding: 2rem 1rem;
@@ -444,12 +455,20 @@ def _posters_panel(detail: Optional[dict[str, Any]]) -> str:
             if can_approve
             else ""
         )
+        wild_badge = (
+            '<span class="agent-wild-badge">Fully designed · experimental<br><span style="font-weight:400">Faces may not match</span></span>'
+            if flyer.get("is_wild")
+            else ""
+        )
         cards.append(
             f"""
             <article class="agent-flyer-card" data-option="{opt}">
               <img src="{img_url}" alt="Option {opt}" loading="lazy" />
               <div class="flyer-cap">
-                <strong>Option {opt}</strong>
+                <div>
+                  <strong>Option {opt}</strong>
+                  {wild_badge}
+                </div>
                 <div style="display:flex;gap:0.25rem;flex-wrap:wrap">
                   <button type="button" class="btn-secondary agent-select-option" data-option="{opt}">Revise</button>
                   {approve_btn}
@@ -547,9 +566,12 @@ def _chat_panel(*, initial_message: str, gig_label: str) -> str:
           var approveBtn = canApprove
             ? '<button type="button" class="btn-approve agent-approve-option" data-option="' + opt + '">Approve</button>'
             : "";
+          var wildBadge = f.is_wild
+            ? '<span class="agent-wild-badge">Fully designed · experimental<br><span style="font-weight:400">Faces may not match</span></span>'
+            : "";
           return '<article class="agent-flyer-card" data-option="' + opt + '">' +
             '<img src="' + url + '" alt="Option ' + opt + '" loading="lazy" />' +
-            '<div class="flyer-cap"><strong>Option ' + opt + '</strong>' +
+            '<div class="flyer-cap"><div><strong>Option ' + opt + '</strong>' + wildBadge + '</div>' +
             '<div style="display:flex;gap:0.25rem;flex-wrap:wrap">' +
             '<button type="button" class="btn-secondary agent-select-option" data-option="' + opt + '">Revise</button>' +
             approveBtn + '</div></div></article>';
