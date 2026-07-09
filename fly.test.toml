@@ -27,6 +27,10 @@ primary_region = 'ord'
   GEMINI_IMAGE_ASPECT_RATIO = '2:3'
   OPENAI_IMAGE_USE_REFERENCE = '1'
   OPENAI_IMAGE_POST_COMPOSE = '1'
+  # Flyer Agent v2: LLM chat orchestration + revision briefs (OPENAI_API_KEY on Fly)
+  FLYER_AGENT_LLM_CHAT = '1'
+  FLYER_AGENT_CHAT_MODEL = 'gpt-4o-mini'
+  FLYER_AGENT_REVISION_MODEL = 'gpt-4o-mini'
 
 [mounts]
   source = 'bandtools_test_data'
