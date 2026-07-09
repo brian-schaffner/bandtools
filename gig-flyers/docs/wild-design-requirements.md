@@ -59,9 +59,10 @@ STRUCTURED_LAYOUT_OPTIONS=A,B
 
 ## Phase 2 — Wild revision polish
 
-- LLM revision brief branch for wild (image-prompt variants, not layout JSON)
-- Chat confirms: *"3 new wild variants of D with your notes"*
-- Path transparency: per-card engine label `Wild · Gemini`
+- **D fan-out revisions** automatically run `wild_band_replace`: prior D poster + reference band photo → Gemini swaps in your band while keeping the design
+- User feedback (e.g. “more neon”) is merged into the band-replace prompt
+- Env: `WILD_BAND_REPLACE_ON_REVISE=1` (default on)
+- Chat confirms band-swap semantics for Option D
 
 ---
 

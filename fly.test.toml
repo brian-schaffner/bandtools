@@ -36,6 +36,7 @@ primary_region = 'ord'
   WILD_DESIGN_OPTION = 'D'
   GIG_IMAGE_PROVIDER_D = 'gemini'
   STRUCTURED_LAYOUT_OPTIONS = 'A,B'
+  WILD_BAND_REPLACE_ON_REVISE = '1'
 
 [mounts]
   source = 'bandtools_test_data'

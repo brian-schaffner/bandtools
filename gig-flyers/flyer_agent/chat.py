@@ -7,6 +7,7 @@ from typing import Any, Optional
 from flyer_agent.agent import FlyerAgent
 from flyer_agent.intent import ChatIntent
 from flyer_agent.llm_chat import resolve_chat_intent
+from option_slots import is_wild_option
 
 
 def _research_blurb(research: Optional[dict[str, Any]]) -> str:
@@ -24,6 +25,17 @@ def _revise_explanation(*, option: str, feedback: str, current_round: int, llm_r
     if llm_reply:
         return llm_reply
     next_round = max(current_round, 0) + 1
+    opt = option.upper()
+    if is_wild_option(opt):
+        return (
+            f"Got it — you like Option {opt} (fully designed).\n"
+            f"Notes: “{feedback}”\n\n"
+            f"Round r{next_round}: three variants that keep your wild D design but "
+            f"swap in your real band photo from the reference shoot"
+            + (f", plus: {feedback}" if feedback else "")
+            + ".\n\n"
+            "Working on it now — I’ll update the posters when the round is ready."
+        )
     return (
         f"Got it — you like Option {option.upper()} and want to explore:\n"
         f"“{feedback}”\n\n"

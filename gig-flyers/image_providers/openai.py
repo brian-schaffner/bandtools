@@ -68,6 +68,7 @@ class OpenAIImageProvider(ImageProvider):
         output_path: Path,
         *,
         reference_photo_path: Optional[Path] = None,
+        design_reference_path: Optional[Path] = None,
         on_progress: Optional[ProgressCallback] = None,
         option: str = "",
         attempt: int = 0,

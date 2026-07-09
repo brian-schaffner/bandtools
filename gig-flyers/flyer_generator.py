@@ -67,6 +67,11 @@ from option_slots import (
 )
 from output_paths import get_output_dir, output_relative
 from wild_design import build_wild_design_prompt
+from wild_design.band_replace import (
+    build_wild_band_replace_prompt,
+    resolve_prior_option_image,
+    should_wild_band_replace,
+)
 
 OPTION_LETTERS = ("A", "B", "C", "D")
 
@@ -850,6 +855,7 @@ def _generate_single_option(
     base_letter: Optional[str],
     base_prior_prompt: Optional[str],
     fan_out_base: Optional[str],
+    fan_out_prior_image: Optional[Path],
     revision_brief: Optional[Any],
     dry_run: bool,
     on_progress: Optional[ProgressCallback],
@@ -952,7 +958,19 @@ def _generate_single_option(
             attempt=attempt_num,
             option_phase=phase,
         )
-        final_prompt = build_wild_design_prompt(
+        final_prompt = build_wild_band_replace_prompt(
+            event,
+            feedback=attempt_feedback,
+            research=research,
+            selected_photo=selected_photo,
+        ) if (
+            is_wild_option(letter)
+            and should_wild_band_replace(
+                fan_out_base=fan_out_base,
+                prior_poster_path=fan_out_prior_image,
+                reference_photo_path=reference_photo_path,
+            )
+        ) else build_wild_design_prompt(
             style,
             event,
             variation,
@@ -974,7 +992,15 @@ def _generate_single_option(
         )
         tier = str(variation.get("tier", letter))
         wild_gen = is_wild_option(letter)
-        effective_reference = None if wild_gen else reference_photo_path
+        wild_band_replace = wild_gen and should_wild_band_replace(
+            fan_out_base=fan_out_base,
+            prior_poster_path=fan_out_prior_image,
+            reference_photo_path=reference_photo_path,
+        )
+        if wild_band_replace:
+            variation = {**variation, "generation_mode": "wild_band_replace", "tier": "wild"}
+        effective_reference = reference_photo_path if wild_band_replace else (None if wild_gen else reference_photo_path)
+        design_reference = fan_out_prior_image if wild_band_replace else None
         provider_name = resolve_image_provider_for_option(letter)
         use_reference = bool(effective_reference and effective_reference.is_file())
         image_quality = _image_quality_for_tier(tier, use_reference=use_reference)
@@ -983,6 +1009,7 @@ def _generate_single_option(
             path,
             dry_run=dry_run,
             reference_photo_path=effective_reference,
+            design_reference_path=design_reference,
             on_progress=on_progress,
             option=letter,
             attempt=attempt_num,
@@ -1112,6 +1139,7 @@ def generate_image(
     output_path: Path,
     dry_run: bool = False,
     reference_photo_path: Optional[Path] = None,
+    design_reference_path: Optional[Path] = None,
     on_progress: Optional[ProgressCallback] = None,
     *,
     option: str = "",
@@ -1157,6 +1185,7 @@ def generate_image(
             prompt,
             output_path,
             reference_photo_path=reference_photo_path,
+            design_reference_path=design_reference_path,
             on_progress=on_progress,
             option=opt,
             attempt=attempt,
@@ -1253,6 +1282,11 @@ def generate_for_gig(
         substep="variations",
         message=(
             f"Fan-out revision: 3 variants of Option {fan_out_base}"
+            + (
+                " (swapping in your band photo on wild D)"
+                if fan_out_base and is_wild_option(fan_out_base) and fan_out_prior_image
+                else ""
+            )
             if fan_out_base
             else f"Selected creativity tiers: {', '.join(v.get('tier', v.get('id', '?')) for v in variations)}"
         ),
@@ -1266,6 +1300,9 @@ def generate_for_gig(
         reference_photo_path = ROOT / selected_photo["path"]
 
     out_dir = gig_output_dir(event)
+    fan_out_prior_image: Optional[Path] = None
+    if fan_out_base and is_wild_option(fan_out_base):
+        fan_out_prior_image = resolve_prior_option_image(record, fan_out_base, out_dir)
     options: dict[str, str] = {}
     prompts: dict[str, str] = {}
     reviewer_verdicts: dict[str, dict[str, Any]] = {}
@@ -1301,6 +1338,7 @@ def generate_for_gig(
                     base_letter=base_letter,
                     base_prior_prompt=base_prior_prompt,
                     fan_out_base=fan_out_base,
+                    fan_out_prior_image=fan_out_prior_image,
                     revision_brief=revision_brief,
                     dry_run=dry_run,
                     on_progress=on_progress,

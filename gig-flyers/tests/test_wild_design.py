@@ -77,5 +77,44 @@ class WildDesignPromptTests(unittest.TestCase):
         self.assertNotIn("match the reference EXACTLY", prompt)
 
 
+class WildBandReplaceTests(unittest.TestCase):
+    def test_should_replace_on_d_fan_out(self) -> None:
+        import tempfile
+        from wild_design.band_replace import should_wild_band_replace
+
+        with tempfile.NamedTemporaryFile(suffix=".png") as poster, tempfile.NamedTemporaryFile(suffix=".jpg") as band:
+            with patch.dict(os.environ, {"WILD_DESIGN_ENABLED": "1", "WILD_BAND_REPLACE_ON_REVISE": "1"}, clear=False):
+                self.assertTrue(
+                    should_wild_band_replace(
+                        fan_out_base="D",
+                        prior_poster_path=Path(poster.name),
+                        reference_photo_path=Path(band.name),
+                    )
+                )
+                self.assertFalse(
+                    should_wild_band_replace(
+                        fan_out_base="A",
+                        prior_poster_path=Path(poster.name),
+                        reference_photo_path=Path(band.name),
+                    )
+                )
+
+    def test_band_replace_prompt(self) -> None:
+        from wild_design.band_replace import build_wild_band_replace_prompt
+
+        event = GigEvent(
+            event_date=__import__("datetime").date(2026, 7, 14),
+            time_label="9pm",
+            title="Test Band",
+            venue="Blues Bar",
+            suggested_name="Jul 14 Blues Bar",
+        )
+        prompt = build_wild_band_replace_prompt(event, feedback="more neon accents")
+        self.assertIn("wild_band_replace", prompt)
+        self.assertIn("IMAGE 1", prompt)
+        self.assertIn("Reference band photo", prompt)
+        self.assertIn("more neon accents", prompt)
+
+
 if __name__ == "__main__":
     unittest.main()

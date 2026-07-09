@@ -82,6 +82,7 @@ class GeminiImageProvider(ImageProvider):
         output_path: Path,
         *,
         reference_photo_path: Optional[Path] = None,
+        design_reference_path: Optional[Path] = None,
         on_progress: Optional[ProgressCallback] = None,
         option: str = "",
         attempt: int = 0,
@@ -92,8 +93,16 @@ class GeminiImageProvider(ImageProvider):
         model = _gemini_model()
         opt = option or "?"
         use_reference = reference_photo_path is not None and reference_photo_path.is_file()
-        use_single_pass = use_reference and post_compose_enabled()
-        mode = "photo-on-canvas" if use_single_pass else ("multimodal+reference" if use_reference else "text-to-image")
+        use_design_ref = design_reference_path is not None and design_reference_path.is_file()
+        use_single_pass = use_reference and post_compose_enabled() and not use_design_ref
+        if use_design_ref and use_reference:
+            mode = "wild-band-replace"
+        elif use_single_pass:
+            mode = "photo-on-canvas"
+        elif use_reference:
+            mode = "multimodal+reference"
+        else:
+            mode = "text-to-image"
         emit_progress(
             on_progress,
             step="generate",
@@ -117,7 +126,26 @@ class GeminiImageProvider(ImageProvider):
         compose = None
         image_bytes_for_api: Optional[bytes] = None
 
-        if use_single_pass and reference_photo_path is not None:
+        if use_design_ref and use_reference and reference_photo_path is not None and design_reference_path is not None:
+            contents.append(
+                types.Part.from_bytes(
+                    data=design_reference_path.read_bytes(),
+                    mime_type=_mime_type(design_reference_path),
+                )
+            )
+            contents.append(
+                "IMAGE 1 — EXISTING POSTER: Keep typography, layout, colors, textures, and all event text exactly."
+            )
+            contents.append(
+                types.Part.from_bytes(
+                    data=reference_photo_path.read_bytes(),
+                    mime_type=_mime_type(reference_photo_path),
+                )
+            )
+            contents.append(
+                "IMAGE 2 — REFERENCE BAND PHOTO: Replace only the band/musicians in IMAGE 1 with these exact people."
+            )
+        elif use_single_pass and reference_photo_path is not None:
             size = os.getenv("OPENAI_IMAGE_SIZE", "1024x1536")
             with tempfile.TemporaryDirectory(prefix="gigflyers-gemini-compose-") as tmp:
                 compose = prepare_canvas_with_photo(
@@ -200,7 +228,7 @@ class GeminiImageProvider(ImageProvider):
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_bytes(image_bytes)
 
-        if compose is not None and reference_photo_path is not None:
+        if compose is not None and reference_photo_path is not None and not use_design_ref:
             enforce_photo_bbox(output_path, compose, force=True)
 
             validation = validate_flyer_photo(
