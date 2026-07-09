@@ -15,12 +15,6 @@ on:
     branches:
       - cursor/flyer-agent-v2-980b
       - cursor/flyer-agent-980b
-    paths:
-      - gig-flyers/**
-      - Dockerfile
-      - fly.test.toml
-      - scripts/deploy/**
-      - .github/workflows/staging-deploy.yml
 
 concurrency:
   group: staging-deploy
