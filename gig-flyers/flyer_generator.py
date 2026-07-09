@@ -630,6 +630,7 @@ def _generate_structured_layout_option(
     feedback: Optional[str] = None,
     base_letter: Optional[str] = None,
     fan_out_base: Optional[str] = None,
+    revision_brief: Optional[Any] = None,
 ) -> dict[str, Any]:
     """Generate a flyer using Structured Layout Mode.
     
@@ -723,6 +724,7 @@ def _generate_structured_layout_option(
             feedback,
             variant_index=option_index,
             variant_count=count,
+            revision_brief=revision_brief,
         )
         emit_progress(
             on_progress,
@@ -839,6 +841,7 @@ def _generate_single_option(
     base_letter: Optional[str],
     base_prior_prompt: Optional[str],
     fan_out_base: Optional[str],
+    revision_brief: Optional[Any],
     dry_run: bool,
     on_progress: Optional[ProgressCallback],
 ) -> dict[str, Any]:
@@ -867,6 +870,7 @@ def _generate_single_option(
             feedback=feedback,
             base_letter=base_letter,
             fan_out_base=fan_out_base,
+            revision_brief=revision_brief,
         )
     
     stagger = _gemini_stagger_seconds(option_index, letter)
@@ -1193,6 +1197,7 @@ def generate_for_gig(
     fresh_start: bool = False,
     on_progress: Optional[ProgressCallback] = None,
     generation_source: Optional[str] = None,
+    revision_brief: Optional[Any] = None,
 ) -> dict[str, Any]:
     event = resolve_gig_event(gig_id)
 
@@ -1275,6 +1280,7 @@ def generate_for_gig(
                     base_letter=base_letter,
                     base_prior_prompt=base_prior_prompt,
                     fan_out_base=fan_out_base,
+                    revision_brief=revision_brief,
                     dry_run=dry_run,
                     on_progress=on_progress,
                 )
@@ -1327,6 +1333,8 @@ def generate_for_gig(
         manifest["base_option"] = base_letter
     if fan_out_base:
         manifest["fan_out_base"] = fan_out_base
+    if revision_brief is not None:
+        manifest["revision_brief"] = getattr(revision_brief, "summary", str(revision_brief))
     if fresh_start:
         manifest["regenerate"] = True
 

@@ -5,9 +5,12 @@ from __future__ import annotations
 import colorsys
 import re
 from copy import deepcopy
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from structured_layout.layout_spec import ColorSpec, LayoutSpec, TextElement
+
+if TYPE_CHECKING:
+    from flyer_agent.revision_brief import RevisionBrief
 
 # Distinct palettes when fanning out one base option into three variants (e.g. pastel).
 PASTEL_VARIANTS = (
@@ -82,16 +85,22 @@ def apply_revision_feedback(
     *,
     variant_index: int = 0,
     variant_count: int = 1,
+    revision_brief: Optional["RevisionBrief"] = None,
 ) -> LayoutSpec:
     """Return a copy of layout with feedback-driven tweaks (and optional variant palette)."""
     text = (feedback or "").strip()
-    if not text:
+    if not text and not revision_brief:
         return layout
 
     spec = deepcopy(layout)
-    scale = _font_scale(text)
+    brief_variant = revision_brief.variant_at(variant_index, variant_count) if revision_brief else None
+    scale = revision_brief.font_scale if revision_brief and revision_brief.font_scale != 1.0 else _font_scale(text)
     lower = text.lower()
-    palette = _variant_palette(text, variant_index, variant_count)
+    palette = None
+    if brief_variant:
+        palette = {"bg": brief_variant.bg, "text": brief_variant.text, "label": brief_variant.label}
+    else:
+        palette = _variant_palette(text, variant_index, variant_count)
 
     if scale != 1.0:
         updated: list[TextElement] = []
@@ -153,7 +162,8 @@ def apply_revision_feedback(
             bg = PASTEL_VARIANTS[variant_index % len(PASTEL_VARIANTS)]["bg"]
 
     spec.background.color = ColorSpec(hex=bg, opacity=spec.background.color.opacity)
-    variant_note = palette["label"] if palette else f"variant {variant_index + 1}"
-    note = f"Revision feedback ({variant_note}): {text[:100]}"
+    variant_note = (palette or {}).get("label") or (brief_variant.label if brief_variant else f"variant {variant_index + 1}")
+    summary = revision_brief.summary if revision_brief and revision_brief.summary else text[:100]
+    note = f"Revision feedback ({variant_note}): {summary}"
     spec.style_notes = f"{spec.style_notes} | {note}".strip(" |")
     return spec

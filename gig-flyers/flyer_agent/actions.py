@@ -6,7 +6,17 @@ from typing import Any, Optional
 
 from flyer_generator import generate_for_gig
 from gig_calendar import find_gig_by_id
-from state import begin_regenerate_round, can_regenerate, get_gig_state, is_approved, upsert_gig
+from output_paths import resolve_output_path
+from state import (
+    append_feedback,
+    begin_regenerate_round,
+    can_regenerate,
+    get_gig_state,
+    is_approved,
+    mark_approved,
+    upsert_gig,
+)
+from flyer_agent.revision_brief import build_revision_brief
 
 
 def tag_generation_source(gig_id: str, source: str) -> None:
@@ -62,7 +72,9 @@ def agent_revise(
 ) -> dict[str, Any]:
     if is_approved(gig_id):
         raise ValueError("Cannot revise an approved gig")
+    brief = build_revision_brief(feedback, base_option=option)
     tag_generation_source(gig_id, "agent")
+    upsert_gig(gig_id, last_revision_brief=brief.summary)
     return generate_for_gig(
         gig_id,
         count=3,
@@ -70,4 +82,23 @@ def agent_revise(
         base_option=option.upper(),
         on_progress=on_progress,
         generation_source="agent",
+        revision_brief=brief,
     )
+
+
+def agent_approve(gig_id: str, *, option: str) -> dict[str, Any]:
+    record = get_gig_state(gig_id) or {}
+    if not record:
+        raise ValueError(f"Unknown gig: {gig_id}")
+    if is_approved(gig_id):
+        raise ValueError("Gig already approved")
+    letter = option.upper()
+    rel = (record.get("options") or {}).get(letter)
+    if not rel:
+        raise ValueError(f"Option {letter} not found")
+    source = resolve_output_path(rel)
+    if not source.is_file():
+        raise ValueError(f"Missing image for option {letter}")
+    append_feedback(gig_id, "approve", letter, "", f"APPROVE {letter} (Flyer Agent)")
+    dest = mark_approved(gig_id, letter, source)
+    return {"status": "approved", "option": letter, "path": str(dest)}

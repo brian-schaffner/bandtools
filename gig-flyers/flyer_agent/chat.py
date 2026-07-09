@@ -1,11 +1,12 @@
-"""Flyer Agent chat — intent parsing and assistant replies (LLM-ready hook)."""
+"""Flyer Agent chat — LLM orchestration with rule-based fallback."""
 
 from __future__ import annotations
 
 from typing import Any, Optional
 
 from flyer_agent.agent import FlyerAgent
-from flyer_agent.intent import ChatIntent, parse_chat_intent
+from flyer_agent.intent import ChatIntent
+from flyer_agent.llm_chat import resolve_chat_intent
 
 
 def _research_blurb(research: Optional[dict[str, Any]]) -> str:
@@ -19,31 +20,42 @@ def _research_blurb(research: Optional[dict[str, Any]]) -> str:
     return text[:240]
 
 
-def _revise_explanation(*, option: str, feedback: str, current_round: int) -> str:
+def _revise_explanation(*, option: str, feedback: str, current_round: int, llm_reply: Optional[str]) -> str:
+    if llm_reply:
+        return llm_reply
     next_round = max(current_round, 0) + 1
     return (
         f"Got it — you like Option {option.upper()} and want to explore:\n"
         f"“{feedback}”\n\n"
-        f"This creates a new round (r{next_round}) with **three variants of Option {option.upper()}** "
-        f"— same layout direction, each applying your notes differently "
-        f"(e.g. blush / sky / mint pastels when you ask for pastel).\n\n"
+        f"This creates a new round (r{next_round}) with three variants of Option {option.upper()} "
+        f"— same layout, each applying your notes with a distinct color direction.\n\n"
         "Working on it now — I’ll update the posters when the round is ready."
     )
 
 
-def _generate_explanation(*, venue: str) -> str:
+def _generate_explanation(*, venue: str, llm_reply: Optional[str]) -> str:
+    if llm_reply:
+        return llm_reply
     return (
         f"Generating three A/B/C poster options for {venue}. "
         "This usually takes a minute or two — I’ll refresh the poster panel when they’re ready."
     )
 
 
-def _regenerate_explanation(*, venue: str, current_round: int) -> str:
+def _regenerate_explanation(*, venue: str, current_round: int, llm_reply: Optional[str]) -> str:
+    if llm_reply:
+        return llm_reply
     next_round = max(current_round, 0) + 1
     return (
         f"Starting a completely fresh round (r{next_round}) for {venue} — "
         "three new options from scratch, replacing the current set."
     )
+
+
+def _approve_explanation(*, option: str, llm_reply: Optional[str]) -> str:
+    if llm_reply:
+        return llm_reply
+    return f"Approving Option {option.upper()} — locking it in as the official flyer for this gig."
 
 
 def _build_execution(intent: ChatIntent, *, detail: dict[str, Any]) -> Optional[dict[str, Any]]:
@@ -58,6 +70,8 @@ def _build_execution(intent: ChatIntent, *, detail: dict[str, Any]) -> Optional[
         return {"type": "generate", "current_round": int(detail.get("round") or 0)}
     if intent.kind == "regenerate":
         return {"type": "regenerate", "current_round": int(detail.get("round") or 0)}
+    if intent.kind == "approve" and intent.option:
+        return {"type": "approve", "option": intent.option.upper()}
     return None
 
 
@@ -75,7 +89,7 @@ def agent_chat_reply(
         return {
             "reply": (
                 "Select an upcoming gig from the left sidebar. "
-                "I can generate posters, revise options, or explain venue-aware design choices."
+                "I can generate posters, revise options, approve a pick, or explain design choices."
             ),
             "actions": [],
             "execution": None,
@@ -104,10 +118,10 @@ def agent_chat_reply(
         actions.append({"id": "regenerate", "label": "Regenerate fresh round", "kind": "regenerate"})
     if detail.get("can_revise"):
         actions.append({"id": "revise", "label": "Revise an option", "kind": "revise_hint"})
-    if detail.get("flyers"):
-        actions.append({"id": "review", "label": "Open full review", "kind": "review"})
+    if detail.get("flyers") and detail.get("workflow") != "approved":
+        actions.append({"id": "approve", "label": "Approve an option", "kind": "approve_hint"})
 
-    intent = parse_chat_intent(text, detail=detail)
+    intent, llm_reply, intent_source = resolve_chat_intent(text, detail=detail)
     execution = _build_execution(intent, detail=detail)
 
     if intent.kind == "revise" and execution:
@@ -116,85 +130,101 @@ def agent_chat_reply(
                 option=execution["option"],
                 feedback=execution["feedback"],
                 current_round=current_round,
+                llm_reply=llm_reply,
             ),
             "actions": actions,
             "execution": execution,
             "job": None,
+            "intent_source": intent_source,
         }
 
     if intent.kind == "generate" and execution:
         return {
-            "reply": _generate_explanation(venue=venue),
+            "reply": _generate_explanation(venue=venue, llm_reply=llm_reply),
             "actions": actions,
             "execution": execution,
             "job": None,
+            "intent_source": intent_source,
         }
 
     if intent.kind == "regenerate" and execution:
         return {
-            "reply": _regenerate_explanation(venue=venue, current_round=current_round),
+            "reply": _regenerate_explanation(venue=venue, current_round=current_round, llm_reply=llm_reply),
             "actions": actions,
             "execution": execution,
             "job": None,
+            "intent_source": intent_source,
+        }
+
+    if intent.kind == "approve" and execution:
+        return {
+            "reply": _approve_explanation(option=execution["option"], llm_reply=llm_reply),
+            "actions": actions,
+            "execution": execution,
+            "job": None,
+            "intent_source": intent_source,
         }
 
     if intent.kind == "revise_incomplete":
         if detail.get("can_revise"):
             opts = ", ".join(f["option"] for f in (detail.get("flyers") or []))
             return {
-                "reply": (
+                "reply": llm_reply
+                or (
                     f"Tell me which option ({opts}) to revise and what to change — "
-                    "e.g. “Revise option B: larger headline, warmer mustard background.”"
+                    "e.g. “I like option A, but make it pastel.”"
                 ),
                 "actions": actions,
                 "execution": None,
                 "job": None,
+                "intent_source": intent_source,
             }
         return {
             "reply": rec.get("message", "Generate flyers first, then we can revise."),
             "actions": actions,
             "execution": None,
             "job": None,
+            "intent_source": intent_source,
+        }
+
+    if intent.kind == "approve_incomplete":
+        opts = ", ".join(f["option"] for f in (detail.get("flyers") or []))
+        return {
+            "reply": llm_reply or f"Which option should I approve — {opts}? Say “approve A”.",
+            "actions": actions,
+            "execution": None,
+            "job": None,
+            "intent_source": intent_source,
         }
 
     if intent.kind == "explain":
         blurb = research_note or "Standard regional promoter handbill language applies."
         return {
-            "reply": (
+            "reply": llm_reply
+            or (
                 f"For {venue}: {blurb}. "
                 f"Current status: {detail.get('workflow_label', 'unknown')}. {rec.get('message', '')}"
             ),
             "actions": actions,
             "execution": None,
             "job": None,
+            "intent_source": intent_source,
         }
 
-    if intent.kind == "approve":
-        if detail.get("flyers"):
-            return {
-                "reply": (
-                    "Review the options in the center panel. "
-                    "When you're ready to approve one, open the full review UI to pick A, B, or C."
-                ),
-                "actions": actions,
-                "execution": None,
-                "job": None,
-            }
-
-    # Default contextual status
     flyer_count = len(detail.get("flyers") or [])
     intro = f"{venue} — {event.get('short_date', '')} at {event.get('time', 'TBA')}."
-    status = f"Status: {detail.get('workflow_label', 'unknown')}"
+    status = f"Status: {detail.get('workflow_label', 'new')}"
     posters = f"{flyer_count} poster option(s) ready for review." if flyer_count else "No posters yet."
     research = f" Design context: {research_note}." if research_note else ""
     hint = ""
     if detail.get("can_revise"):
-        hint = " Say “Revise option A: …” to start a revision."
+        hint = " Say “I like option A, but make it pastel.” to fan out variants."
     elif detail.get("can_generate"):
         hint = " Say “generate” to create three options."
     return {
-        "reply": f"{intro} {status}. {posters}{research} {rec.get('message', '')}{hint}".strip(),
+        "reply": llm_reply or f"{intro} {status}. {posters}{research} {rec.get('message', '')}{hint}".strip(),
         "actions": actions,
         "execution": None,
         "job": None,
+        "intent_source": intent_source,
     }
