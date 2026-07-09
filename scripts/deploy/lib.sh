@@ -6,7 +6,32 @@ deploy_repo_root() {
   cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd
 }
 
+resolve_fly_api_token() {
+  if [[ -n "${FLY_API_TOKEN:-}" ]]; then
+    return 0
+  fi
+  if [[ -n "${FLY_IO_TOKEN:-}" ]]; then
+    export FLY_API_TOKEN="${FLY_IO_TOKEN}"
+    return 0
+  fi
+  # Cursor / team secrets may use a display name with spaces.
+  local cursor_token
+  cursor_token="$(python3 - <<'PY'
+import os
+for name in ("fly.io token", "Fly.io token", "fly.io_token"):
+    value = os.environ.get(name, "").strip()
+    if value:
+        print(value, end="")
+        break
+PY
+)"
+  if [[ -n "$cursor_token" ]]; then
+    export FLY_API_TOKEN="$cursor_token"
+  fi
+}
+
 require_fly_cli() {
+  resolve_fly_api_token
   if ! command -v fly >/dev/null 2>&1; then
     if command -v flyctl >/dev/null 2>&1; then
       ln -sf "$(command -v flyctl)" "$(dirname "$(command -v flyctl)")/fly" 2>/dev/null || true

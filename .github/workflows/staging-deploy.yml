@@ -42,10 +42,14 @@ jobs:
       - name: Preflight Fly auth
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          FLY_IO_TOKEN: ${{ secrets.FLY_IO_TOKEN }}
+          fly.io token: ${{ secrets.FLY_API_TOKEN }}
         run: |
-          if [[ -z "${FLY_API_TOKEN}" ]]; then
-            echo "ERROR: GitHub secret FLY_API_TOKEN is not set." >&2
-            echo "Add it at: Settings → Secrets and variables → Actions → New repository secret" >&2
+          # shellcheck source=scripts/deploy/lib.sh
+          source scripts/deploy/lib.sh
+          resolve_fly_api_token
+          if [[ -z "${FLY_API_TOKEN:-}" ]]; then
+            echo "ERROR: Fly token not found. Set GitHub secret FLY_API_TOKEN (or Cursor secret fly.io token)." >&2
             exit 1
           fi
           flyctl version
@@ -54,7 +58,11 @@ jobs:
       - name: Deploy to staging
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          FLY_IO_TOKEN: ${{ secrets.FLY_IO_TOKEN }}
+          fly.io token: ${{ secrets.FLY_API_TOKEN }}
         run: |
+          source scripts/deploy/lib.sh
+          resolve_fly_api_token
           ARGS=(--no-smoke)
           if [[ "${{ github.event.inputs.skip_secrets }}" == "true" || "${{ github.event_name }}" == "push" ]]; then
             ARGS+=(--skip-secrets)
