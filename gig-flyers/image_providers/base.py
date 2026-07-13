@@ -165,6 +165,7 @@ def generate_with_fallback(
         if primary != "gemini" or not _openai_key() or not is_quota_error(exc):
             raise friendly_generation_error(exc, primary) from exc
 
+        # Wild full-canvas / text-only prompts have no band reference — OpenAI can still generate.
         emit_progress(
             on_progress,
             step="generate",

@@ -64,8 +64,12 @@ def _resolve_input_fidelity() -> str:
     return "high"
 
 
-def _reference_required() -> bool:
+def _reference_env_enabled() -> bool:
     return os.getenv("OPENAI_IMAGE_USE_REFERENCE", "1").strip().lower() not in {"0", "false", "no"}
+
+
+def _reference_required() -> bool:
+    return _reference_env_enabled()
 
 
 class OpenAIImageProvider(ImageProvider):
@@ -86,24 +90,17 @@ class OpenAIImageProvider(ImageProvider):
         tier: str = "",
     ) -> None:
         use_design_ref = design_reference_path is not None and design_reference_path.is_file()
-        use_reference = (
-            reference_photo_path is not None
-            and reference_photo_path.is_file()
-            and _reference_required()
-        )
+        has_reference_file = reference_photo_path is not None and reference_photo_path.is_file()
+        use_reference = has_reference_file and _reference_env_enabled()
         use_wild_band_replace = use_design_ref and use_reference
         if (
-            _reference_required()
+            _reference_env_enabled()
             and reference_photo_path is not None
-            and not reference_photo_path.is_file()
+            and not has_reference_file
             and not use_design_ref
         ):
             raise RuntimeError(
                 f"Band reference photo required but missing: {reference_photo_path}"
-            )
-        if _reference_required() and reference_photo_path is None and not use_design_ref:
-            raise RuntimeError(
-                "Band reference photo required (OPENAI_IMAGE_USE_REFERENCE=1) but none was provided"
             )
 
         use_single_pass = (
@@ -361,7 +358,6 @@ class OpenAIImageProvider(ImageProvider):
             with heartbeat_during(
                 on_progress,
                 step="generate",
-                substep="api_start",
                 message_template="OpenAI still generating option {option}… ({seconds}s)",
                 progress=progress,
                 option=opt,

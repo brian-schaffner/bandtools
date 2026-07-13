@@ -1212,7 +1212,7 @@ def _generate_single_option(
             attempt=attempt_num,
             progress=slot_base + 3,
             tier=tier,
-            provider=provider_name if wild_band_replace else None,
+            provider=provider_name,
         )
         band_replace_applied = wild_band_replace
         if auto_band_replace and reference_photo_path and path.is_file():
