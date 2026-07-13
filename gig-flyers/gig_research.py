@@ -114,7 +114,7 @@ def _design_language_notes(design_language: str, venue_type: str) -> list[str]:
         ],
         "country_bar_poster": [
             "Country-bar bulletin energy — boots-and-beer crowd, not Nashville arena art.",
-            "Warm earth tones acceptable; avoid glossy modern festival layout.",
+            "Wood, ink, and paper tones — avoid uniform mustard/gold AI yellow wash.",
         ],
         "legion_community": [
             "American Legion / VFW community notice — venue-first, low decoration.",

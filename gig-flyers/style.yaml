@@ -246,6 +246,10 @@ anti_ai_rules:
       - floating_instruments
       - neon_effects
       - glowing_edges
+      - ai_yellow_cast
+      - uniform_golden_wash
+      - sepia_ai_filter
+      - mustard_monochrome
   design_tropes:
     reject_if_present:
       - perfect_symmetry

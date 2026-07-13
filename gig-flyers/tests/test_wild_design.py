@@ -110,6 +110,7 @@ class WildDesignPromptTests(unittest.TestCase):
         self.assertIn("Face distortion", prompt)
         self.assertIn("full_canvas_wild", prompt)
         self.assertIn("outlaw-country", prompt.lower())
+        self.assertIn("AI yellow", prompt)
         self.assertIn("Blues Bar", prompt)
         self.assertNotIn("match the reference EXACTLY", prompt)
 
