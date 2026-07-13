@@ -332,7 +332,28 @@ class ImageProviderTest(unittest.TestCase):
             self.assertIsInstance(kwargs["image"], list)
             self.assertEqual(len(kwargs["image"]), 2)
 
-    def test_openai_requires_reference_when_enabled(self) -> None:
+    def test_openai_missing_reference_file_raises(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "flyer.png"
+            missing = Path(tmp) / "missing.jpg"
+            with patch.dict(
+                "os.environ",
+                {"OPENAI_API_KEY": "test-key", "OPENAI_IMAGE_USE_REFERENCE": "1"},
+                clear=False,
+            ):
+                provider = OpenAIImageProvider()
+                with self.assertRaises(RuntimeError):
+                    provider.generate("prompt", out, reference_photo_path=missing)
+
+    @patch("openai.OpenAI")
+    def test_openai_text_to_image_without_reference(self, mock_openai_cls: MagicMock) -> None:
+        mock_client = MagicMock()
+        mock_openai_cls.return_value = mock_client
+        item = MagicMock()
+        item.url = None
+        item.b64_json = _mock_png_b64()
+        mock_client.images.generate.return_value = MagicMock(data=[item])
+
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "flyer.png"
             with patch.dict(
@@ -341,8 +362,9 @@ class ImageProviderTest(unittest.TestCase):
                 clear=False,
             ):
                 provider = OpenAIImageProvider()
-                with self.assertRaises(RuntimeError):
-                    provider.generate("prompt", out, reference_photo_path=None)
+                provider.generate("wild poster prompt", out, reference_photo_path=None, option="A")
+            mock_client.images.generate.assert_called_once()
+            mock_client.images.edit.assert_not_called()
 
     @patch("google.genai.Client")
     def test_gemini_generate_writes_file(self, mock_client_cls: MagicMock) -> None:
