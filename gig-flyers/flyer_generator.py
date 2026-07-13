@@ -63,6 +63,7 @@ from option_slots import (
     round_option_letters,
     select_round_variations as _select_round_variations_from_slots,
     uses_structured_layout,
+    wild_d_band_mode,
     wild_variation,
 )
 from output_paths import get_output_dir, output_relative
@@ -72,6 +73,8 @@ from wild_design.band_replace import (
     resolve_prior_option_image,
     should_wild_band_replace,
 )
+from wild_design.composite import render_wild_composite_poster
+from wild_design.constrained import build_wild_constrained_prompt
 
 OPTION_LETTERS = ("A", "B", "C", "D")
 
@@ -837,6 +840,138 @@ def _generate_structured_layout_option(
     }
 
 
+def _wild_composite_seed(event: GigEvent, current_round: int, option_index: int) -> int:
+    raw = f"{event.gig_id}:{current_round}:{option_index}"
+    return int(hashlib.sha256(raw.encode()).hexdigest()[:8], 16)
+
+
+def _generate_wild_composite_option(
+    *,
+    letter: str,
+    option_index: int,
+    count: int,
+    variation: dict[str, Any],
+    style: dict[str, Any],
+    event: GigEvent,
+    current_round: int,
+    reference_photo_path: Path,
+    out_dir: Path,
+    dry_run: bool,
+    on_progress: Optional[ProgressCallback],
+    fan_out_base: Optional[str] = None,
+) -> dict[str, Any]:
+    """Wild option D via PIL composite — exact band photo in a western shell (H3)."""
+    var_id = variation.get("id", letter)
+    option_num = option_index + 1
+    slot_base = 20 + option_index * 22
+    filename = f"option-{letter}_r{current_round}.png"
+    path = out_dir / filename
+    tier = str(variation.get("tier", "wild"))
+
+    emit_progress(
+        on_progress,
+        step="generate",
+        substep="start",
+        message=(
+            f"Generating option {letter} as variant {option_num}/{count} of Option {fan_out_base}…"
+            if fan_out_base
+            else f"Generating option {letter} (wild composite — exact band photo)…"
+        ),
+        progress=slot_base,
+        option=letter,
+        attempt=1,
+        option_phase="generating",
+        option_progress=0,
+    )
+
+    gen_started = time.monotonic()
+    seed = _wild_composite_seed(event, current_round, option_index)
+    final_prompt = f"[Wild PIL composite: western shell + exact band photo, seed={seed}]"
+
+    if dry_run:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"")
+    else:
+        emit_progress(
+            on_progress,
+            step="generate",
+            substep="compose",
+            message=f"Compositing option {letter} with your band photo…",
+            progress=slot_base + 2,
+            option=letter,
+            attempt=1,
+            option_phase="generating",
+        )
+        render_wild_composite_poster(
+            event,
+            reference_photo_path,
+            path,
+            tier="creative",
+            seed=seed,
+        )
+
+    gen_elapsed = time.monotonic() - gen_started
+    image_url = public_output_url(path)
+
+    emit_progress(
+        on_progress,
+        step="review",
+        substep="preview",
+        message=f"Option {letter} ready for AI review",
+        option=letter,
+        attempt=1,
+        option_phase="reviewing",
+        option_progress=100,
+        option_image_url=image_url,
+    )
+
+    if dry_run or not reviewer_enabled():
+        final_verdict = {
+            "pass": True,
+            "score": 8,
+            "issues": [],
+            "remake_recommended": False,
+            "feedback_for_regen": "",
+            "retry_count": 0,
+            "display_note": "Passed",
+        }
+    else:
+        final_verdict = review_flyer_image(
+            path,
+            style,
+            event,
+            variation,
+            dry_run=dry_run,
+            retry_count=0,
+            option=letter,
+            on_progress=on_progress,
+            reference_photo_path=reference_photo_path,
+            tier=tier,
+        )
+        record_review_timing(0.5, generate_seconds=gen_elapsed)
+
+    phase = "passed" if final_verdict.get("pass") else "failed"
+    emit_progress(
+        on_progress,
+        step="review",
+        substep="passed" if final_verdict.get("pass") else "remake",
+        message=f"Option {letter}: {final_verdict.get('display_note', 'Passed')}",
+        option=letter,
+        attempt=1,
+        option_phase=phase,
+        option_progress=100,
+        option_image_url=image_url,
+    )
+
+    return {
+        "letter": letter,
+        "path_rel": output_relative(path),
+        "prompt": final_prompt,
+        "verdict": final_verdict,
+        "var_id": var_id,
+    }
+
+
 def _generate_single_option(
     *,
     letter: str,
@@ -887,7 +1022,35 @@ def _generate_single_option(
             fan_out_base=fan_out_base,
             revision_brief=revision_brief,
         )
-    
+
+    wild_gen = is_wild_option(letter)
+    wild_band_replace = wild_gen and should_wild_band_replace(
+        fan_out_base=fan_out_base,
+        prior_poster_path=fan_out_prior_image,
+        reference_photo_path=reference_photo_path,
+    )
+    if (
+        wild_gen
+        and not wild_band_replace
+        and wild_d_band_mode() == "composite"
+        and reference_photo_path
+        and reference_photo_path.is_file()
+    ):
+        return _generate_wild_composite_option(
+            letter=letter,
+            option_index=option_index,
+            count=count,
+            variation=variation,
+            style=style,
+            event=event,
+            current_round=current_round,
+            reference_photo_path=reference_photo_path,
+            out_dir=out_dir,
+            dry_run=dry_run,
+            on_progress=on_progress,
+            fan_out_base=fan_out_base,
+        )
+
     stagger = _gemini_stagger_seconds(option_index, letter)
     if stagger > 0:
         time.sleep(stagger)
@@ -963,13 +1126,16 @@ def _generate_single_option(
             feedback=attempt_feedback,
             research=research,
             selected_photo=selected_photo,
+        ) if wild_band_replace else build_wild_constrained_prompt(
+            style,
+            event,
+            current_round,
+            feedback=attempt_feedback,
+            research=research,
+            selected_photo=selected_photo,
         ) if (
-            is_wild_option(letter)
-            and should_wild_band_replace(
-                fan_out_base=fan_out_base,
-                prior_poster_path=fan_out_prior_image,
-                reference_photo_path=reference_photo_path,
-            )
+            wild_gen
+            and wild_d_band_mode() == "constrained"
         ) else build_wild_design_prompt(
             style,
             event,
@@ -978,7 +1144,7 @@ def _generate_single_option(
             feedback=attempt_feedback,
             research=research,
             selected_photo=selected_photo,
-        ) if is_wild_option(letter) else build_prompt(
+        ) if wild_gen else build_prompt(
             style,
             event,
             variation,
@@ -991,15 +1157,16 @@ def _generate_single_option(
             option_letter=letter,
         )
         tier = str(variation.get("tier", letter))
-        wild_gen = is_wild_option(letter)
-        wild_band_replace = wild_gen and should_wild_band_replace(
-            fan_out_base=fan_out_base,
-            prior_poster_path=fan_out_prior_image,
-            reference_photo_path=reference_photo_path,
-        )
         if wild_band_replace:
             variation = {**variation, "generation_mode": "wild_band_replace", "tier": "wild"}
-        effective_reference = reference_photo_path if wild_band_replace else (None if wild_gen else reference_photo_path)
+        elif wild_gen and wild_d_band_mode() == "constrained":
+            variation = {**variation, "generation_mode": "wild_constrained_single_pass", "tier": "wild"}
+        if wild_band_replace or (wild_gen and wild_d_band_mode() == "constrained"):
+            effective_reference = reference_photo_path
+        elif wild_gen:
+            effective_reference = None
+        else:
+            effective_reference = reference_photo_path
         design_reference = fan_out_prior_image if wild_band_replace else None
         provider_name = resolve_image_provider_for_option(letter)
         use_reference = bool(effective_reference and effective_reference.is_file())
@@ -1072,7 +1239,11 @@ def _generate_single_option(
             retry_count=attempt,
             option=letter,
             on_progress=on_progress,
-            reference_photo_path=None if wild_gen else reference_photo_path,
+            reference_photo_path=(
+                None
+                if wild_gen and wild_d_band_mode() == "full_canvas" and not wild_band_replace
+                else reference_photo_path
+            ),
             selected_photo=selected_photo,
             tier=tier,
         )

@@ -43,17 +43,41 @@ def uses_structured_layout(letter: str) -> bool:
     return (letter or "").strip().upper() in structured_layout_letters()
 
 
+def wild_d_band_mode() -> str:
+    """How wild D embeds the band photo: composite | constrained | full_canvas."""
+    mode = os.getenv("WILD_D_BAND_MODE", "composite").strip().lower()
+    if mode in {"composite", "constrained", "full_canvas"}:
+        return mode
+    return "composite"
+
+
 def wild_variation() -> dict[str, str]:
     wild_letter = wild_option_letter()
+    mode = wild_d_band_mode()
+    if mode == "composite":
+        generation_mode = "wild_pil_composite"
+        description = (
+            "Western-style wild poster with your exact band photo pasted in — "
+            "faces and instruments match the reference; creative shell around the photo."
+        )
+    elif mode == "constrained":
+        generation_mode = "wild_constrained_single_pass"
+        description = (
+            "Single-pass Gemini wild poster designed around your attached band photo — "
+            "faces should stay recognizable; experimental integration."
+        )
+    else:
+        generation_mode = "full_canvas_wild"
+        description = (
+            "Full-canvas AI poster design — typography, graphics, and band depiction "
+            "composed as one image. Experimental; faces may not match the reference photo."
+        )
     return {
         "id": "wild_design",
         "label": f"{wild_letter}) Fully designed",
         "tier": "wild",
-        "generation_mode": "full_canvas_wild",
-        "description": (
-            "Full-canvas AI poster design — typography, graphics, and band depiction "
-            "composed as one image. Experimental; faces may not match the reference photo."
-        ),
+        "generation_mode": generation_mode,
+        "description": description,
     }
 
 
