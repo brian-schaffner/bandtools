@@ -6,7 +6,7 @@ on:
       branch:
         description: Branch to deploy
         required: false
-        default: cursor/flyer-agent-v2-980b
+        default: main
       skip_secrets:
         description: Skip secret sync (use existing Fly secrets)
         type: boolean
