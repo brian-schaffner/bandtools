@@ -17,6 +17,10 @@ from structured_layout.graphic_primitives import (
 ROOT = Path(__file__).resolve().parents[1]
 LOGO_DIR = ROOT / "assets" / "logos"
 
+# Generic badge zones for post-render logo overlay (wild + structured flyers).
+BADGE_BOX_TOP_RIGHT = (744, 28, 1000, 132)
+BADGE_BOX_FOOTER_LEFT = (48, 1420, 360, 1500)
+
 # Band-name zone per Option C archetype (x1, y1, x2, y2) — logo replaces text here.
 HERO_BOXES: dict[str, tuple[int, int, int, int]] = {
     "duotone_modern": (48, 688, 620, 808),

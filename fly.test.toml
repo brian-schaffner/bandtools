@@ -18,9 +18,9 @@ primary_region = 'ord'
   GIG_OUTPUT_DIR = '/data/flyers-output'
   GIG_CALENDAR_CACHE_PATH = '/data/cache/calendar.json'
   SETLOADER_DATA_DIR = '/data/setloader'
-  # A/B/C split: OpenAI for A, Gemini for B/C (requires GOOGLE_API_KEY secret)
+  # Full-canvas wild tiers A/B/C (Gemini)
   GIG_IMAGE_PROVIDER_SPLIT = '1'
-  GIG_IMAGE_PROVIDER_A = 'openai'
+  GIG_IMAGE_PROVIDER_A = 'gemini'
   GIG_IMAGE_PROVIDER_B = 'gemini'
   GIG_IMAGE_PROVIDER_C = 'gemini'
   GEMINI_IMAGE_MODEL = 'gemini-2.5-flash-image'
@@ -31,14 +31,12 @@ primary_region = 'ord'
   FLYER_AGENT_LLM_CHAT = '1'
   FLYER_AGENT_CHAT_MODEL = 'gpt-4o-mini'
   FLYER_AGENT_REVISION_MODEL = 'gpt-4o-mini'
-  # Wild full-canvas option D (Gemini); A/B stay structured
+  # Three full-canvas wild tiers (Gemini) — no band replace for now
   WILD_DESIGN_ENABLED = '1'
-  WILD_DESIGN_OPTION = 'D'
-  GIG_IMAGE_PROVIDER_D = 'gemini'
-  GIG_IMAGE_PROVIDER_D_BAND_REPLACE = 'openai'
-  STRUCTURED_LAYOUT_OPTIONS = 'A,B'
-  WILD_BAND_REPLACE_ON_REVISE = '1'
-  WILD_BAND_REPLACE_AFTER_GEN = '1'
+  WILD_ROUND_LAYOUT = 'three_canvas'
+  WILD_BAND_REPLACE_ON_REVISE = '0'
+  WILD_BAND_REPLACE_AFTER_GEN = '0'
+  FLYER_LOGO_OVERLAY = '1'
   # Wild D: full_canvas = original Gemini wild (default); composite = exact photo PIL paste
   WILD_D_BAND_MODE = 'full_canvas'
 

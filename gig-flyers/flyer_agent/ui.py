@@ -456,7 +456,8 @@ def _posters_panel(detail: Optional[dict[str, Any]]) -> str:
             else ""
         )
         wild_badge = (
-            '<span class="agent-wild-badge">Fully designed · experimental<br><span style="font-weight:400">Faces may not match</span></span>'
+            '<span class="agent-wild-badge">Full-canvas wild<br>'
+            '<span style="font-weight:400">Logo added after render</span></span>'
             if flyer.get("is_wild")
             else ""
         )
@@ -567,7 +568,7 @@ def _chat_panel(*, initial_message: str, gig_label: str) -> str:
             ? '<button type="button" class="btn-approve agent-approve-option" data-option="' + opt + '">Approve</button>'
             : "";
           var wildBadge = f.is_wild
-            ? '<span class="agent-wild-badge">Fully designed · experimental<br><span style="font-weight:400">Faces may not match</span></span>'
+            ? '<span class="agent-wild-badge">Full-canvas wild<br><span style="font-weight:400">Logo added after render</span></span>'
             : "";
           return '<article class="agent-flyer-card" data-option="' + opt + '">' +
             '<img src="' + url + '" alt="Option ' + opt + '" loading="lazy" />' +

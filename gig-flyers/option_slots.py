@@ -8,11 +8,44 @@ from typing import Any
 SAFE_LETTERS = ("A", "B")
 CLASSIC_LETTERS = ("A", "B", "C")
 WILD_LETTER = "D"
-ALL_KNOWN_LETTERS = ("A", "B", "C", "D")
+THREE_CANVAS_LETTERS = ("A", "B", "C")
+ALL_KNOWN_LETTERS = ("A", "B", "C", "D", "E")
+
+WILD_INTENSITY_SPECS: tuple[tuple[str, str, str, str, str], ...] = (
+    (
+        "A",
+        "wild",
+        "full_canvas_wild_bold",
+        "A) Wild — bold",
+        "Maximum outlaw-country bar energy — gritty textures, asymmetry, mixed media.",
+    ),
+    (
+        "B",
+        "wild_medium",
+        "full_canvas_wild_balanced",
+        "B) Wild — balanced",
+        "Same full-canvas technique with cleaner hierarchy and slightly restrained chaos.",
+    ),
+    (
+        "C",
+        "wild_subtle",
+        "full_canvas_wild_refined",
+        "C) Wild — refined",
+        "Toned-down promoter flyer — still one designed image, but more polished and readable.",
+    ),
+)
 
 
 def wild_design_enabled() -> bool:
     return os.getenv("WILD_DESIGN_ENABLED", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def wild_round_layout() -> str:
+    """safe_plus_wild (A/B structured + D wild) or three_canvas (A/B/C all full-canvas tiers)."""
+    raw = os.getenv("WILD_ROUND_LAYOUT", "safe_plus_wild").strip().lower()
+    if raw in {"three_canvas", "three_wild", "tiered", "3up"}:
+        return "three_canvas"
+    return "safe_plus_wild"
 
 
 def wild_option_letter() -> str:
@@ -20,17 +53,30 @@ def wild_option_letter() -> str:
     return letter or WILD_LETTER
 
 
+def wild_canvas_letters() -> tuple[str, ...]:
+    return THREE_CANVAS_LETTERS
+
+
 def is_wild_option(letter: str) -> bool:
-    return wild_design_enabled() and (letter or "").strip().upper() == wild_option_letter()
+    if not wild_design_enabled():
+        return False
+    opt = (letter or "").strip().upper()
+    if wild_round_layout() == "three_canvas":
+        return opt in wild_canvas_letters()
+    return opt == wild_option_letter()
 
 
 def round_option_letters() -> tuple[str, ...]:
     if wild_design_enabled():
+        if wild_round_layout() == "three_canvas":
+            return wild_canvas_letters()
         return (*SAFE_LETTERS, wild_option_letter())
     return CLASSIC_LETTERS
 
 
 def structured_layout_letters() -> set[str]:
+    if wild_design_enabled() and wild_round_layout() == "three_canvas":
+        return set()
     if wild_design_enabled():
         default = "A,B"
     else:
@@ -49,6 +95,25 @@ def wild_d_band_mode() -> str:
     if mode in {"composite", "constrained", "full_canvas"}:
         return mode
     return "full_canvas"
+
+
+def wild_variation_for_letter(letter: str) -> dict[str, str]:
+    opt = (letter or "").strip().upper()
+    for spec_letter, tier, generation_mode, label, description in WILD_INTENSITY_SPECS:
+        if spec_letter == opt:
+            return {
+                "id": f"wild_{tier}",
+                "label": label,
+                "tier": tier,
+                "generation_mode": generation_mode,
+                "description": description,
+                "wild_intensity": tier,
+            }
+    return wild_variation()
+
+
+def wild_variations() -> list[dict[str, str]]:
+    return [wild_variation_for_letter(letter) for letter in wild_canvas_letters()]
 
 
 def wild_variation() -> dict[str, str]:
@@ -78,6 +143,7 @@ def wild_variation() -> dict[str, str]:
         "tier": "wild",
         "generation_mode": generation_mode,
         "description": description,
+        "wild_intensity": "wild",
     }
 
 
@@ -91,7 +157,9 @@ def select_round_variations(
     *,
     select_variations_fn,
 ) -> list[dict[str, Any]]:
-    """Pick variations for the current round (2 safe + wild, or classic A/B/C)."""
+    """Pick variations for the current round (2 safe + wild, 3 canvas tiers, or classic A/B/C)."""
+    if wild_design_enabled() and wild_round_layout() == "three_canvas":
+        return wild_variations()
     if wild_design_enabled():
         safe = select_variations_fn(style, len(SAFE_LETTERS), used)
         return [*safe, wild_variation()]

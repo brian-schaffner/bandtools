@@ -63,8 +63,11 @@ from option_slots import (
     round_option_letters,
     select_round_variations as _select_round_variations_from_slots,
     uses_structured_layout,
+    wild_design_enabled,
     wild_d_band_mode,
+    wild_round_layout,
     wild_variation,
+    wild_variation_for_letter,
 )
 from output_paths import get_output_dir, output_relative
 from wild_design import build_wild_design_prompt
@@ -77,8 +80,18 @@ from wild_design.band_replace import (
 )
 from wild_design.composite import render_wild_composite_poster
 from wild_design.constrained import build_wild_constrained_prompt
+from wild_design.logo_overlay import overlay_flyer_logo
 
 OPTION_LETTERS = ("A", "B", "C", "D")
+
+
+def _calendar_band_name(event: GigEvent | None = None) -> str:
+    return (os.getenv("GIG_CALENDAR_BAND") or (event.title if event else "") or "Lindsey Lane Band").strip()
+
+
+def _maybe_overlay_band_logo(path: Path, event: GigEvent) -> None:
+    if overlay_flyer_logo(path, _calendar_band_name(event)):
+        return
 
 
 def load_style() -> dict[str, Any]:
@@ -543,7 +556,12 @@ def select_variations(style: dict[str, Any], count: int, used: list[str]) -> lis
 def _variations_for_base_option(style: dict[str, Any], count: int, base_letter: str) -> list[dict[str, Any]]:
     """Repeat the chosen option's creativity tier for all revision slots."""
     if is_wild_option(base_letter):
-        return [dict(wild_variation()) for _ in range(count)]
+        base_var = (
+            wild_variation_for_letter(base_letter)
+            if wild_round_layout() == "three_canvas"
+            else wild_variation()
+        )
+        return [dict(base_var) for _ in range(count)]
     ordered = select_variations(style, 3, [])
     index = {"A": 0, "B": 1, "C": 2, "D": 3}.get(base_letter.upper(), 0)
     base_var = ordered[min(index, len(ordered) - 1)]
@@ -780,6 +798,7 @@ def _generate_structured_layout_option(
             option=letter,
             tier=tier,
         )
+        _maybe_overlay_band_logo(path, event)
     else:
         render_layout = layout
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -1232,8 +1251,11 @@ def _generate_single_option(
             provider_name = replace_provider
             final_prompt = auto_prompt
             band_replace_applied = True
-        gen_elapsed = time.monotonic() - gen_started
         image_url = public_output_url(path)
+        if not dry_run and wild_gen and path.is_file():
+            if overlay_flyer_logo(path, _calendar_band_name(event)):
+                image_url = public_output_url(path)
+        gen_elapsed = time.monotonic() - gen_started
         if not dry_run:
             record_generate_timing(
                 gen_elapsed,
@@ -1511,11 +1533,20 @@ def generate_for_gig(
             f"Fan-out revision: 3 variants of Option {fan_out_base}"
             + (
                 " (swapping in your band photo on wild D)"
-                if fan_out_base and is_wild_option(fan_out_base) and fan_out_prior_image
+                if (
+                    fan_out_base
+                    and is_wild_option(fan_out_base)
+                    and fan_out_prior_image
+                    and wild_round_layout() != "three_canvas"
+                )
                 else ""
             )
             if fan_out_base
-            else f"Selected creativity tiers: {', '.join(v.get('tier', v.get('id', '?')) for v in variations)}"
+            else (
+                "Three full-canvas wild tiers: bold → balanced → refined"
+                if wild_design_enabled() and wild_round_layout() == "three_canvas"
+                else f"Selected creativity tiers: {', '.join(v.get('tier', v.get('id', '?')) for v in variations)}"
+            )
         ),
         progress=4,
     )

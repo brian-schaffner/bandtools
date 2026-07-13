@@ -28,10 +28,10 @@ def _revise_explanation(*, option: str, feedback: str, current_round: int, llm_r
     opt = option.upper()
     if is_wild_option(opt):
         return (
-            f"Got it — you like Option {opt} (fully designed).\n"
+            f"Got it — you like Option {opt} (full-canvas wild).\n"
             f"Notes: “{feedback}”\n\n"
-            f"Round r{next_round}: three variants that keep your wild D design but "
-            f"swap in your real band photo from the reference shoot"
+            f"Round r{next_round}: three variants of Option {opt} "
+            f"with the same wild intensity tier"
             + (f", plus: {feedback}" if feedback else "")
             + ".\n\n"
             "Working on it now — I’ll update the posters when the round is ready."
