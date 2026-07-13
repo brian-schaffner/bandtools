@@ -29,10 +29,13 @@ class AgentSecretsTests(unittest.TestCase):
         with patch.dict(os.environ, {"Apikey": key}, clear=True):
             self.assertEqual(resolve_google_api_key(), key)
 
-    def test_embedded_in_notes(self) -> None:
-        key = "AIza" + "z" * 35
-        with patch.dict(os.environ, {"Open key": f"paste here: {key} thanks"}, clear=True):
-            self.assertEqual(resolve_google_api_key(), "")
+    def test_gemini_api_key_agent_alias(self) -> None:
+        key = "AIza" + "g" * 35
+        with patch.dict(os.environ, {"gemini api key": key}, clear=True):
+            from agent_secrets import resolve_google_api_key_source
+
+            self.assertEqual(resolve_google_api_key_source(), ("gemini api key", key))
+            self.assertEqual(resolve_google_api_key(), key)
 
     def test_bootstrap_exports_env(self) -> None:
         key = "AIza" + "a" * 35

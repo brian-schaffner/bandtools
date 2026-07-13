@@ -24,7 +24,11 @@ sys.path.insert(0, str(ROOT))
 load_dotenv(ROOT / ".env")
 load_dotenv(ROOT.parent / ".env")
 
-from agent_secrets import bootstrap_google_api_key_env, google_api_key_configured  # noqa: E402
+from agent_secrets import (  # noqa: E402
+    bootstrap_google_api_key_env,
+    google_api_key_configured,
+    resolve_google_api_key_source,
+)
 
 bootstrap_google_api_key_env()
 
@@ -188,6 +192,8 @@ def main() -> int:
     )
 
     if args.live and _has_google_key():
+      src_name, _ = resolve_google_api_key_source()
+      print(f"Using Gemini key from env: {src_name!r}")
       for name, fn in (
         ("H1", lambda: run_h1_band_replace(args.reference, prior, OUT_DIR / "H1_band_replace.png", event)),
         ("H2", lambda: run_h2_constrained_single_pass(args.reference, OUT_DIR / "H2_constrained.png", event)),
@@ -197,7 +203,8 @@ def main() -> int:
         except Exception as exc:
           print(f"{name} failed: {exc}", file=sys.stderr)
     else:
-      print("Skipping H1/H2 live Gemini calls (use --live and GOOGLE_API_KEY)")
+      checked = ", ".join(repr(n) for n in ("GOOGLE_API_KEY", "GEMINI_API_KEY", "gemini api key", "Apikey"))
+      print(f"Skipping H1/H2 live Gemini calls (use --live; checked: {checked})")
 
     ranked = rank_results(results)
     report = {
