@@ -57,8 +57,10 @@ Each hypothesis produces a PNG in `output/experiments/wild_d_band/`.
 
 | Rank | Hypothesis | compose_validation | hist_corr | mse | elapsed |
 |------|------------|-------------------|-----------|-----|---------|
-| **1** | **H3 PIL composite** | **PASS** (drift 1.0) | **0.384** | 12728 | **1.8s** |
+| **1** | **H3 PIL composite** | **PASS** (drift 1.0) | **0.967** | — | **~14s** |
 | 2 | H0 synthetic wild D | — | 0.178 | 7657 | 0.1s |
+
+*(After fidelity fix: untreated photo paste with cream mat — hist correlation 0.97 vs 0.38 with treated crop.)*
 
 **H1 / H2 live Gemini:** Skipped in cloud agent (no `GOOGLE_API_KEY`). Re-run with `--live` on staging or locally.
 
