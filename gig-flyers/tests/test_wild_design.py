@@ -127,6 +127,58 @@ class WildBandReplaceTests(unittest.TestCase):
         self.assertIn("Reference band photo", prompt)
         self.assertIn("more neon accents", prompt)
 
+    def test_band_replace_provider_defaults_openai(self) -> None:
+        from wild_design.band_replace import resolve_band_replace_provider
+
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("GIG_IMAGE_PROVIDER_D_BAND_REPLACE", None)
+            os.environ.pop("GIG_IMAGE_PROVIDER_BAND_REPLACE", None)
+            self.assertEqual(resolve_band_replace_provider("D"), "openai")
+
+    def test_band_replace_provider_override(self) -> None:
+        from wild_design.band_replace import resolve_band_replace_provider
+
+        with patch.dict(
+            os.environ,
+            {"GIG_IMAGE_PROVIDER_D_BAND_REPLACE": "gemini"},
+            clear=False,
+        ):
+            self.assertEqual(resolve_band_replace_provider("D"), "gemini")
+
+    def test_auto_band_replace_after_gen(self) -> None:
+        import tempfile
+        from wild_design.band_replace import should_auto_wild_band_replace
+
+        with tempfile.NamedTemporaryFile(suffix=".jpg") as band:
+            env = {
+                "WILD_DESIGN_ENABLED": "1",
+                "WILD_D_BAND_MODE": "full_canvas",
+                "WILD_BAND_REPLACE_AFTER_GEN": "1",
+                "STRUCTURED_LAYOUT_OPTIONS": "A,B",
+            }
+            with patch.dict(os.environ, env, clear=False):
+                self.assertTrue(
+                    should_auto_wild_band_replace(
+                        letter="D",
+                        reference_photo_path=Path(band.name),
+                        fan_out_base=None,
+                    )
+                )
+                self.assertFalse(
+                    should_auto_wild_band_replace(
+                        letter="D",
+                        reference_photo_path=Path(band.name),
+                        fan_out_base="D",
+                    )
+                )
+                self.assertFalse(
+                    should_auto_wild_band_replace(
+                        letter="A",
+                        reference_photo_path=Path(band.name),
+                        fan_out_base=None,
+                    )
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

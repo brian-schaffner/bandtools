@@ -183,6 +183,7 @@ def generate_with_fallback(
                 prompt,
                 output_path,
                 reference_photo_path=reference_photo_path,
+                design_reference_path=design_reference_path,
                 on_progress=on_progress,
                 option=opt,
                 attempt=attempt,

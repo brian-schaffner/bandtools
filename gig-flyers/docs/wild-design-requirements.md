@@ -59,9 +59,10 @@ STRUCTURED_LAYOUT_OPTIONS=A,B
 
 ## Phase 2 — Wild revision polish
 
-- **D fan-out revisions** automatically run `wild_band_replace`: prior D poster + reference band photo → Gemini swaps in your band while keeping the design
+- **D fan-out revisions** automatically run `wild_band_replace`: prior D poster + reference band photo → **OpenAI** swaps in your band while keeping the design
+- **D initial generation** (full_canvas) auto-runs OpenAI band replace after Gemini creates the wild shell (`WILD_BAND_REPLACE_AFTER_GEN=1`)
 - User feedback (e.g. “more neon”) is merged into the band-replace prompt
-- Env: `WILD_BAND_REPLACE_ON_REVISE=1` (default on)
+- Env: `WILD_BAND_REPLACE_ON_REVISE=1` (default on), `GIG_IMAGE_PROVIDER_D_BAND_REPLACE=openai`
 - Chat confirms band-swap semantics for Option D
 
 ---

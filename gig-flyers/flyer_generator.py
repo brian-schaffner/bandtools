@@ -70,7 +70,9 @@ from output_paths import get_output_dir, output_relative
 from wild_design import build_wild_design_prompt
 from wild_design.band_replace import (
     build_wild_band_replace_prompt,
+    resolve_band_replace_provider,
     resolve_prior_option_image,
+    should_auto_wild_band_replace,
     should_wild_band_replace,
 )
 from wild_design.composite import render_wild_composite_poster
@@ -1168,7 +1170,16 @@ def _generate_single_option(
         else:
             effective_reference = reference_photo_path
         design_reference = fan_out_prior_image if wild_band_replace else None
-        provider_name = resolve_image_provider_for_option(letter)
+        auto_band_replace = should_auto_wild_band_replace(
+            letter=letter,
+            reference_photo_path=reference_photo_path,
+            fan_out_base=fan_out_base,
+        )
+        provider_name = (
+            resolve_band_replace_provider(letter)
+            if wild_band_replace
+            else resolve_image_provider_for_option(letter)
+        )
         use_reference = bool(effective_reference and effective_reference.is_file())
         image_quality = _image_quality_for_tier(tier, use_reference=use_reference)
         generate_image(
@@ -1182,8 +1193,47 @@ def _generate_single_option(
             attempt=attempt_num,
             progress=slot_base + 3,
             tier=tier,
+            provider=provider_name if wild_band_replace else None,
         )
+        band_replace_applied = wild_band_replace
+        if auto_band_replace and reference_photo_path and path.is_file():
+            auto_prompt = build_wild_band_replace_prompt(
+                event,
+                feedback=attempt_feedback,
+                research=research,
+                selected_photo=selected_photo,
+            )
+            variation = {**variation, "generation_mode": "wild_band_replace", "tier": "wild"}
+            replace_provider = resolve_band_replace_provider(letter)
+            emit_progress(
+                on_progress,
+                step="generate",
+                substep="band_replace",
+                message=f"Replacing AI musicians with your band on option {letter} via OpenAI…",
+                progress=slot_base + 5,
+                option=letter,
+                attempt=attempt_num,
+                option_phase=phase,
+            )
+            replace_started = time.monotonic()
+            generate_image(
+                auto_prompt,
+                path,
+                dry_run=dry_run,
+                reference_photo_path=reference_photo_path,
+                design_reference_path=path,
+                on_progress=on_progress,
+                option=letter,
+                attempt=attempt_num,
+                progress=slot_base + 6,
+                tier="wild",
+                provider=replace_provider,
+            )
+            provider_name = replace_provider
+            final_prompt = auto_prompt
+            band_replace_applied = True
         gen_elapsed = time.monotonic() - gen_started
+        image_url = public_output_url(path)
         if not dry_run:
             record_generate_timing(
                 gen_elapsed,
@@ -1191,8 +1241,6 @@ def _generate_single_option(
                 quality=image_quality,
                 tier=tier,
             )
-        image_url = public_output_url(path)
-
         emit_progress(
             on_progress,
             step="review",
@@ -1241,7 +1289,7 @@ def _generate_single_option(
             on_progress=on_progress,
             reference_photo_path=(
                 None
-                if wild_gen and wild_d_band_mode() == "full_canvas" and not wild_band_replace
+                if wild_gen and wild_d_band_mode() == "full_canvas" and not band_replace_applied
                 else reference_photo_path
             ),
             selected_photo=selected_photo,
@@ -1317,9 +1365,13 @@ def generate_image(
     attempt: int = 0,
     progress: int = 0,
     tier: str = "",
+    provider: Optional[str] = None,
 ) -> None:
     opt = option or "?"
-    provider_name = resolve_image_provider_for_option(opt) if opt in OPTION_LETTERS else resolve_image_provider()
+    provider_name = (
+        provider
+        or (resolve_image_provider_for_option(opt) if opt in OPTION_LETTERS else resolve_image_provider())
+    )
     provider_label = provider_display_label(provider_name)
     option_engine_label = f"{opt}: {provider_short_label(provider_name)}" if opt in OPTION_LETTERS else provider_label
 
@@ -1447,6 +1499,10 @@ def generate_for_gig(
         variations = select_round_variations(style, used_variations)
     letters = round_option_letters()
     count = min(count, len(letters))
+    out_dir = gig_output_dir(event)
+    fan_out_prior_image: Optional[Path] = None
+    if fan_out_base and is_wild_option(fan_out_base):
+        fan_out_prior_image = resolve_prior_option_image(record, fan_out_base, out_dir)
     emit_progress(
         on_progress,
         step="starting",
@@ -1470,10 +1526,6 @@ def generate_for_gig(
     if selected_photo and selected_photo.get("path"):
         reference_photo_path = ROOT / selected_photo["path"]
 
-    out_dir = gig_output_dir(event)
-    fan_out_prior_image: Optional[Path] = None
-    if fan_out_base and is_wild_option(fan_out_base):
-        fan_out_prior_image = resolve_prior_option_image(record, fan_out_base, out_dir)
     options: dict[str, str] = {}
     prompts: dict[str, str] = {}
     reviewer_verdicts: dict[str, dict[str, Any]] = {}

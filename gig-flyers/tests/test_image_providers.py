@@ -295,6 +295,43 @@ class ImageProviderTest(unittest.TestCase):
             self.assertTrue(prompt_sent.startswith(REFERENCE_EDIT_PROMPT_PREFIX))
             self.assertIn("layout prompt here", prompt_sent)
 
+    @patch("openai.OpenAI")
+    def test_openai_wild_band_replace_uses_dual_images(self, mock_openai_cls: MagicMock) -> None:
+        mock_client = MagicMock()
+        mock_openai_cls.return_value = mock_client
+        item = MagicMock()
+        item.url = None
+        item.b64_json = _mock_png_b64()
+        mock_client.images.edit.return_value = MagicMock(data=[item])
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "flyer.png"
+            poster = Path(tmp) / "poster.png"
+            band = Path(tmp) / "band.jpg"
+            _make_test_jpeg(band)
+            Image.new("RGB", (1024, 1536), color=(40, 30, 20)).save(poster, format="PNG")
+            with patch.dict(
+                "os.environ",
+                {"OPENAI_API_KEY": "test-key", "OPENAI_IMAGE_USE_REFERENCE": "1"},
+                clear=False,
+            ):
+                from image_providers.openai import WILD_BAND_REPLACE_PROMPT_PREFIX, OpenAIImageProvider
+
+                provider = OpenAIImageProvider()
+                provider.generate(
+                    "swap band members",
+                    out,
+                    reference_photo_path=band,
+                    design_reference_path=poster,
+                    option="D",
+                )
+            kwargs = mock_client.images.edit.call_args.kwargs
+            self.assertEqual(kwargs["input_fidelity"], "high")
+            self.assertTrue(kwargs["prompt"].startswith(WILD_BAND_REPLACE_PROMPT_PREFIX))
+            self.assertIn("swap band members", kwargs["prompt"])
+            self.assertIsInstance(kwargs["image"], list)
+            self.assertEqual(len(kwargs["image"]), 2)
+
     def test_openai_requires_reference_when_enabled(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "flyer.png"
