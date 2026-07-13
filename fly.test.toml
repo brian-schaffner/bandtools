@@ -37,8 +37,8 @@ primary_region = 'ord'
   GIG_IMAGE_PROVIDER_D = 'gemini'
   STRUCTURED_LAYOUT_OPTIONS = 'A,B'
   WILD_BAND_REPLACE_ON_REVISE = '1'
-  # Wild D band photo: composite (H3 PIL paste) | constrained (H2) | full_canvas (original)
-  WILD_D_BAND_MODE = 'composite'
+  # Wild D: full_canvas = original Gemini wild (default); composite = exact photo PIL paste
+  WILD_D_BAND_MODE = 'full_canvas'
 
 [mounts]
   source = 'bandtools_test_data'

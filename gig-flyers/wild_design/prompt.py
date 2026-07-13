@@ -26,23 +26,42 @@ def build_wild_design_prompt(
     time_label = event.time_label or "TBA"
 
     research_bits: list[str] = []
+    design_language = ""
     if research:
-        lang = str(research.get("design_language") or "").strip()
-        if lang:
-            research_bits.append(f"Venue design language: {lang}")
+        design_language = str(research.get("design_language") or "").strip()
+        if design_language:
+            research_bits.append(f"Venue design language: {design_language}")
         notes = research.get("design_notes") or []
         research_bits.extend(str(n).strip() for n in notes[:2] if str(n).strip())
 
     photo_hint = ""
     if selected_photo and selected_photo.get("description"):
         photo_hint = (
-            f"Band photo inspiration (do not copy literally): {selected_photo['description']}. "
-            "You may stylize, collage, or reinterpret the band — face distortion is acceptable."
+            f"Band lineup inspiration (stylize freely): {selected_photo['description']}. "
+            "Paint, collage, halftone, or reimagine the musicians inside the poster — "
+            "face distortion is acceptable."
         )
 
+    # Default aesthetic when venue research is thin: outlaw-country bar flyer.
+    venue_lower = f"{venue} {design_language}".lower()
+    western_cues = any(
+        k in venue_lower
+        for k in ("tavern", "bar", "saloon", "honky", "country", "western", "roadhouse", "lane")
+    )
+    style_anchor = (
+        "Outlaw-country / roadhouse bar flyer: dark wood or weathered plank background, "
+        "torn-paper labels, rust and cream typography, barbed wire or rope accents, "
+        "boots-and-beer authenticity. Band integrated INTO the art — not a stock photo "
+        "pasted on plain rectangles."
+        if western_cues or not design_language
+        else f"Match venue energy ({design_language}) with bold promoter/zine collage — "
+        "still one unified designed poster, not a template with pasted photo blocks."
+    )
+
     lines = [
-        "PRIMARY DIRECTIVE: Design a complete concert flyer poster as ONE unified image.",
-        "Include all event text integrated into the design (not a plain photo with captions pasted on).",
+        "PRIMARY DIRECTIVE: Design a complete concert flyer poster as ONE unified designed image.",
+        "Typography, textures, graphics, and band depiction must feel like a single "
+        "hand-made outlaw-country or dive-bar poster — NOT a clean Canva layout.",
         "",
         "EVENT FACTS (must be correct and readable):",
         f"- Band: {band}",
@@ -50,16 +69,23 @@ def build_wild_design_prompt(
         f"- Date: {date}",
         f"- Time: {time_label}",
         "",
-        "WILD DESIGN RULES:",
-        "- Full creative freedom — collage, surreal layout, bold color, type over image, mixed media.",
-        "- No fixed template or handbill grid required.",
-        "- Band depiction may be stylized, painted, halftoned, or reinterpreted.",
+        "VISUAL DNA (wild D — prioritize this over photo accuracy):",
+        f"- {style_anchor}",
+        "- Integrate event text into the design (torn labels, wood type, stamp lettering, "
+        "ticket stubs) — never floating captions on blank cream boxes.",
+        "- Band/musicians are part of the composition — painted, halftoned, collage-cut, "
+        "or stylized; they live inside the poster world.",
         "- Face distortion and artistic reinterpretation of musicians are ALLOWED.",
-        "- Prioritize memorable visual impact and authentic promoter/zine energy over photo accuracy.",
+        "- Memorable, gritty, authentic promoter energy — like a flyer taped in a bar window.",
+        "",
+        "WILD DESIGN RULES:",
+        "- Full creative freedom — asymmetry, layered textures, bold color, mixed media.",
+        "- No fixed template grid, no three stacked rectangles with a photo in the middle.",
         "",
         "AVOID:",
-        "- Generic Canva/festival symmetry, stock-photo marketing polish, fantasy sci-fi unless venue fits.",
-        "- Missing or illegible venue/date/band text.",
+        "- Generic festival symmetry, stock marketing polish, sci-fi fantasy unless venue fits.",
+        "- Plain white/cream photo mats, PowerPoint-style blocks, illegible text.",
+        "- Missing or wrong venue/date/band text.",
     ]
     if principles:
         lines.extend(["", "CORE PRINCIPLES:"] + [f"- {p}" for p in principles[:4]])

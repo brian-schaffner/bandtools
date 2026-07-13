@@ -58,16 +58,18 @@ class WildDesignSlotsTests(unittest.TestCase):
             vars_ = select_round_variations(style, [], select_variations_fn=fake_select)
         self.assertEqual(len(vars_), 3)
         self.assertEqual(vars_[-1]["tier"], "wild")
-        self.assertEqual(vars_[-1]["generation_mode"], "wild_pil_composite")
+        self.assertEqual(vars_[-1]["generation_mode"], "full_canvas_wild")
 
     def test_wild_composite_mode_from_env(self) -> None:
         from option_slots import wild_d_band_mode, wild_variation
 
-        with patch.dict(os.environ, {"WILD_D_BAND_MODE": "full_canvas"}, clear=False):
+        with patch.dict(os.environ, {"WILD_D_BAND_MODE": "composite"}, clear=False):
+            self.assertEqual(wild_d_band_mode(), "composite")
+            self.assertEqual(wild_variation()["generation_mode"], "wild_pil_composite")
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("WILD_D_BAND_MODE", None)
             self.assertEqual(wild_d_band_mode(), "full_canvas")
             self.assertEqual(wild_variation()["generation_mode"], "full_canvas_wild")
-        with patch.dict(os.environ, {"WILD_D_BAND_MODE": "composite"}, clear=False):
-            self.assertEqual(wild_variation()["generation_mode"], "wild_pil_composite")
 
 
 class WildDesignPromptTests(unittest.TestCase):
@@ -82,6 +84,7 @@ class WildDesignPromptTests(unittest.TestCase):
         prompt = build_wild_design_prompt({}, event, wild_variation(), 1)
         self.assertIn("Face distortion", prompt)
         self.assertIn("full_canvas_wild", prompt)
+        self.assertIn("outlaw-country", prompt.lower())
         self.assertIn("Blues Bar", prompt)
         self.assertNotIn("match the reference EXACTLY", prompt)
 

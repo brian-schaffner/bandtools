@@ -44,11 +44,11 @@ def uses_structured_layout(letter: str) -> bool:
 
 
 def wild_d_band_mode() -> str:
-    """How wild D embeds the band photo: composite | constrained | full_canvas."""
-    mode = os.getenv("WILD_D_BAND_MODE", "composite").strip().lower()
+    """How wild D embeds the band photo: full_canvas (default) | composite | constrained."""
+    mode = os.getenv("WILD_D_BAND_MODE", "full_canvas").strip().lower()
     if mode in {"composite", "constrained", "full_canvas"}:
         return mode
-    return "composite"
+    return "full_canvas"
 
 
 def wild_variation() -> dict[str, str]:
@@ -69,8 +69,8 @@ def wild_variation() -> dict[str, str]:
     else:
         generation_mode = "full_canvas_wild"
         description = (
-            "Full-canvas AI poster design — typography, graphics, and band depiction "
-            "composed as one image. Experimental; faces may not match the reference photo."
+            "Full-canvas AI poster — outlaw-country bar energy, integrated typography and graphics. "
+            "Experimental; faces may not match the reference photo."
         )
     return {
         "id": "wild_design",
