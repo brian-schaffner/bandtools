@@ -11,6 +11,7 @@ from typing import Any, Optional
 from urllib.parse import urlparse
 
 from bridge.job_status import get_job_status
+from bridge.imessage import imessage_configured
 from bridge.ui import page_close, page_head, progress_css, review_css, site_nav
 from state import can_regenerate, get_gig_state, load_state
 
@@ -163,7 +164,7 @@ def _scan_rounds(gig_dir: Path) -> list[dict[str, Any]]:
         }
 
     for png in sorted(gig_dir.glob("option-*_r*.png")):
-        match = re.search(r"option-([ABC])_r(\d+)\.png$", png.name)
+        match = re.search(r"option-([ABCD])_r(\d+)\.png$", png.name)
         if not match:
             continue
         letter, round_num = match.group(1), int(match.group(2))
@@ -261,6 +262,35 @@ def public_output_url(path: Path | str) -> str:
     return route_path(f"/output/{rel}")
 
 
+def _progress_option_letters() -> tuple[str, ...]:
+    from option_slots import round_option_letters
+
+    return round_option_letters()
+
+
+def _option_progress_card_html(letter: str) -> str:
+    esc = html.escape(letter)
+    return f"""
+      <div class="option-card pending" id="card-{esc}" data-option="{esc}">
+        <div class="option-header">
+          <span class="option-letter">{esc}</span>
+          <span class="engine-badge" id="engine-{esc}"></span>
+          <span class="attempt-badge" id="attempt-{esc}"></span>
+        </div>
+        <div class="phase-label" id="phase-{esc}">Waiting</div>
+        <div class="option-preview" id="preview-{esc}">
+          <div class="vessel-layer">
+            <div class="vessel" aria-label="Option {esc} progress">
+              <div class="vessel-fill" id="fill-{esc}"></div>
+              <div class="fill-pct" id="pct-{esc}">—</div>
+            </div>
+          </div>
+          <img class="option-thumb" id="thumb-{esc}" alt="Option {esc} preview" />
+        </div>
+        <div class="option-note" id="note-{esc}"></div>
+      </div>"""
+
+
 def render_job_progress_page(
     gig_id: str,
     event: dict[str, Any],
@@ -284,12 +314,20 @@ def render_job_progress_page(
     heading_esc = html.escape(heading)
     subtitle_html = f"<p class='muted'>{html.escape(subtitle)}</p>" if subtitle else ""
     detail_html = f'<p class="muted"><em>{html.escape(detail)}</em></p>' if detail else ""
+    letters = _progress_option_letters()
+    letters_json = json.dumps(list(letters))
+    option_cards_html = "".join(_option_progress_card_html(letter) for letter in letters)
+    status_hint = (
+        "You'll get an iMessage when all options are ready."
+        if imessage_configured()
+        else "Options will appear on the review page when ready."
+    )
     job = get_job_status(gig_id)
     initial_fill_sec = float(job.get("estimated_generate_seconds") or 0)
     if initial_fill_sec <= 0:
         option_estimates = [
             float((job.get("options") or {}).get(letter, {}).get("estimated_generate_seconds") or 0)
-            for letter in ("A", "B", "C")
+            for letter in letters
         ]
         positive = [est for est in option_estimates if est > 0]
         if positive:
@@ -312,64 +350,11 @@ def render_job_progress_page(
     <p class="overall-detail" id="overall-detail"></p>
 
     <div class="options-grid" id="options-grid">
-      <div class="option-card pending" id="card-A" data-option="A">
-        <div class="option-header">
-          <span class="option-letter">A</span>
-          <span class="engine-badge" id="engine-A"></span>
-          <span class="attempt-badge" id="attempt-A"></span>
-        </div>
-        <div class="phase-label" id="phase-A">Waiting</div>
-        <div class="option-preview" id="preview-A">
-          <div class="vessel-layer">
-            <div class="vessel" aria-label="Option A progress">
-              <div class="vessel-fill" id="fill-A"></div>
-              <div class="fill-pct" id="pct-A">—</div>
-            </div>
-          </div>
-          <img class="option-thumb" id="thumb-A" alt="Option A preview" />
-        </div>
-        <div class="option-note" id="note-A"></div>
-      </div>
-      <div class="option-card pending" id="card-B" data-option="B">
-        <div class="option-header">
-          <span class="option-letter">B</span>
-          <span class="engine-badge" id="engine-B"></span>
-          <span class="attempt-badge" id="attempt-B"></span>
-        </div>
-        <div class="phase-label" id="phase-B">Waiting</div>
-        <div class="option-preview" id="preview-B">
-          <div class="vessel-layer">
-            <div class="vessel" aria-label="Option B progress">
-              <div class="vessel-fill" id="fill-B"></div>
-              <div class="fill-pct" id="pct-B">—</div>
-            </div>
-          </div>
-          <img class="option-thumb" id="thumb-B" alt="Option B preview" />
-        </div>
-        <div class="option-note" id="note-B"></div>
-      </div>
-      <div class="option-card pending" id="card-C" data-option="C">
-        <div class="option-header">
-          <span class="option-letter">C</span>
-          <span class="engine-badge" id="engine-C"></span>
-          <span class="attempt-badge" id="attempt-C"></span>
-        </div>
-        <div class="phase-label" id="phase-C">Waiting</div>
-        <div class="option-preview" id="preview-C">
-          <div class="vessel-layer">
-            <div class="vessel" aria-label="Option C progress">
-              <div class="vessel-fill" id="fill-C"></div>
-              <div class="fill-pct" id="pct-C">—</div>
-            </div>
-          </div>
-          <img class="option-thumb" id="thumb-C" alt="Option C preview" />
-        </div>
-        <div class="option-note" id="note-C"></div>
-      </div>
+{option_cards_html}
     </div>
 
     <div class="log-panel" id="log-panel" aria-live="polite"></div>
-    <p class="muted" id="status-hint">You'll get an iMessage when all options are ready.</p>
+    <p class="muted" id="status-hint">{html.escape(status_hint)}</p>
   </div>
   </main>
   <script>
@@ -377,7 +362,7 @@ def render_job_progress_page(
     const streamUrl = "{stream_url}";
     const reviewUrl = "{review}";
     const pollMs = 1000;
-    const LETTERS = ["A", "B", "C"];
+    const LETTERS = {letters_json};
     let lastLogRevision = -1;
     let lastOptionsRevision = -1;
     let lastActiveOption = "";

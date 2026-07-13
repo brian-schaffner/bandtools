@@ -6,6 +6,7 @@ import os
 from typing import Any, Optional
 
 from gig_calendar import get_cache_info, get_future_gigs, get_local_today
+from option_slots import is_wild_option
 from state import can_regenerate, get_gig_state, has_existing_generation, is_approved
 
 _PICKER_MAX_DAYS = int(os.getenv("GIG_FLYERS_PICKER_DAYS", "60"))
@@ -122,6 +123,7 @@ def build_gig_detail(gig_id: str) -> Optional[dict[str, Any]]:
                 "option": letter.upper(),
                 "path": rel_path,
                 "prompt": (record.get("prompts") or {}).get(letter),
+                "is_wild": is_wild_option(letter.upper()),
             }
         )
 

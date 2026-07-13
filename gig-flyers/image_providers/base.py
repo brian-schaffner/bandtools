@@ -10,8 +10,8 @@ from typing import Optional
 from image_providers.errors import ImageGenerationError, friendly_generation_error, is_quota_error
 from progress_helper import ProgressCallback, emit_progress
 
-OPTION_LETTERS = ("A", "B", "C")
-_DEFAULT_SPLIT_PROVIDERS = {"A": "openai", "B": "gemini", "C": "gemini"}
+OPTION_LETTERS = ("A", "B", "C", "D")
+_DEFAULT_SPLIT_PROVIDERS = {"A": "openai", "B": "gemini", "C": "gemini", "D": "gemini"}
 _GEMINI_ALIASES = frozenset({"gemini", "nano_banana", "google", "nano-banana"})
 
 
@@ -85,6 +85,7 @@ class ImageProvider(ABC):
         output_path: Path,
         *,
         reference_photo_path: Optional[Path] = None,
+        design_reference_path: Optional[Path] = None,
         on_progress: Optional[ProgressCallback] = None,
         option: str = "",
         attempt: int = 0,
@@ -100,7 +101,9 @@ def _openai_key() -> str:
 
 
 def _google_key() -> str:
-    return (os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY") or "").strip()
+    from agent_secrets import resolve_google_api_key
+
+    return resolve_google_api_key()
 
 
 def get_image_provider(name: Optional[str] = None) -> ImageProvider:
@@ -131,6 +134,7 @@ def generate_with_fallback(
     output_path: Path,
     *,
     reference_photo_path: Optional[Path] = None,
+    design_reference_path: Optional[Path] = None,
     on_progress: Optional[ProgressCallback] = None,
     option: str = "",
     attempt: int = 0,
@@ -148,6 +152,7 @@ def generate_with_fallback(
             prompt,
             output_path,
             reference_photo_path=reference_photo_path,
+            design_reference_path=design_reference_path,
             on_progress=on_progress,
             option=opt,
             attempt=attempt,

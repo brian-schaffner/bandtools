@@ -182,6 +182,26 @@ def agent_css() -> str:
       font-size: 0.72rem;
       padding: 0.25rem 0.45rem;
     }
+    .agent-flyer-card .flyer-cap .btn-approve {
+      font-size: 0.72rem;
+      padding: 0.25rem 0.45rem;
+      background: var(--green, #16a34a);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .agent-wild-badge {
+      display: block;
+      font-size: 0.65rem;
+      font-weight: 600;
+      color: #9a3412;
+      background: #ffedd5;
+      border-radius: 4px;
+      padding: 0.12rem 0.35rem;
+      margin-top: 0.2rem;
+      line-height: 1.3;
+    }
     .agent-empty-state {
       color: #64748b;
       padding: 2rem 1rem;
@@ -424,18 +444,35 @@ def _posters_panel(detail: Optional[dict[str, Any]]) -> str:
     cards: list[str] = []
     round_num = int(detail.get("round") or 0)
     updated_at = str(detail.get("updated_at") or "")
+    can_approve = bool(flyers) and detail.get("workflow") != "approved"
     for flyer in flyers:
         opt = html.escape(flyer["option"])
         img_url = html.escape(
             flyer_asset_url(flyer["path"], round_num=round_num, updated_at=updated_at)
+        )
+        approve_btn = (
+            f'<button type="button" class="btn-approve agent-approve-option" data-option="{opt}">Approve</button>'
+            if can_approve
+            else ""
+        )
+        wild_badge = (
+            '<span class="agent-wild-badge">Fully designed · experimental<br><span style="font-weight:400">Faces may not match</span></span>'
+            if flyer.get("is_wild")
+            else ""
         )
         cards.append(
             f"""
             <article class="agent-flyer-card" data-option="{opt}">
               <img src="{img_url}" alt="Option {opt}" loading="lazy" />
               <div class="flyer-cap">
-                <strong>Option {opt}</strong>
-                <button type="button" class="btn-secondary agent-select-option" data-option="{opt}">Revise</button>
+                <div>
+                  <strong>Option {opt}</strong>
+                  {wild_badge}
+                </div>
+                <div style="display:flex;gap:0.25rem;flex-wrap:wrap">
+                  <button type="button" class="btn-secondary agent-select-option" data-option="{opt}">Revise</button>
+                  {approve_btn}
+                </div>
               </div>
             </article>
             """
@@ -522,17 +559,26 @@ def _chat_panel(*, initial_message: str, gig_label: str) -> str:
           panel.innerHTML = '<h2>Posters</h2><div class="agent-empty-state">No posters yet — ask the agent to generate options, or use Generate above.</div>';
           return;
         }}
+        var canApprove = detail.workflow !== "approved";
         var cards = flyers.map(function(f) {{
           var opt = f.option || "?";
           var url = posterUrl(f, detail);
+          var approveBtn = canApprove
+            ? '<button type="button" class="btn-approve agent-approve-option" data-option="' + opt + '">Approve</button>'
+            : "";
+          var wildBadge = f.is_wild
+            ? '<span class="agent-wild-badge">Fully designed · experimental<br><span style="font-weight:400">Faces may not match</span></span>'
+            : "";
           return '<article class="agent-flyer-card" data-option="' + opt + '">' +
             '<img src="' + url + '" alt="Option ' + opt + '" loading="lazy" />' +
-            '<div class="flyer-cap"><strong>Option ' + opt + '</strong>' +
-            '<button type="button" class="btn-secondary agent-select-option" data-option="' + opt + '">Revise</button></div></article>';
+            '<div class="flyer-cap"><div><strong>Option ' + opt + '</strong>' + wildBadge + '</div>' +
+            '<div style="display:flex;gap:0.25rem;flex-wrap:wrap">' +
+            '<button type="button" class="btn-secondary agent-select-option" data-option="' + opt + '">Revise</button>' +
+            approveBtn + '</div></div></article>';
         }}).join("");
         panel.innerHTML = '<h2>Posters — round ' + (detail.round || 0) + '</h2><div class="agent-flyer-grid">' + cards + '</div>';
         updateMeta(detail);
-        bindReviseButtons();
+        bindPosterButtons();
       }}
 
       function pathsMatchRound(detail, expectedRound) {{
@@ -562,15 +608,40 @@ def _chat_panel(*, initial_message: str, gig_label: str) -> str:
         }});
       }}
 
-      function bindReviseButtons() {{
+      function approveOption(opt) {{
+        var id = gigId();
+        if (!id || !opt) return;
+        if (!confirm("Approve option " + opt + " for this gig?")) return;
+        fetch(gigApiTpl + encodeURIComponent(id) + "/approve", {{
+          method: "POST",
+          headers: Object.assign({{ "Content-Type": "application/json" }}, authHeaders()),
+          body: JSON.stringify({{ option: opt }})
+        }}).then(function(r) {{ return r.json().then(function(data) {{ return {{ ok: r.ok, data: data }}; }}); }})
+          .then(function(res) {{
+            if (!res.ok) {{
+              appendMsg("agent", res.data.detail || "Could not approve that option.");
+              return;
+            }}
+            appendMsg("agent", "Approved option " + opt + ".");
+            if (res.data.detail) renderPosters(res.data.detail);
+          }})
+          .catch(function() {{ appendMsg("agent", "Approve failed — try again."); }});
+      }}
+
+      function bindPosterButtons() {{
         document.querySelectorAll(".agent-select-option").forEach(function(btn) {{
           btn.addEventListener("click", function() {{
             var opt = btn.getAttribute("data-option");
             document.querySelectorAll(".agent-flyer-card").forEach(function(c) {{
               c.classList.toggle("selected", c.getAttribute("data-option") === opt);
             }});
-            input.value = "Revise option " + opt + " — ";
+            input.value = "I like option " + opt + ", but ";
             input.focus();
+          }});
+        }});
+        document.querySelectorAll(".agent-approve-option").forEach(function(btn) {{
+          btn.addEventListener("click", function() {{
+            approveOption(btn.getAttribute("data-option"));
           }});
         }});
       }}
@@ -642,7 +713,11 @@ def _chat_panel(*, initial_message: str, gig_label: str) -> str:
         }}).then(function(r) {{ return r.json(); }}).then(function(data) {{
           appendMsg("agent", data.reply || "OK");
           if (data.job && data.job.started) {{
-            pollJob(data.job);
+            if (data.job.type === "approve" && data.job.status === "approved") {{
+              refreshGigDetail();
+            }} else {{
+              pollJob(data.job);
+            }}
           }}
         }}).catch(function() {{
           appendMsg("agent", "Sorry, I could not reach the agent. Try again.");
@@ -652,7 +727,7 @@ def _chat_panel(*, initial_message: str, gig_label: str) -> str:
         }});
       }});
 
-      bindReviseButtons();
+      bindPosterButtons();
     }})();
     </script>
     """

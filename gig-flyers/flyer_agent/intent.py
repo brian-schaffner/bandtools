@@ -27,7 +27,7 @@ _OPTION_MARKER = re.compile(
 
 @dataclass(frozen=True)
 class ChatIntent:
-    kind: str  # none | revise | revise_incomplete | generate | regenerate | explain | approve
+    kind: str  # none | revise | revise_incomplete | generate | regenerate | explain | approve | approve_incomplete
     option: Optional[str] = None
     feedback: Optional[str] = None
 
@@ -88,7 +88,15 @@ def parse_chat_intent(message: str, *, detail: dict[str, Any]) -> ChatIntent:
         return ChatIntent("none")
 
     if _contains_any(lower, ("approve", "pick", "choose")):
-        return ChatIntent("approve")
+        opt_match = re.search(r"\boption\s*([abc])\b", lower) or re.search(
+            r"\b(?:approve|pick|choose)\s+([abc])\b", lower
+        )
+        option = opt_match.group(1).upper() if opt_match else None
+        if detail.get("flyers"):
+            if option:
+                return ChatIntent("approve", option=option)
+            return ChatIntent("approve_incomplete")
+        return ChatIntent("none")
 
     if _contains_any(lower, ("venue", "research", "style", "design", "explain", "why", "how")):
         return ChatIntent("explain")

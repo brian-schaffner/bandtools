@@ -9,7 +9,12 @@ from typing import Any, Optional
 from gen_timing import get_estimates, get_generate_estimate, quality_for_tier, tier_for_option
 
 MAX_LOG_ENTRIES = 8
-OPTION_LETTERS = ("A", "B", "C")
+
+
+def option_letters() -> tuple[str, ...]:
+    from option_slots import round_option_letters
+
+    return round_option_letters()
 
 _lock = Lock()
 _jobs: dict[str, dict[str, Any]] = {}
@@ -61,11 +66,11 @@ def _freeze_option_generate_timing(job: dict[str, Any], letter: str, provider: s
 
 
 def _default_options() -> dict[str, dict[str, Any]]:
-    return {letter: _default_option() for letter in OPTION_LETTERS}
+    return {letter: _default_option() for letter in option_letters()}
 
 
 def _option_snapshot(options: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
-    return {letter: dict(options.get(letter, _default_option())) for letter in OPTION_LETTERS}
+    return {letter: dict(options.get(letter, _default_option())) for letter in option_letters()}
 
 
 def _bump_options_revision(job: dict[str, Any]) -> None:
@@ -163,7 +168,7 @@ def _sync_option_from_report(
         return
 
     letter = (option or "").upper()
-    if letter not in OPTION_LETTERS:
+    if letter not in option_letters():
         return
 
     options = job.setdefault("options", _default_options())
@@ -231,7 +236,7 @@ def update_option(
     exhausted: Optional[bool] = None,
 ) -> None:
     letter = (option or "").upper()
-    if letter not in OPTION_LETTERS:
+    if letter not in option_letters():
         return
     with _lock:
         job = _jobs.get(gig_id)
@@ -313,17 +318,17 @@ def start_job(
     provider = resolve_image_provider()
     options = _default_options()
     if is_provider_split_enabled():
-        for letter in OPTION_LETTERS:
+        for letter in option_letters():
             p = resolve_image_provider_for_option(letter)
             options[letter]["provider_label"] = f"{letter}: {provider_short_label(p)}"
             options[letter]["estimated_generate_seconds"] = _option_generate_estimate(letter, p)
         provider_label = split_provider_summary()
     else:
         provider_label = provider_display_label(provider)
-        for letter in OPTION_LETTERS:
+        for letter in option_letters():
             options[letter]["estimated_generate_seconds"] = _option_generate_estimate(letter, provider)
     job_generate_estimate = max(
-        float(options[letter]["estimated_generate_seconds"]) for letter in OPTION_LETTERS
+        float(options[letter]["estimated_generate_seconds"]) for letter in option_letters()
     )
     with _lock:
         _jobs[gig_id] = {
@@ -464,7 +469,7 @@ def complete_job(gig_id: str, message: str = "Done") -> None:
         job["progress"] = 100
         job["updated_at"] = _now_iso()
         options = job.setdefault("options", _default_options())
-        for letter in OPTION_LETTERS:
+        for letter in option_letters():
             entry = options.setdefault(letter, _default_option())
             if entry.get("phase") not in {"passed", "failed"}:
                 entry["phase"] = "passed"
@@ -495,7 +500,7 @@ def fail_job(gig_id: str, error: str) -> None:
         job["updated_at"] = _now_iso()
         active = (job.get("option") or "").upper()
         options = job.setdefault("options", _default_options())
-        if active in OPTION_LETTERS:
+        if active in option_letters():
             entry = options.setdefault(active, _default_option())
             if entry.get("phase") not in {"passed"}:
                 entry["phase"] = "error"

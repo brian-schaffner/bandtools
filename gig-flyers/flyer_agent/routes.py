@@ -15,6 +15,7 @@ from bridge.job_status import complete_job, fail_job, get_job_status, is_job_act
 from bridge.review import band_tools_home_path, route_path
 from bridge.routing import add_get, add_post
 from flyer_agent.agent import FlyerAgent
+from option_slots import valid_option_letters
 from flyer_agent.chat import agent_chat_reply
 from flyer_agent.urls import flyer_asset_url
 from flyer_agent.auth import extract_session_token, require_agent_user, user_to_dict, validate_session
@@ -37,6 +38,10 @@ _generate_in_flight: set[str] = set()
 class AgentChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=4000)
     gig_id: str | None = None
+
+
+class AgentApproveRequest(BaseModel):
+    option: str = Field(min_length=1, max_length=1)
 
 
 def _band_tools_url() -> str:
@@ -179,6 +184,18 @@ async def _execute_chat_action(gig_id: str, execution: dict[str, Any]) -> dict[s
         job["expected_round"] = int(detail.get("round") or 0) + 1
         return job
 
+    if job_type == "approve":
+        if detail.get("workflow") == "approved":
+            return {"started": False, "reason": "not_allowed", "type": job_type}
+        option = execution.get("option", "").upper()
+        if not option:
+            return {"started": False, "reason": "missing_option", "type": job_type}
+        try:
+            result = await asyncio.to_thread(_agent.approve, gig_id, option=option)
+        except ValueError as exc:
+            return {"started": False, "reason": "error", "type": job_type, "message": str(exc)}
+        return {"started": True, "type": "approve", "status": "approved", **result}
+
     return {"started": False, "reason": "unknown", "type": job_type}
 
 
@@ -213,6 +230,8 @@ def register_agent_routes(app: FastAPI) -> None:
         if execution and body.gig_id:
             job = await _execute_chat_action(body.gig_id, execution)
             result["job"] = job
+            if job.get("type") == "approve" and job.get("status") == "approved":
+                result["approval"] = job
             if not job.get("started"):
                 reason = job.get("reason")
                 if reason == "in_flight":
@@ -236,6 +255,18 @@ def register_agent_routes(app: FastAPI) -> None:
     async def agent_gig_api(gig_id: str, request: Request) -> JSONResponse:
         await require_agent_user(request)
         return JSONResponse(_gig_detail_payload(gig_id))
+
+    @add_post(app, "/agent/api/gig/{gig_id}/approve")
+    async def agent_approve_api(gig_id: str, request: Request, body: AgentApproveRequest) -> JSONResponse:
+        await require_agent_user(request)
+        option = body.option.upper().strip()
+        if option not in valid_option_letters():
+            raise HTTPException(status_code=400, detail="Invalid option")
+        try:
+            result = await asyncio.to_thread(_agent.approve, gig_id, option=option)
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        return JSONResponse({"status": "approved", **result, "detail": _gig_detail_payload(gig_id)["detail"]})
 
     @add_get(app, "/agent", response_class=HTMLResponse)
     async def agent_dashboard(request: Request) -> HTMLResponse:

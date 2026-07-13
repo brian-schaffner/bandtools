@@ -25,6 +25,7 @@ sys.path.insert(0, str(ROOT))
 from bridge.email import send_flyer_image  # noqa: E402
 from bridge.imessage import (  # noqa: E402
     fetch_new_incoming_messages,
+    imessage_configured,
     parse_reply,
     send_image,
     send_text,
@@ -210,23 +211,32 @@ async def _run_generation_job(
             complete_job(gig_id, "Already approved")
             return
         if send_link:
-            report_progress(
-                gig_id,
-                step="sending",
-                substep="imessage",
-                message="Posting to iMessage…",
-                progress=96,
-            )
-            event = manifest.get("event", event)
-            link_msg = build_review_link_message(event, gig_id, len(manifest.get("options", {})))
-            send_text(link_msg)
-            report_progress(
-                gig_id,
-                step="sending",
-                substep="sent",
-                message="Review link sent",
-                progress=98,
-            )
+            if imessage_configured():
+                report_progress(
+                    gig_id,
+                    step="sending",
+                    substep="imessage",
+                    message="Posting to iMessage…",
+                    progress=96,
+                )
+                event = manifest.get("event", event)
+                link_msg = build_review_link_message(event, gig_id, len(manifest.get("options", {})))
+                send_text(link_msg)
+                report_progress(
+                    gig_id,
+                    step="sending",
+                    substep="sent",
+                    message="Review link sent",
+                    progress=98,
+                )
+            else:
+                report_progress(
+                    gig_id,
+                    step="sending",
+                    substep="skipped",
+                    message="Review ready — open the review page in your browser",
+                    progress=98,
+                )
         complete_job(gig_id, "Done")
     except Exception as exc:  # noqa: BLE001
         fail_job(gig_id, str(exc))

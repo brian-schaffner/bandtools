@@ -20,6 +20,10 @@ class ParsedReply:
     raw_text: str
 
 
+def imessage_configured() -> bool:
+    return bool(os.getenv("IMESSAGE_RECIPIENT", "").strip())
+
+
 def _recipient() -> str:
     value = os.getenv("IMESSAGE_RECIPIENT", "").strip()
     if not value:
@@ -77,11 +81,11 @@ def parse_reply(text: str) -> ParsedReply:
     raw = (text or "").strip()
     upper = raw.upper()
 
-    approve = re.match(r"^APPROVE\s+([ABC])\b", upper)
+    approve = re.match(r"^APPROVE\s+([ABCD])\b", upper)
     if approve:
         return ParsedReply("approve", approve.group(1), "", raw)
 
-    revise = re.match(r"^REVISE\s+([ABC])\s*:\s*(.+)$", raw, flags=re.I | re.S)
+    revise = re.match(r"^REVISE\s+([ABCD])\s*:\s*(.+)$", raw, flags=re.I | re.S)
     if revise:
         return ParsedReply("revise", revise.group(1).upper(), revise.group(2).strip(), raw)
 

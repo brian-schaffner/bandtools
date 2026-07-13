@@ -27,6 +27,18 @@ primary_region = 'ord'
   GEMINI_IMAGE_ASPECT_RATIO = '2:3'
   OPENAI_IMAGE_USE_REFERENCE = '1'
   OPENAI_IMAGE_POST_COMPOSE = '1'
+  # Flyer Agent v2: LLM chat orchestration + revision briefs (OPENAI_API_KEY on Fly)
+  FLYER_AGENT_LLM_CHAT = '1'
+  FLYER_AGENT_CHAT_MODEL = 'gpt-4o-mini'
+  FLYER_AGENT_REVISION_MODEL = 'gpt-4o-mini'
+  # Wild full-canvas option D (Gemini); A/B stay structured
+  WILD_DESIGN_ENABLED = '1'
+  WILD_DESIGN_OPTION = 'D'
+  GIG_IMAGE_PROVIDER_D = 'gemini'
+  STRUCTURED_LAYOUT_OPTIONS = 'A,B'
+  WILD_BAND_REPLACE_ON_REVISE = '1'
+  # Wild D band photo: composite (H3 PIL paste) | constrained (H2) | full_canvas (original)
+  WILD_D_BAND_MODE = 'composite'
 
 [mounts]
   source = 'bandtools_test_data'

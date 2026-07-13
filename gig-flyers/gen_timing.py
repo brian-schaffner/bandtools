@@ -21,7 +21,7 @@ MAX_RECENT = 50
 MIN_BUCKET_SAMPLES = 3
 EMA_ALPHA = 0.2
 
-OPTION_TIER_BY_LETTER = {"A": "conservative", "B": "medium", "C": "creative"}
+OPTION_TIER_BY_LETTER = {"A": "conservative", "B": "medium", "C": "creative", "D": "wild"}
 
 _lock = threading.Lock()
 
