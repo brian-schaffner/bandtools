@@ -1,0 +1,37 @@
+name: Wild D Band Experiment
+
+on:
+  workflow_dispatch:
+
+jobs:
+  experiment:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r gig-flyers/requirements.txt
+
+      - name: Run live H1/H2 experiment
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_IMAGE_MODEL: gemini-2.5-flash-image
+        run: |
+          cd gig-flyers
+          python3 scripts/experiment_wild_d_band.py --live | tee /tmp/experiment.log
+          test -f output/experiments/wild_d_band/results.json
+
+      - name: Upload experiment artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: wild-d-band-experiment
+          path: |
+            gig-flyers/output/experiments/wild_d_band/*.png
+            gig-flyers/output/experiments/wild_d_band/results.json

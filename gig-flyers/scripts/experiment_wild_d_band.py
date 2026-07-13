@@ -24,6 +24,10 @@ sys.path.insert(0, str(ROOT))
 load_dotenv(ROOT / ".env")
 load_dotenv(ROOT.parent / ".env")
 
+from agent_secrets import bootstrap_google_api_key_env, google_api_key_configured  # noqa: E402
+
+bootstrap_google_api_key_env()
+
 from gig_calendar import GigEvent  # noqa: E402
 from image_providers import generate_with_fallback  # noqa: E402
 from wild_design.band_replace import build_wild_band_replace_prompt  # noqa: E402
@@ -49,7 +53,7 @@ def _event() -> GigEvent:
 
 
 def _has_google_key() -> bool:
-    return bool((os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY") or "").strip())
+    return google_api_key_configured()
 
 
 def create_synthetic_wild_poster(

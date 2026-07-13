@@ -101,7 +101,9 @@ def _openai_key() -> str:
 
 
 def _google_key() -> str:
-    return (os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY") or "").strip()
+    from agent_secrets import resolve_google_api_key
+
+    return resolve_google_api_key()
 
 
 def get_image_provider(name: Optional[str] = None) -> ImageProvider:

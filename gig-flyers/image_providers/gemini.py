@@ -11,6 +11,7 @@ from typing import Any, Optional
 
 from image_providers.base import ImageProvider
 from image_providers.errors import friendly_generation_error, is_retryable_429, retry_delay_seconds
+from agent_secrets import resolve_google_api_key
 from image_providers.reference_compose import (
     enforce_photo_bbox,
     parse_output_size,
@@ -29,7 +30,7 @@ MODEL_ALIASES = {
 
 
 def _gemini_api_key() -> str:
-    key = (os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY") or "").strip()
+    key = resolve_google_api_key()
     if not key:
         raise RuntimeError("GOOGLE_API_KEY or GEMINI_API_KEY is not set")
     return key
