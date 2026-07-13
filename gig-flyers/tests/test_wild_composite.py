@@ -14,13 +14,19 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from gig_calendar import GigEvent  # noqa: E402
-from wild_design.composite import render_wild_composite_poster  # noqa: E402
+from wild_design.composite import _clean_band_name, render_wild_composite_poster  # noqa: E402
 from wild_design.metrics import score_output  # noqa: E402
 
 REF = ROOT / "bandphotos" / "475779793_1030489528887965_3935557413007700748_n.jpg"
 
 
 class WildCompositeTests(unittest.TestCase):
+    def test_clean_band_name_strips_venue_suffix(self) -> None:
+        self.assertEqual(
+            _clean_band_name("Lindsey Lane Band at Two Lane Tavern", "Two Lane Tavern"),
+            "LINDSEY LANE BAND",
+        )
+
     def test_render_passes_compose_validation(self) -> None:
         if not REF.is_file():
             self.skipTest("reference band photo missing")
@@ -33,7 +39,7 @@ class WildCompositeTests(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "wild_d.png"
-            meta = render_wild_composite_poster(event, REF, out, tier="creative", seed=99)
+            meta = render_wild_composite_poster(event, REF, out, tier="wild_composite", seed=99)
             self.assertTrue(out.is_file())
             metrics = score_output(
                 "test",

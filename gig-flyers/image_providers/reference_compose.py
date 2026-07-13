@@ -43,6 +43,14 @@ TIER_PLACEMENTS: dict[str, dict[str, float]] = {
         "x_center_frac": 0.50,
         "angle": -2.0,
     },
+    # Wild D PIL composite — photo higher, more room for typography below.
+    "wild_composite": {
+        "width_frac": 0.92,
+        "max_height_frac": 0.40,
+        "y_center_frac": 0.39,
+        "x_center_frac": 0.50,
+        "angle": 0.0,
+    },
 }
 
 # Subtle print-style tint per tier (RGB multipliers). Applied in PIL only — faces untouched.

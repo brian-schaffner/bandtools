@@ -906,7 +906,7 @@ def _generate_wild_composite_option(
             event,
             reference_photo_path,
             path,
-            tier="creative",
+            tier="wild_composite",
             seed=seed,
         )
 
