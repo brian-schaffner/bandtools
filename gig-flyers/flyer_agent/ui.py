@@ -445,6 +445,11 @@ def _posters_panel(detail: Optional[dict[str, Any]]) -> str:
     round_num = int(detail.get("round") or 0)
     updated_at = str(detail.get("updated_at") or "")
     can_approve = bool(flyers) and detail.get("workflow") != "approved"
+    band_photos = detail.get("band_photos") or []
+    photo_options = "".join(
+        f'<option value="{html.escape(p.get("id", ""))}">{html.escape(p.get("id", ""))}</option>'
+        for p in band_photos
+    )
     for flyer in flyers:
         opt = html.escape(flyer["option"])
         img_url = html.escape(
@@ -461,6 +466,16 @@ def _posters_panel(detail: Optional[dict[str, Any]]) -> str:
             if flyer.get("is_wild")
             else ""
         )
+        convert_controls = ""
+        if can_approve and flyer.get("is_wild") and band_photos:
+            convert_controls = f"""
+                  <form class="agent-convert-form" method="post" action="{html.escape(route_path(f'/agent/gig/{detail.get("gig_id")}/convert-band'))}" style="display:flex;gap:0.25rem;align-items:center">
+                    <input type="hidden" name="option" value="{opt}" />
+                    <select name="band_photo_id" class="agent-photo-pick" title="Band photo">
+                      {photo_options}
+                    </select>
+                    <button type="submit" class="btn-secondary">My band</button>
+                  </form>"""
         cards.append(
             f"""
             <article class="agent-flyer-card" data-option="{opt}">
@@ -470,8 +485,9 @@ def _posters_panel(detail: Optional[dict[str, Any]]) -> str:
                   <strong>Option {opt}</strong>
                   {wild_badge}
                 </div>
-                <div style="display:flex;gap:0.25rem;flex-wrap:wrap">
+                <div style="display:flex;gap:0.25rem;flex-wrap:wrap;align-items:center">
                   <button type="button" class="btn-secondary agent-select-option" data-option="{opt}">Revise</button>
+                  {convert_controls}
                   {approve_btn}
                 </div>
               </div>

@@ -248,6 +248,31 @@ class WildBandReplaceTests(unittest.TestCase):
                     )
                 )
 
+    def test_should_band_convert(self) -> None:
+        import tempfile
+        from wild_design.band_replace import should_wild_band_convert
+
+        with tempfile.NamedTemporaryFile(suffix=".png") as poster, tempfile.NamedTemporaryFile(suffix=".jpg") as band:
+            with patch.dict(
+                os.environ,
+                {"WILD_DESIGN_ENABLED": "1", "WILD_ROUND_LAYOUT": "three_canvas", "WILD_BAND_CONVERT_ENABLED": "1"},
+                clear=False,
+            ):
+                self.assertTrue(
+                    should_wild_band_convert(
+                        letter="B",
+                        prior_poster_path=Path(poster.name),
+                        reference_photo_path=Path(band.name),
+                    )
+                )
+                self.assertFalse(
+                    should_wild_band_convert(
+                        letter="B",
+                        prior_poster_path=Path(poster.name),
+                        reference_photo_path=None,
+                    )
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

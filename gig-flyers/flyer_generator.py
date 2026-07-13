@@ -36,7 +36,7 @@ from structured_layout.validation import validate_structured_flyer
 from gig_calendar import GigEvent, find_gig_by_id, get_upcoming_gigs, is_test_mode, event_from_dict, _events_from_mock, set_test_mode
 from gig_research import research_gig, research_prompt_block
 from gen_timing import record_generate_timing, record_review_timing
-from photo_selector import photo_prompt_block, select_band_photo
+from photo_selector import photo_prompt_block, resolve_band_photo_selection, select_band_photo
 from progress_helper import ProgressCallback, emit_progress
 from text_validation import (
     footer_prompt_lines,
@@ -76,6 +76,7 @@ from wild_design.band_replace import (
     resolve_band_replace_provider,
     resolve_prior_option_image,
     should_auto_wild_band_replace,
+    should_wild_band_convert,
     should_wild_band_replace,
 )
 from wild_design.composite import render_wild_composite_poster
@@ -993,6 +994,123 @@ def _generate_wild_composite_option(
     }
 
 
+def _generate_wild_band_convert_option(
+    *,
+    letter: str,
+    variation: dict[str, Any],
+    style: dict[str, Any],
+    event: GigEvent,
+    current_round: int,
+    research: dict[str, Any],
+    selected_photo: Optional[dict[str, Any]],
+    reference_photo_path: Path,
+    prior_poster_path: Path,
+    out_dir: Path,
+    dry_run: bool,
+    on_progress: Optional[ProgressCallback],
+    feedback: Optional[str] = None,
+) -> dict[str, Any]:
+    """Band-swap only: keep poster design (IMAGE 1), replace musicians from reference photo."""
+    from wild_design.band_replace import DEFAULT_CONVERT_FEEDBACK
+
+    var_id = variation.get("id", letter)
+    slot_base = 20
+    filename = f"option-{letter}_r{current_round}.png"
+    path = out_dir / filename
+    convert_feedback = (feedback or "").strip() or DEFAULT_CONVERT_FEEDBACK
+    variation = {**variation, "generation_mode": "wild_band_replace", "tier": "wild"}
+
+    emit_progress(
+        on_progress,
+        step="generate",
+        substep="band_convert",
+        message=f"Converting option {letter} to your band photo…",
+        progress=slot_base,
+        option=letter,
+        attempt=1,
+        option_phase="generating",
+    )
+
+    gen_started = time.monotonic()
+    final_prompt = build_wild_band_replace_prompt(
+        event,
+        feedback=convert_feedback,
+        research=research,
+        selected_photo=selected_photo,
+    )
+    provider_name = resolve_band_replace_provider(letter)
+
+    if dry_run:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"")
+    else:
+        generate_image(
+            final_prompt,
+            path,
+            dry_run=False,
+            reference_photo_path=reference_photo_path,
+            design_reference_path=prior_poster_path,
+            on_progress=on_progress,
+            option=letter,
+            attempt=1,
+            progress=slot_base + 3,
+            tier="wild",
+            provider=provider_name,
+        )
+        overlay_flyer_logo(path, _calendar_band_name(event))
+
+    gen_elapsed = time.monotonic() - gen_started
+    image_url = public_output_url(path)
+
+    if dry_run or not reviewer_enabled():
+        final_verdict = {
+            "pass": True,
+            "score": 8,
+            "issues": [],
+            "remake_recommended": False,
+            "feedback_for_regen": "",
+            "retry_count": 0,
+            "display_note": "Band convert complete",
+        }
+    else:
+        final_verdict = review_flyer_image(
+            path,
+            style,
+            event,
+            variation,
+            dry_run=dry_run,
+            retry_count=0,
+            option=letter,
+            on_progress=on_progress,
+            reference_photo_path=reference_photo_path,
+            selected_photo=selected_photo,
+            tier="wild",
+        )
+
+    emit_progress(
+        on_progress,
+        step="review",
+        substep="passed",
+        message=f"Option {letter}: converted to your band",
+        option=letter,
+        attempt=1,
+        option_phase="passed",
+        option_progress=100,
+        option_image_url=image_url,
+    )
+    if not dry_run:
+        record_generate_timing(gen_elapsed, provider=provider_name, quality="high", tier="wild")
+        record_review_timing(0.5, generate_seconds=gen_elapsed)
+
+    return {
+        "letter": letter,
+        "path_rel": output_relative(path),
+        "prompt": final_prompt,
+        "verdict": final_verdict,
+        "var_id": var_id,
+    }
+
+
 def _generate_single_option(
     *,
     letter: str,
@@ -1491,6 +1609,8 @@ def generate_for_gig(
     on_progress: Optional[ProgressCallback] = None,
     generation_source: Optional[str] = None,
     revision_brief: Optional[Any] = None,
+    convert_band: Optional[str] = None,
+    band_photo_id: Optional[str] = None,
 ) -> dict[str, Any]:
     event = resolve_gig_event(gig_id)
 
@@ -1509,6 +1629,90 @@ def generate_for_gig(
     style = load_style()
     record = get_gig_state(gig_id) or {}
     current_round = round_num if round_num is not None else int(record.get("round", 0)) + 1
+    convert_letter = (convert_band or "").strip().upper() or None
+
+    if convert_letter:
+        if not is_wild_option(convert_letter):
+            raise ValueError(f"Option {convert_letter} is not a wild full-canvas poster")
+        out_dir = gig_output_dir(event)
+        prior_poster = resolve_prior_option_image(record, convert_letter, out_dir)
+        if not prior_poster or not prior_poster.is_file():
+            raise ValueError(f"No existing poster found for option {convert_letter}")
+
+        emit_progress(
+            on_progress,
+            step="starting",
+            substep="band_convert",
+            message=f"Converting option {convert_letter} to your band…",
+            progress=4,
+        )
+        research = research_gig(event, on_progress=on_progress)
+        selected_photo = resolve_band_photo_selection(
+            event, research, photo_id=band_photo_id, on_progress=on_progress
+        )
+        if not selected_photo or not selected_photo.get("path"):
+            raise ValueError("No band reference photo available for convert")
+        reference_photo_path = ROOT / selected_photo["path"]
+        if not reference_photo_path.is_file():
+            raise ValueError(f"Band photo file missing: {reference_photo_path}")
+
+        variation = wild_variation_for_letter(convert_letter)
+        result = _generate_wild_band_convert_option(
+            letter=convert_letter,
+            variation=variation,
+            style=style,
+            event=event,
+            current_round=current_round,
+            research=research,
+            selected_photo=selected_photo,
+            reference_photo_path=reference_photo_path,
+            prior_poster_path=prior_poster,
+            out_dir=out_dir,
+            dry_run=dry_run,
+            on_progress=on_progress,
+            feedback=feedback,
+        )
+
+        options = dict(record.get("options") or {})
+        prompts = dict(record.get("prompts") or {})
+        reviewer_verdicts = dict(record.get("reviewer_verdicts") or {})
+        used_variations = list(record.get("used_variations", []))
+        options[convert_letter] = result["path_rel"]
+        prompts[convert_letter] = result["prompt"]
+        reviewer_verdicts[convert_letter] = result["verdict"]
+        var_id = result["var_id"]
+        if var_id not in used_variations:
+            used_variations.append(var_id)
+
+        mark_pending_review(gig_id, options, prompts, current_round)
+        upsert_gig(
+            gig_id,
+            used_variations=used_variations,
+            event=event.to_dict(),
+            research=research,
+            selected_photo=selected_photo,
+            reviewer_verdicts=reviewer_verdicts,
+            **({"generation_source": generation_source} if generation_source else {}),
+        )
+        manifest = {
+            "gig_id": gig_id,
+            "round": current_round,
+            "event": event.to_dict(),
+            "options": options,
+            "prompts": prompts,
+            "research": research,
+            "selected_photo": selected_photo,
+            "reviewer_verdicts": reviewer_verdicts,
+            "output_dir": output_relative(out_dir),
+            "convert_band": convert_letter,
+            "generation_mode": "wild_band_convert",
+        }
+        if feedback:
+            manifest["feedback"] = feedback
+        manifest_path = out_dir / f"manifest_r{current_round}.json"
+        manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+        return manifest
+
     used_variations = [] if fresh_start else list(record.get("used_variations", []))
     prior_prompts = record.get("prompts", {})
     base_letter = (base_option or "").upper() or None

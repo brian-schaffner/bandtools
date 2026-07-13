@@ -20,6 +20,10 @@ def wild_band_replace_enabled() -> bool:
     return os.getenv("WILD_BAND_REPLACE_ON_REVISE", "1").strip().lower() in {"1", "true", "yes", "on"}
 
 
+def wild_band_convert_enabled() -> bool:
+    return os.getenv("WILD_BAND_CONVERT_ENABLED", "1").strip().lower() in {"1", "true", "yes", "on"}
+
+
 def wild_band_replace_after_gen_enabled() -> bool:
     return os.getenv("WILD_BAND_REPLACE_AFTER_GEN", "1").strip().lower() in {"1", "true", "yes", "on"}
 
@@ -52,6 +56,25 @@ def should_auto_wild_band_replace(
     if wild_d_band_mode() != "full_canvas":
         return False
     return bool(reference_photo_path and reference_photo_path.is_file())
+
+
+def should_wild_band_convert(
+    *,
+    letter: str,
+    prior_poster_path: Optional[Path],
+    reference_photo_path: Optional[Path],
+) -> bool:
+    """Convert an existing wild poster to the real band (single-option band swap)."""
+    if not wild_band_convert_enabled():
+        return False
+    if not is_wild_option(letter):
+        return False
+    return bool(
+        prior_poster_path
+        and prior_poster_path.is_file()
+        and reference_photo_path
+        and reference_photo_path.is_file()
+    )
 
 
 def should_wild_band_replace(
@@ -95,6 +118,7 @@ def build_wild_band_replace_prompt(
     feedback: Optional[str] = None,
     research: Optional[dict[str, Any]] = None,
     selected_photo: Optional[dict[str, Any]] = None,
+    member_photo_count: int = 0,
 ) -> str:
     venue = event.venue or "Venue TBA"
     band = event.title or "Live music"
@@ -106,17 +130,29 @@ def build_wild_band_replace_prompt(
         "",
         "INPUTS:",
         "- IMAGE 1: Current wild poster — preserve typography, layout, color palette, textures, and all event text.",
-        "- IMAGE 2: Reference band photo — use these exact musicians, faces, instruments, and poses.",
+    ]
+    if member_photo_count > 1:
+        lines.append(
+            f"- IMAGES 2–{member_photo_count + 1}: Individual band member reference photos — "
+            "use these exact faces, instruments, and identities when replacing musicians in IMAGE 1."
+        )
+    else:
+        lines.append(
+            "- IMAGE 2: Reference band photo — use these exact musicians, faces, instruments, and poses."
+        )
+    lines.extend(
+        [
         "",
         "RULES:",
         f"- Event text must remain correct: {band} · {venue} · {date} · {time_label}",
         "- Do NOT redesign the poster from scratch — this is a band-swap on an approved composition.",
-        "- Replace AI/wrong musicians with the real band from IMAGE 2.",
+        "- Replace AI/wrong musicians with the real band from the reference image(s).",
         "- Keep the wild/creative design energy of IMAGE 1 everywhere except the band region.",
         "- All band members from the reference must be visible; no face distortion on the final band.",
         "",
         DEFAULT_BAND_REPLACE_INSTRUCTION,
-    ]
+        ]
+    )
     if selected_photo and selected_photo.get("description"):
         lines.extend(["", f"Reference band context: {selected_photo['description']}"])
     if research:
@@ -133,3 +169,9 @@ def build_wild_band_replace_prompt(
         )
     lines.append(f"\nGeneration mode: wild_band_replace (option {wild_option_letter()}).")
     return "\n".join(lines)
+
+
+DEFAULT_CONVERT_FEEDBACK = (
+    "Convert this poster to my real band using the reference photo(s). "
+    "Keep the design exactly — swap only the musicians."
+)

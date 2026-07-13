@@ -184,6 +184,30 @@ async def _execute_chat_action(gig_id: str, execution: dict[str, Any]) -> dict[s
         job["expected_round"] = int(detail.get("round") or 0) + 1
         return job
 
+    if job_type == "convert_band":
+        if not detail.get("can_revise"):
+            return {"started": False, "reason": "not_allowed", "type": job_type}
+        option = execution["option"]
+        band_photo_id = execution.get("band_photo_id")
+        feedback = execution.get("feedback")
+        append_feedback(gig_id, "convert_band", option, feedback or "", f"CONVERT {option}")
+        job = _start_agent_job(
+            gig_id,
+            "convert_band",
+            runner=partial(
+                _agent.convert_band,
+                gig_id,
+                option=option,
+                feedback=feedback,
+                band_photo_id=band_photo_id,
+                on_progress=_progress_callback(gig_id),
+            ),
+            detail=f"Convert option {option} to band photo",
+        )
+        job["option"] = option
+        job["expected_round"] = int(detail.get("round") or 0) + 1
+        return job
+
     if job_type == "approve":
         if detail.get("workflow") == "approved":
             return {"started": False, "reason": "not_allowed", "type": job_type}
@@ -385,6 +409,42 @@ def register_agent_routes(app: FastAPI) -> None:
                     gig_id,
                     option=option,
                     feedback=feedback,
+                    on_progress=_progress_callback(gig_id),
+                ),
+            )
+        )
+        return RedirectResponse(route_path(f"/agent/gig/{gig_id}"), status_code=303)
+
+    @add_post(app, "/agent/gig/{gig_id}/convert-band")
+    async def agent_convert_band_route(
+        gig_id: str,
+        request: Request,
+        option: str = Form(...),
+        band_photo_id: str = Form(""),
+    ) -> RedirectResponse:
+        await require_agent_user(request)
+        detail = _agent.gig_detail(gig_id)
+        if not detail or not detail.get("can_revise"):
+            raise HTTPException(status_code=409, detail="Cannot convert this gig")
+        photo_id = band_photo_id.strip() or None
+        append_feedback(gig_id, "convert_band", option.upper(), "", f"CONVERT {option.upper()}")
+        _generate_in_flight.add(gig_id)
+        event = detail.get("event") or {}
+        start_job(
+            gig_id,
+            "convert_band",
+            title=f"{event.get('short_date')} @ {event.get('venue')}",
+            detail=f"Convert option {option.upper()} to band photo",
+        )
+        asyncio.create_task(
+            _run_agent_job(
+                gig_id,
+                "convert_band",
+                partial(
+                    _agent.convert_band,
+                    gig_id,
+                    option=option,
+                    band_photo_id=photo_id,
                     on_progress=_progress_callback(gig_id),
                 ),
             )

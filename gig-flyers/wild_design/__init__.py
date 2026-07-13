@@ -5,7 +5,9 @@ from wild_design.band_replace import (
     resolve_band_replace_provider,
     resolve_prior_option_image,
     should_auto_wild_band_replace,
+    should_wild_band_convert,
     should_wild_band_replace,
+    wild_band_convert_enabled,
     wild_band_replace_after_gen_enabled,
     wild_band_replace_enabled,
 )
@@ -21,7 +23,9 @@ __all__ = [
     "resolve_band_replace_provider",
     "resolve_prior_option_image",
     "should_auto_wild_band_replace",
+    "should_wild_band_convert",
     "should_wild_band_replace",
+    "wild_band_convert_enabled",
     "wild_band_replace_after_gen_enabled",
     "wild_band_replace_enabled",
 ]
