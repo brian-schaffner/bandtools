@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from gig_calendar import GigEvent
-from option_slots import is_wild_option, wild_option_letter
+from option_slots import is_wild_option, wild_d_band_mode, wild_option_letter
 
 DEFAULT_BAND_REPLACE_INSTRUCTION = (
     "Replace the band/musicians in the poster with the exact people from the reference band photo. "
@@ -18,6 +18,40 @@ DEFAULT_BAND_REPLACE_INSTRUCTION = (
 
 def wild_band_replace_enabled() -> bool:
     return os.getenv("WILD_BAND_REPLACE_ON_REVISE", "1").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def wild_band_replace_after_gen_enabled() -> bool:
+    return os.getenv("WILD_BAND_REPLACE_AFTER_GEN", "1").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def resolve_band_replace_provider(option: str = "") -> str:
+    """Provider for wild band-swap passes — defaults to OpenAI while D initial gen stays Gemini."""
+    letter = (option or wild_option_letter() or "D").strip().upper()
+    per_option = os.getenv(f"GIG_IMAGE_PROVIDER_{letter}_BAND_REPLACE", "").strip().lower()
+    if per_option:
+        return per_option
+    global_override = os.getenv("GIG_IMAGE_PROVIDER_BAND_REPLACE", "").strip().lower()
+    if global_override:
+        return global_override
+    return "openai"
+
+
+def should_auto_wild_band_replace(
+    *,
+    letter: str,
+    reference_photo_path: Optional[Path],
+    fan_out_base: Optional[str],
+) -> bool:
+    """After initial wild full-canvas D, swap AI musicians for the real band photo."""
+    if not wild_band_replace_after_gen_enabled():
+        return False
+    if fan_out_base:
+        return False
+    if not is_wild_option(letter):
+        return False
+    if wild_d_band_mode() != "full_canvas":
+        return False
+    return bool(reference_photo_path and reference_photo_path.is_file())
 
 
 def should_wild_band_replace(

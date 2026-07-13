@@ -27,6 +27,15 @@ from image_providers.typography_compose import (
 from gen_timing import tier_for_option
 from progress_helper import ProgressCallback, emit_progress, heartbeat_during
 
+WILD_BAND_REPLACE_PROMPT_PREFIX = (
+    "INPUTS: IMAGE 1 = existing wild poster design. IMAGE 2 = reference band photo. "
+    "Replace ONLY the band/musicians depicted in IMAGE 1 with the exact people from IMAGE 2. "
+    "Preserve all typography, layout, colors, textures, graphics, and event text from IMAGE 1. "
+    "Do NOT redesign the poster from scratch or change the creative wild energy outside the band region. "
+    "Match faces, instruments, poses, and member count from IMAGE 2. "
+    "No face distortion on the final band; all reference members must be visible. "
+)
+
 REFERENCE_EDIT_PROMPT_PREFIX = (
     "INPUT = FLYER CANVAS WITH BAND PHOTO ALREADY PLACED. "
     "The band photograph is pre-composited on the canvas — do NOT modify, redraw, regenerate, "
@@ -76,27 +85,35 @@ class OpenAIImageProvider(ImageProvider):
         quality: Optional[str] = None,
         tier: str = "",
     ) -> None:
+        use_design_ref = design_reference_path is not None and design_reference_path.is_file()
         use_reference = (
             reference_photo_path is not None
             and reference_photo_path.is_file()
             and _reference_required()
         )
+        use_wild_band_replace = use_design_ref and use_reference
         if (
             _reference_required()
             and reference_photo_path is not None
             and not reference_photo_path.is_file()
+            and not use_design_ref
         ):
             raise RuntimeError(
                 f"Band reference photo required but missing: {reference_photo_path}"
             )
-        if _reference_required() and reference_photo_path is None:
+        if _reference_required() and reference_photo_path is None and not use_design_ref:
             raise RuntimeError(
                 "Band reference photo required (OPENAI_IMAGE_USE_REFERENCE=1) but none was provided"
             )
 
-        use_single_pass = use_reference and post_compose_enabled() and not typography_only_enabled()
-        use_typography_only = use_reference and typography_only_enabled()
-        api_method = "images.edit" if use_reference else "images.generate"
+        use_single_pass = (
+            use_reference
+            and post_compose_enabled()
+            and not typography_only_enabled()
+            and not use_wild_band_replace
+        )
+        use_typography_only = use_reference and typography_only_enabled() and not use_wild_band_replace
+        api_method = "images.edit" if (use_reference or use_wild_band_replace) else "images.generate"
         opt = option or "?"
         fidelity = _resolve_input_fidelity()
         if use_reference and fidelity != "high" and not use_typography_only:
@@ -104,7 +121,9 @@ class OpenAIImageProvider(ImageProvider):
         image_quality = _resolve_image_quality(quality)
         use_mask = use_single_pass and edit_mask_enabled()
 
-        if use_typography_only:
+        if use_wild_band_replace:
+            compose_mode = "wild-band-replace"
+        elif use_typography_only:
             compose_mode = "typography-only"
         elif use_single_pass:
             compose_mode = "photo-on-canvas+mask"
@@ -137,7 +156,9 @@ class OpenAIImageProvider(ImageProvider):
         size = os.getenv("OPENAI_IMAGE_SIZE", "1024x1536")
         output_size = parse_output_size(size)
 
-        if use_typography_only:
+        if use_wild_band_replace:
+            edit_prompt = f"{WILD_BAND_REPLACE_PROMPT_PREFIX}\n\n{prompt}"
+        elif use_typography_only:
             edit_prompt = f"{TYPOGRAPHY_ONLY_PROMPT_PREFIX}\n\n{prompt}"
         elif use_reference:
             edit_prompt = f"{REFERENCE_EDIT_PROMPT_PREFIX}\n\n{prompt}"
@@ -150,7 +171,48 @@ class OpenAIImageProvider(ImageProvider):
 
         resolved_tier = tier or tier_for_option(opt)
 
-        if use_typography_only and reference_photo_path is not None:
+        if (
+            use_wild_band_replace
+            and design_reference_path is not None
+            and reference_photo_path is not None
+        ):
+            def _call_wild_band_replace():
+                with design_reference_path.open("rb") as poster_file, reference_photo_path.open(
+                    "rb"
+                ) as band_file:
+                    return client.images.edit(
+                        model=model,
+                        image=[poster_file, band_file],
+                        prompt=edit_prompt,
+                        size=size,
+                        quality=image_quality,
+                        input_fidelity="high",
+                        n=1,
+                    )
+
+            with heartbeat_during(
+                on_progress,
+                step="generate",
+                message_template="OpenAI band replace for option {option}… ({seconds}s)",
+                progress=progress,
+                option=opt,
+                attempt=attempt,
+            ):
+                response = _call_wild_band_replace()
+
+            item = response.data[0]
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+
+            if item.b64_json:
+                output_path.write_bytes(base64.b64decode(item.b64_json))
+            elif item.url:
+                import urllib.request
+
+                with urllib.request.urlopen(item.url, timeout=120) as resp:
+                    output_path.write_bytes(resp.read())
+            else:
+                raise RuntimeError("OpenAI image response had no b64_json or url")
+        elif use_typography_only and reference_photo_path is not None:
             with tempfile.TemporaryDirectory(prefix="gigflyers-typo-") as tmp:
                 work = Path(tmp)
                 compose = prepare_blank_typography_canvas(

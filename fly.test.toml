@@ -35,8 +35,10 @@ primary_region = 'ord'
   WILD_DESIGN_ENABLED = '1'
   WILD_DESIGN_OPTION = 'D'
   GIG_IMAGE_PROVIDER_D = 'gemini'
+  GIG_IMAGE_PROVIDER_D_BAND_REPLACE = 'openai'
   STRUCTURED_LAYOUT_OPTIONS = 'A,B'
   WILD_BAND_REPLACE_ON_REVISE = '1'
+  WILD_BAND_REPLACE_AFTER_GEN = '1'
   # Wild D: full_canvas = original Gemini wild (default); composite = exact photo PIL paste
   WILD_D_BAND_MODE = 'full_canvas'
 
