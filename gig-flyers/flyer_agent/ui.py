@@ -506,6 +506,7 @@ def _chat_panel(*, initial_message: str, gig_label: str) -> str:
     chat_api = html.escape(route_path("/agent/api/chat"))
     gig_api_tpl = html.escape(route_path("/agent/api/gig/"))
     job_api_tpl = html.escape(route_path("/agent/api/gig/"))
+    convert_api_tpl = html.escape(route_path("/agent/gig/"))
     welcome = html.escape(initial_message)
     label = html.escape(gig_label or "Flyer Agent")
     return f"""
@@ -525,6 +526,7 @@ def _chat_panel(*, initial_message: str, gig_label: str) -> str:
       var chatApi = "{chat_api}";
       var gigApiTpl = "{gig_api_tpl}";
       var jobApiTpl = "{job_api_tpl}";
+      var convertApiTpl = "{convert_api_tpl}";
       var logEl = document.getElementById("agent-chat-log");
       var form = document.getElementById("agent-chat-form");
       var input = document.getElementById("agent-chat-input");
@@ -577,6 +579,11 @@ def _chat_panel(*, initial_message: str, gig_label: str) -> str:
           return;
         }}
         var canApprove = detail.workflow !== "approved";
+        var bandPhotos = detail.band_photos || [];
+        var photoOptions = bandPhotos.map(function(p) {{
+          return '<option value="' + p.id + '">' + p.id + '</option>';
+        }}).join("");
+        var convertAction = convertApiTpl + encodeURIComponent(detail.gig_id || gigId() || "") + "/convert-band";
         var cards = flyers.map(function(f) {{
           var opt = f.option || "?";
           var url = posterUrl(f, detail);
@@ -586,16 +593,25 @@ def _chat_panel(*, initial_message: str, gig_label: str) -> str:
           var wildBadge = f.is_wild
             ? '<span class="agent-wild-badge">Full-canvas wild<br><span style="font-weight:400">Logo added after render</span></span>'
             : "";
+          var convertControls = "";
+          if (canApprove && f.is_wild && bandPhotos.length) {{
+            convertControls =
+              '<form class="agent-convert-form" method="post" action="' + convertAction + '" style="display:flex;gap:0.25rem;align-items:center">' +
+              '<input type="hidden" name="option" value="' + opt + '" />' +
+              '<select name="band_photo_id" class="agent-photo-pick" title="Band photo">' + photoOptions + '</select>' +
+              '<button type="submit" class="btn-secondary">My band</button></form>';
+          }}
           return '<article class="agent-flyer-card" data-option="' + opt + '">' +
             '<img src="' + url + '" alt="Option ' + opt + '" loading="lazy" />' +
             '<div class="flyer-cap"><div><strong>Option ' + opt + '</strong>' + wildBadge + '</div>' +
-            '<div style="display:flex;gap:0.25rem;flex-wrap:wrap">' +
+            '<div style="display:flex;gap:0.25rem;flex-wrap:wrap;align-items:center">' +
             '<button type="button" class="btn-secondary agent-select-option" data-option="' + opt + '">Revise</button>' +
-            approveBtn + '</div></div></article>';
+            convertControls + approveBtn + '</div></div></article>';
         }}).join("");
         panel.innerHTML = '<h2>Posters — round ' + (detail.round || 0) + '</h2><div class="agent-flyer-grid">' + cards + '</div>';
         updateMeta(detail);
         bindPosterButtons();
+        bindConvertForms();
       }}
 
       function pathsMatchRound(detail, expectedRound) {{
@@ -643,6 +659,56 @@ def _chat_panel(*, initial_message: str, gig_label: str) -> str:
             if (res.data.detail) renderPosters(res.data.detail);
           }})
           .catch(function() {{ appendMsg("agent", "Approve failed — try again."); }});
+      }}
+
+      function bindConvertForms() {{
+        document.querySelectorAll(".agent-convert-form").forEach(function(form) {{
+          form.addEventListener("submit", function(ev) {{
+            ev.preventDefault();
+            var id = gigId();
+            if (!id) return;
+            var roundEl = document.getElementById("agent-gig-round");
+            var expectedRound = (parseInt(roundEl && roundEl.textContent, 10) || 0) + 1;
+            fetch(form.action, {{
+              method: "POST",
+              body: new FormData(form),
+              headers: authHeaders(),
+              redirect: "manual"
+            }}).then(function(r) {{
+              if (r.status === 303 || r.status === 302 || r.ok) {{
+                appendMsg("agent", "Converting to your band photo…");
+                pollJob({{ expected_round: expectedRound }});
+                return;
+              }}
+              if (r.status === 401) {{
+                appendMsg("agent", "Sign in again to convert posters.");
+                return;
+              }}
+              return r.json().catch(function() {{ return {{}}; }}).then(function(data) {{
+                appendMsg("agent", (data && data.detail) || "Convert failed — try again.");
+              }});
+            }}).catch(function() {{
+              appendMsg("agent", "Convert failed — try again.");
+            }});
+          }});
+        }});
+      }}
+
+      function resumeActiveJob() {{
+        var id = gigId();
+        if (!id) return;
+        fetch(jobApiTpl + encodeURIComponent(id) + "/job", {{ headers: authHeaders() }})
+          .then(function(r) {{ return r.json(); }})
+          .then(function(status) {{
+            if (status.status === "running") {{
+              var roundEl = document.getElementById("agent-gig-round");
+              var expected = (parseInt(roundEl && roundEl.textContent, 10) || 0) + 1;
+              pollJob({{ expected_round: expected }});
+            }} else if (status.status === "error") {{
+              appendMsg("agent", "Generation failed: " + (status.message || status.detail || "unknown error"));
+            }}
+          }})
+          .catch(function() {{ /* ignore */ }});
       }}
 
       function bindPosterButtons() {{
@@ -745,6 +811,8 @@ def _chat_panel(*, initial_message: str, gig_label: str) -> str:
       }});
 
       bindPosterButtons();
+      bindConvertForms();
+      resumeActiveJob();
     }})();
     </script>
     """

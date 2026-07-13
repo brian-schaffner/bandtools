@@ -5,6 +5,7 @@ the doctrine: band photos are SOURCE ARTWORK, never regenerated or reinterpreted
 """
 
 from image_providers.base import (
+    generate_band_replace_with_fallback,
     generate_with_fallback,
     get_image_provider,
     is_provider_split_enabled,
@@ -21,6 +22,7 @@ from image_providers.photo_treatment import (
 from image_providers.typography_compose import typography_only_enabled
 
 __all__ = [
+    "generate_band_replace_with_fallback",
     "generate_with_fallback",
     "get_image_provider",
     "is_provider_split_enabled",

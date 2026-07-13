@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -19,7 +20,12 @@ import yaml
 from ai_reviewer import max_reviewer_retries, review_flyer_image, reviewer_enabled
 from bridge.review import public_output_url
 from image_providers import generate_with_fallback, resolve_image_provider, resolve_image_provider_for_option
-from image_providers.base import is_provider_split_enabled, provider_display_label, provider_short_label
+from image_providers.base import (
+    generate_band_replace_with_fallback,
+    is_provider_split_enabled,
+    provider_display_label,
+    provider_short_label,
+)
 from image_providers.photo_treatment import (
     photo_treatment_prompt_block,
     PHOTO_ALLOWED,
@@ -1532,6 +1538,11 @@ def generate_image(
         return
 
     use_reference = bool(reference_photo_path and reference_photo_path.is_file())
+    use_band_replace = bool(
+        use_reference
+        and design_reference_path
+        and design_reference_path.is_file()
+    )
     emit_progress(
         on_progress,
         step="generate",
@@ -1544,7 +1555,8 @@ def generate_image(
         active_provider=provider_name,
     )
     try:
-        used = generate_with_fallback(
+        generate_fn = generate_band_replace_with_fallback if use_band_replace else generate_with_fallback
+        used = generate_fn(
             prompt,
             output_path,
             reference_photo_path=reference_photo_path,
@@ -1677,6 +1689,20 @@ def generate_for_gig(
         prompts = dict(record.get("prompts") or {})
         reviewer_verdicts = dict(record.get("reviewer_verdicts") or {})
         used_variations = list(record.get("used_variations", []))
+        for letter in round_option_letters():
+            if letter == convert_letter:
+                continue
+            sibling_prior = resolve_prior_option_image(record, letter, out_dir)
+            if not sibling_prior or not sibling_prior.is_file():
+                continue
+            sibling_dest = out_dir / f"option-{letter}_r{current_round}.png"
+            if dry_run:
+                sibling_dest.parent.mkdir(parents=True, exist_ok=True)
+                sibling_dest.write_bytes(b"")
+            else:
+                shutil.copy2(sibling_prior, sibling_dest)
+            options[letter] = output_relative(sibling_dest)
+
         options[convert_letter] = result["path_rel"]
         prompts[convert_letter] = result["prompt"]
         reviewer_verdicts[convert_letter] = result["verdict"]
