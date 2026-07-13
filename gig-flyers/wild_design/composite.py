@@ -7,7 +7,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 from image_providers.reference_compose import (
     CANVAS_BACKGROUND,
@@ -17,15 +17,27 @@ from image_providers.reference_compose import (
     protection_zone,
 )
 from gig_calendar import GigEvent
+from wild_design.wild_graphics import (
+    centered_text_with_shadow,
+    draw_barbed_wire,
+    draw_perforation,
+    draw_star_badge,
+    grain_overlay,
+    rust_stains,
+    torn_rectangle_points,
+    try_serif_font,
+)
 
-# Layout palette — western bar flyer
-WOOD_DARK = (48, 32, 22)
-WOOD_MID = (72, 50, 34)
-CREAM = (248, 242, 230)
-CREAM_DARK = (228, 210, 185)
-INK = (22, 16, 10)
-RUST = (140, 38, 28)
-GOLD = (186, 158, 108)
+# Outlaw-country palette
+WOOD_DARK = (32, 20, 14)
+WOOD_MID = (58, 38, 26)
+PARCHMENT = (236, 222, 198)
+PARCHMENT_LIGHT = (248, 238, 220)
+INK = (18, 10, 6)
+RUST = (168, 42, 28)
+RUST_DARK = (100, 22, 14)
+GOLD = (198, 162, 88)
+WHISKEY = (140, 88, 38)
 
 
 def _wood_background(size: tuple[int, int], seed: int = 42) -> Image.Image:
@@ -33,23 +45,22 @@ def _wood_background(size: tuple[int, int], seed: int = 42) -> Image.Image:
     w, h = size
     base = Image.new("RGB", size, WOOD_DARK)
     draw = ImageDraw.Draw(base)
-    for y in range(0, h, 5):
-        shade = 38 + rng.randint(0, 28)
-        draw.line([(0, y), (w, y)], fill=(shade, shade - 8, shade - 14), width=5)
+    for y in range(0, h, 4):
+        shade = 28 + rng.randint(0, 32)
+        draw.line([(0, y), (w, y)], fill=(shade, shade - 6, shade - 12), width=4)
+    rust_stains(draw, size, seed=seed + 11)
     vignette = Image.new("L", size, 0)
     vdraw = ImageDraw.Draw(vignette)
-    vdraw.ellipse([-w // 4, -h // 6, w + w // 4, h + h // 6], fill=255)
+    vdraw.ellipse([-w // 3, -h // 5, w + w // 3, h + h // 5], fill=255)
     dark = Image.new("RGB", size, (0, 0, 0))
-    return Image.composite(base, dark, vignette.filter(ImageFilter.GaussianBlur(radius=80)))
+    blended = Image.composite(base, dark, vignette.filter(ImageFilter.GaussianBlur(radius=90)))
+    return grain_overlay(blended, seed=seed + 99, strength=0.14)
 
 
-def _try_font(size: int, *, bold: bool = True) -> ImageFont.ImageFont:
-    names = (
-        ("DejaVuSans-Bold.ttf", "LiberationSans-Bold.ttf")
-        if bold
-        else ("DejaVuSans.ttf", "LiberationSans-Regular.ttf")
-    )
-    for name in names:
+def _try_font(size: int, *, bold: bool = True, western: bool = False) -> ImageFont.ImageFont:
+    if western:
+        return try_serif_font(size, bold=bold)
+    for name in ("DejaVuSans-Bold.ttf", "LiberationSans-Bold.ttf"):
         try:
             return ImageFont.truetype(name, size=size)
         except OSError:
@@ -70,18 +81,18 @@ def _fit_font(
     min_size: int,
     max_width: int,
     bold: bool = True,
+    western: bool = False,
 ) -> ImageFont.ImageFont:
     size = start_size
     while size >= min_size:
-        font = _try_font(size, bold=bold)
+        font = _try_font(size, bold=bold, western=western)
         if _text_width(draw, text, font) <= max_width:
             return font
         size -= 2
-    return _try_font(min_size, bold=bold)
+    return _try_font(min_size, bold=bold, western=western)
 
 
 def _clean_band_name(title: str, venue: str = "") -> str:
-    """Band name only — strip embedded venue suffixes from calendar titles."""
     t = (title or "Live Music").strip()
     if venue:
         suffix = f" at {venue}"
@@ -94,46 +105,39 @@ def _clean_band_name(title: str, venue: str = "") -> str:
     return t.upper()
 
 
-def _draw_centered_text(
-    draw: ImageDraw.ImageDraw,
-    text: str,
-    *,
-    y: int,
-    width: int,
-    font: ImageFont.ImageFont,
-    fill: tuple[int, int, int],
-) -> int:
-    tw = _text_width(draw, text, font)
-    x = max(0, (width - tw) // 2)
-    draw.text((x, y), text, fill=fill, font=font)
-    bbox = draw.textbbox((x, y), text, font=font)
-    return bbox[3] - bbox[1]
-
-
 def _paste_photo_frame(
     canvas: Image.Image,
     photo_layer: Image.Image,
     photo_bbox: tuple[int, int, int, int],
     *,
-    mat_pad: int = 6,
+    seed: int,
+    mat_pad: int = 8,
 ) -> None:
     left, top, right, bottom = photo_bbox
     frame = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
     fdraw = ImageDraw.Draw(frame)
-    outer = (left - mat_pad - 2, top - mat_pad - 2, right + mat_pad + 2, bottom + mat_pad + 2)
-    fdraw.rectangle(outer, fill=(*CREAM_DARK, 255))
-    fdraw.rectangle(
-        [(left - mat_pad, top - mat_pad), (right + mat_pad, bottom + mat_pad)],
-        fill=(*CREAM, 255),
-        outline=(*GOLD, 255),
-        width=2,
+
+    outer_pts = torn_rectangle_points(
+        left - mat_pad - 6, top - mat_pad - 6, right + mat_pad + 6, bottom + mat_pad + 6, seed=seed + 1
     )
-    shadow = frame.filter(ImageFilter.GaussianBlur(radius=4))
-    canvas.paste(shadow, (3, 5), shadow)
+    inner_pts = torn_rectangle_points(
+        left - mat_pad, top - mat_pad, right + mat_pad, bottom + mat_pad, seed=seed + 2
+    )
+    fdraw.polygon(outer_pts, fill=(*WHISKEY, 230))
+    fdraw.polygon(inner_pts, fill=(*PARCHMENT_LIGHT, 255), outline=(*GOLD, 255))
+
+    # Wanted-poster corner ticks
+    tick = 18
+    for ox, oy in ((left - mat_pad, top - mat_pad), (right + mat_pad, top - mat_pad)):
+        fdraw.line([(ox, oy), (ox + tick, oy)], fill=(*INK, 200), width=3)
+        fdraw.line([(ox, oy), (ox, oy + tick)], fill=(*INK, 200), width=3)
+
+    shadow = frame.filter(ImageFilter.GaussianBlur(radius=6))
+    canvas.paste(shadow, (4, 6), shadow)
     canvas.paste(frame, (0, 0), frame)
 
     patch_w, patch_h = right - left, bottom - top
-    band_patch = Image.new("RGB", (patch_w, patch_h), CREAM)
+    band_patch = Image.new("RGB", (patch_w, patch_h), PARCHMENT_LIGHT)
     band_patch.paste(photo_layer, (0, 0), photo_layer)
     canvas.paste(band_patch, (left, top))
 
@@ -146,7 +150,7 @@ def render_wild_composite_poster(
     tier: str = "wild_composite",
     seed: int = 42,
 ) -> dict[str, Any]:
-    """Build western-style wild poster with exact PIL-pasted band photo."""
+    """Build outlaw-country wild poster with exact PIL-pasted band photo."""
     size = parse_output_size("1024x1536")
     w, h = size
     canvas = _wood_background(size, seed=seed)
@@ -156,87 +160,100 @@ def render_wild_composite_poster(
     band = _clean_band_name(event.title or "Lindsey Lane Band", event.venue or "")
     date = event.to_dict().get("short_date", event.event_date.strftime("%b %d")).upper()
     time_label = (event.time_label or "7:00 PM").upper()
-    margin = 48
+    margin = 40
     inner_w = w - 2 * margin
 
-    # --- Header plaque ---
-    header_top, header_bottom = 36, 168
-    draw.rectangle(
-        [(margin, header_top), (w - margin, header_bottom)],
-        fill=CREAM,
-        outline=GOLD,
-        width=3,
+    # Top stamp + barbed wire
+    stamp_font = _try_font(22, western=True)
+    centered_text_with_shadow(
+        draw, "★  LIVE SHOW  ★", y=18, width=w, font=stamp_font, fill=GOLD, shadow=RUST_DARK
     )
-    draw.line([(margin + 12, header_top + 10), (w - margin - 12, header_top + 10)], fill=GOLD, width=1)
+    draw_barbed_wire(draw, 48, w, margin=margin)
+
+    # Header — torn wanted-poster plaque
+    header_top, header_bottom = 58, 188
+    header_pts = torn_rectangle_points(margin, header_top, w - margin, header_bottom, seed=seed + 5)
+    draw.polygon(header_pts, fill=PARCHMENT, outline=GOLD)
+    draw.polygon(header_pts, outline=RUST, width=2)
+    draw_star_badge(draw, (margin + 28, header_top + 28), radius=16, fill=RUST, outline=GOLD)
+    draw_star_badge(draw, (w - margin - 28, header_top + 28), radius=16, fill=RUST, outline=GOLD)
+
     band_font = _fit_font(
-        draw, band, start_size=64, min_size=34, max_width=inner_w - 40, bold=True
+        draw, band, start_size=58, min_size=32, max_width=inner_w - 80, bold=True, western=True
     )
-    band_h = _draw_centered_text(
-        draw, band, y=header_top + 36, width=w, font=band_font, fill=INK
+    centered_text_with_shadow(
+        draw, band, y=header_top + 52, width=w, font=band_font, fill=INK, shadow=RUST_DARK
+    )
+    sub_font = _try_font(24, western=True)
+    centered_text_with_shadow(
+        draw, "OUTLAW COUNTRY • LIVE", y=header_bottom - 42, width=w, font=sub_font, fill=RUST, shadow=INK
     )
 
-    # --- Band photo (exact pixels) ---
+    draw_barbed_wire(draw, header_bottom + 14, w, margin=margin)
+
+    # Band photo (exact pixels)
     photo_layer, photo_bbox = _build_photo_layer(
         reference_photo_path,
         size,
         tier=tier,
         apply_treatment=False,
     )
-    _paste_photo_frame(canvas, photo_layer, photo_bbox)
+    _paste_photo_frame(canvas, photo_layer, photo_bbox, seed=seed)
     draw = ImageDraw.Draw(canvas)
     _, _, _, photo_bottom = photo_bbox
 
-    # --- Event info card (fills space below photo) ---
-    footer_h = 40
-    bottom_pad = 24
-    gap = 24
+    # Ticket-stub event block
+    footer_h = 44
+    bottom_pad = 20
+    gap = 20
     card_top = photo_bottom + gap
     card_bottom = h - bottom_pad - footer_h
-    card_h = max(150, card_bottom - card_top)
-    draw.rectangle(
-        [(margin, card_top), (w - margin, card_bottom)],
-        fill=CREAM,
-        outline=GOLD,
-        width=2,
-    )
+    card_pts = torn_rectangle_points(margin, card_top, w - margin, card_bottom, seed=seed + 9)
+    draw.polygon(card_pts, fill=PARCHMENT, outline=GOLD)
+    draw.polygon(card_pts, outline=RUST, width=2)
+    draw_perforation(draw, card_top + 8, margin + 24, w - margin - 24, color=WOOD_MID)
 
-    pad_x = margin + 32
-    max_text_w = inner_w - 64
-
+    max_text_w = inner_w - 48
     venue_line = f"LIVE AT {venue}"
     venue_font = _fit_font(
-        draw, venue_line, start_size=44, min_size=24, max_width=max_text_w, bold=True
+        draw, venue_line, start_size=46, min_size=26, max_width=max_text_w, bold=True, western=True
     )
-    date_time = f"{date}  •  {time_label}"
+    date_time = f"{date}   •   {time_label}"
     dt_font = _fit_font(
-        draw, date_time, start_size=48, min_size=28, max_width=max_text_w, bold=True
+        draw, date_time, start_size=50, min_size=28, max_width=max_text_w, bold=True, western=True
     )
 
-    # Vertically center the two-line block inside the card
-    block_h = 120
-    block_top = card_top + max(24, (card_h - block_h) // 2)
-    _draw_centered_text(draw, venue_line, y=block_top, width=w, font=venue_font, fill=INK)
-    divider_y = block_top + 56
-    draw.line([(pad_x, divider_y), (w - pad_x, divider_y)], fill=GOLD, width=2)
-    _draw_centered_text(draw, date_time, y=divider_y + 18, width=w, font=dt_font, fill=RUST)
+    card_h = card_bottom - card_top
+    block_top = card_top + max(36, (card_h - 130) // 2)
+    centered_text_with_shadow(
+        draw, venue_line, y=block_top, width=w, font=venue_font, fill=INK, shadow=RUST_DARK
+    )
+    divider_y = block_top + 58
+    draw.line([(margin + 36, divider_y), (w - margin - 36, divider_y)], fill=RUST, width=3)
+    draw.line([(margin + 36, divider_y + 2), (w - margin - 36, divider_y + 2)], fill=GOLD, width=1)
+    centered_text_with_shadow(
+        draw, date_time, y=divider_y + 16, width=w, font=dt_font, fill=RUST, shadow=INK
+    )
 
-    footer_top = card_bottom + 8
+    # Bottom whiskey strip
+    footer_top = card_bottom + 6
     footer_bottom = h - bottom_pad
-    draw.rectangle(
-        [(margin, footer_top), (w - margin, footer_bottom)],
-        fill=WOOD_MID,
-        outline=GOLD,
-        width=1,
-    )
-    tag_font = _try_font(18, bold=True)
-    _draw_centered_text(
-        draw, "LIVE MUSIC • NO COVER", y=footer_top + 10, width=w, font=tag_font, fill=CREAM
+    draw.rectangle([(margin, footer_top), (w - margin, footer_bottom)], fill=WOOD_MID, outline=GOLD)
+    draw_barbed_wire(draw, footer_top + 10, w, margin=margin + 8, color=GOLD)
+    tag_font = _try_font(20, bold=True)
+    centered_text_with_shadow(
+        draw, "LIVE MUSIC  •  NO COVER  •  TWO STEPS FROM THE BAR",
+        y=footer_top + 18,
+        width=w,
+        font=tag_font,
+        fill=PARCHMENT_LIGHT,
+        shadow=INK,
     )
 
     with __import__("tempfile").TemporaryDirectory(prefix="wild-compose-") as tmp:
         work_dir = Path(tmp)
         left, top, _, _ = photo_bbox
-        work_canvas = Image.new("RGBA", size, (*CREAM, 255))
+        work_canvas = Image.new("RGBA", size, (*CANVAS_BACKGROUND, 255))
         work_canvas.paste(photo_layer, (left, top), photo_layer)
         canvas_path = work_dir / "compose_canvas.png"
         work_canvas.convert("RGB").save(canvas_path, format="PNG")
