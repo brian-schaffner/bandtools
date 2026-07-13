@@ -11,9 +11,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from dotenv import load_dotenv
+from agent_secrets import bootstrap_secrets  # noqa: E402
 
-load_dotenv(ROOT / ".env")
+bootstrap_secrets(anchor=ROOT)
 
 from image_providers.gemini import GeminiImageProvider  # noqa: E402
 from image_providers.provider_status import provider_status  # noqa: E402

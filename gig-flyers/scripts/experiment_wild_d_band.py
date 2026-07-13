@@ -16,21 +16,18 @@ import time
 from datetime import date
 from pathlib import Path
 
-from dotenv import load_dotenv
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-load_dotenv(ROOT / ".env")
-load_dotenv(ROOT.parent / ".env")
 
 from agent_secrets import (  # noqa: E402
-    bootstrap_google_api_key_env,
+    bootstrap_secrets,
     google_api_key_configured,
     resolve_google_api_key_source,
 )
 
-bootstrap_google_api_key_env()
+_SECRET_BOOT = bootstrap_secrets(anchor=ROOT)
 
 from gig_calendar import GigEvent  # noqa: E402
 from image_providers import generate_with_fallback  # noqa: E402
@@ -191,9 +188,15 @@ def main() -> int:
       run_h3_pil_composite(args.reference, OUT_DIR / "H3_pil_composite.png", event)
     )
 
+    print(
+      f"Secrets: cloud_agent={_SECRET_BOOT['cloud_agent']} "
+      f"env_files={_SECRET_BOOT['env_files_loaded'] or 'none'} "
+      f"google_source={_SECRET_BOOT['google_key_source']!r}"
+    )
+
     if args.live and _has_google_key():
       src_name, _ = resolve_google_api_key_source()
-      print(f"Using Gemini key from env: {src_name!r}")
+      print(f"Using Gemini key from: {src_name!r}")
       for name, fn in (
         ("H1", lambda: run_h1_band_replace(args.reference, prior, OUT_DIR / "H1_band_replace.png", event)),
         ("H2", lambda: run_h2_constrained_single_pass(args.reference, OUT_DIR / "H2_constrained.png", event)),

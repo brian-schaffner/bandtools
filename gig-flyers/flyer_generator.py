@@ -16,8 +16,6 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 
 import yaml
-from dotenv import load_dotenv
-
 from ai_reviewer import max_reviewer_retries, review_flyer_image, reviewer_enabled
 from bridge.review import public_output_url
 from image_providers import generate_with_fallback, resolve_image_provider, resolve_image_provider_for_option
@@ -54,7 +52,9 @@ from state import (
 )
 
 ROOT = Path(__file__).resolve().parent
-load_dotenv(ROOT / ".env")
+from agent_secrets import bootstrap_secrets  # noqa: E402
+
+bootstrap_secrets(anchor=ROOT)
 STYLE_PATH = ROOT / "style.yaml"
 
 
