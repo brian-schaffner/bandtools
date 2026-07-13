@@ -106,13 +106,40 @@ class WildDesignPromptTests(unittest.TestCase):
             venue="Blues Bar",
             suggested_name="Jul 14 Blues Bar",
         )
-        prompt = build_wild_design_prompt({}, event, wild_variation(), 1)
+        prompt = build_wild_design_prompt({}, event, wild_variation(), 1, option_letter="A")
         self.assertIn("Face distortion", prompt)
         self.assertIn("full_canvas_wild", prompt)
-        self.assertIn("outlaw-country", prompt.lower())
-        self.assertIn("AI yellow", prompt)
+        self.assertIn("COLOR LOCK", prompt)
+        self.assertIn("FORBIDDEN: yellow", prompt)
         self.assertIn("Blues Bar", prompt)
         self.assertNotIn("match the reference EXACTLY", prompt)
+
+    def test_prompt_palette_differs_by_option(self) -> None:
+        from option_slots import wild_variation_for_letter
+
+        event = GigEvent(
+            event_date=__import__("datetime").date(2026, 7, 14),
+            time_label="9pm",
+            title="Test Band",
+            venue="Two Lane Tavern",
+            suggested_name="Jul 14",
+        )
+        a = build_wild_design_prompt({}, event, wild_variation_for_letter("A"), 1, option_letter="A")
+        b = build_wild_design_prompt({}, event, wild_variation_for_letter("B"), 1, option_letter="B")
+        self.assertIn("walnut", a.lower())
+        self.assertIn("denim-blue", b.lower())
+        self.assertNotEqual(a, b)
+
+    def test_sanitize_research_drops_yellow_notes(self) -> None:
+        from wild_design.palette import sanitize_research_notes
+
+        notes = sanitize_research_notes(
+            [
+                "Legion hall utilitarian layout",
+                "Warm mustard and cream paper tones",
+            ]
+        )
+        self.assertEqual(notes, ["Legion hall utilitarian layout"])
 
     def test_prompt_intensity_tiers(self) -> None:
         from option_slots import wild_variation_for_letter
@@ -124,8 +151,8 @@ class WildDesignPromptTests(unittest.TestCase):
             venue="Blues Bar",
             suggested_name="Jul 14 Blues Bar",
         )
-        bold = build_wild_design_prompt({}, event, wild_variation_for_letter("A"), 1)
-        refined = build_wild_design_prompt({}, event, wild_variation_for_letter("C"), 1)
+        bold = build_wild_design_prompt({}, event, wild_variation_for_letter("A"), 1, option_letter="A")
+        refined = build_wild_design_prompt({}, event, wild_variation_for_letter("C"), 1, option_letter="C")
         self.assertIn("BOLD", bold)
         self.assertIn("REFINED", refined)
         self.assertIn("full_canvas_wild_refined", refined)

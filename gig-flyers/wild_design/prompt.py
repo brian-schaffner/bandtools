@@ -5,24 +5,25 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from gig_calendar import GigEvent
+from wild_design.palette import sanitize_research_notes, wild_palette_lock
 
 _INTENSITY_BLOCKS: dict[str, dict[str, str]] = {
     "wild": {
         "label": "BOLD",
         "energy": (
-            "Maximum outlaw-country bar energy — gritty textures, torn paper, barbed wire, "
-            "asymmetry, mixed media, boots-and-beer authenticity."
+            "Maximum regional bar energy — gritty textures, torn paper, asymmetry, "
+            "mixed media, boots-and-beer authenticity."
         ),
         "rules": (
             "Full creative freedom — asymmetry, layered textures, bold color, mixed media. "
             "Face distortion and artistic reinterpretation of musicians are ALLOWED."
         ),
-        "avoid_extra": "Plain white/cream photo mats, PowerPoint-style blocks, uniform yellow/gold AI wash.",
+        "avoid_extra": "Plain white photo mats, PowerPoint-style blocks, uniform yellow/gold AI wash.",
     },
     "wild_medium": {
         "label": "BALANCED",
         "energy": (
-            "Same full-canvas outlaw-country bar flyer technique, but with clearer hierarchy "
+            "Same full-canvas bar flyer technique, but with clearer hierarchy "
             "and slightly restrained chaos — still hand-made promoter energy, not corporate."
         ),
         "rules": (
@@ -67,11 +68,13 @@ def build_wild_design_prompt(
     feedback: Optional[str] = None,
     research: Optional[dict[str, Any]] = None,
     selected_photo: Optional[dict[str, Any]] = None,
+    option_letter: str = "",
 ) -> str:
     """Build a full-canvas poster prompt — no photo-fidelity or template constraints."""
     intensity = _resolve_intensity(variation)
     intensity_cfg = _INTENSITY_BLOCKS[intensity]
     generation_mode = str(variation.get("generation_mode") or "full_canvas_wild")
+    letter = (option_letter or variation.get("option") or "A").strip().upper()
     principles = style.get("core_principles") or []
     anti_visual = (
         (style.get("anti_slop") or {}).get("visual_tropes")
@@ -90,8 +93,8 @@ def build_wild_design_prompt(
         design_language = str(research.get("design_language") or "").strip()
         if design_language:
             research_bits.append(f"Venue design language: {design_language}")
-        notes = research.get("design_notes") or []
-        research_bits.extend(str(n).strip() for n in notes[:2] if str(n).strip())
+        notes = sanitize_research_notes([str(n).strip() for n in (research.get("design_notes") or [])])
+        research_bits.extend(n for n in notes[:2] if n)
 
     photo_hint = ""
     if selected_photo and selected_photo.get("description"):
@@ -101,37 +104,26 @@ def build_wild_design_prompt(
             "face distortion is acceptable."
         )
 
-    # Default aesthetic when venue research is thin: outlaw-country bar flyer.
     venue_lower = f"{venue} {design_language}".lower()
     western_cues = any(
         k in venue_lower
         for k in ("tavern", "bar", "saloon", "honky", "country", "western", "roadhouse", "lane")
     )
     style_anchor = (
-        "Outlaw-country / roadhouse bar flyer: dark wood or weathered plank background, "
-        "torn-paper labels, ink-black and off-white typography with rust-red or denim-blue "
-        "accents — NOT a uniform golden-yellow wash. Band integrated INTO the art — not a "
-        "stock photo pasted on plain rectangles."
+        "Regional bar handbill: dark wood or weathered plank, torn-paper labels, "
+        "high-contrast ink typography — follow the mandatory OPTION palette above exactly."
         if western_cues or not design_language
         else f"Match venue energy ({design_language}) with bold promoter/zine collage — "
-        "varied ink colors on paper/wood, still one unified designed poster, not a template "
-        "with pasted photo blocks."
+        "follow the mandatory OPTION palette above; one unified designed poster."
     )
 
-    color_rules = [
-        "Use a believable printed-flyer palette: dark wood brown, ink black, off-white/cream "
-        "paper, beer-label red, denim blue, faded green — mix 2–4 colors with real contrast.",
-        "NEVER drench the whole poster in AI yellow, mustard gold, amber sepia, or vintage "
-        "Instagram filter — that screams AI-generated.",
-        "Warm tones are OK as accents (rust, brick, tungsten highlights) but the dominant mood "
-        "should be bar-window night: wood, ink, and paper — not a yellow fog.",
-        "Avoid golden-hour color grading, uniform sepia cast, and yellow-tinted skin on musicians.",
-    ]
-
     lines = [
+        "COLOR LOCK (highest priority — overrides all other color or vintage guidance):",
+        wild_palette_lock(letter),
+        "",
         "PRIMARY DIRECTIVE: Design a complete concert flyer poster as ONE unified designed image.",
         "Typography, textures, graphics, and band depiction must feel like a single "
-        "hand-made outlaw-country or dive-bar poster — NOT a clean Canva layout.",
+        "hand-made regional bar handbill — NOT a clean Canva layout or AI vintage filter.",
         "",
         "EVENT FACTS (must be correct and readable):",
         f"- Band: {band}",
@@ -143,17 +135,16 @@ def build_wild_design_prompt(
         f"- {style_anchor}",
         f"- Creative intensity: {intensity_cfg['energy']}",
         "- Integrate event text into the design (torn labels, wood type, stamp lettering, "
-        "ticket stubs) — never floating captions on blank cream boxes.",
+        "ticket stubs) — never floating captions on blank paper boxes.",
         "- Band/musicians are part of the composition — painted, halftoned, collage-cut, "
         "or stylized; they live inside the poster world.",
         "- Leave the top-right corner relatively clear — a band logo badge will be added after render.",
         "- Memorable, authentic promoter energy — like a flyer taped in a bar window.",
         "",
-        "COLOR (critical — avoid the AI-yellow look):",
-    ]
-    lines.extend([f"- {rule}" for rule in color_rules])
-    lines.extend(
-        [
+        "COLOR RULES (reinforce COLOR LOCK):",
+        "- Use only the mandated inks for this option — real print contrast, not a color filter.",
+        "- Dominant mood: bar-window night (wood, ink, shadow) — never a yellow fog over everything.",
+        "- No golden-hour grading, sepia cast, Instagram vintage filter, or yellow-tinted skin.",
         "",
         "WILD DESIGN RULES:",
         f"- {intensity_cfg['rules']}",
@@ -161,17 +152,15 @@ def build_wild_design_prompt(
         "",
         "AVOID:",
         "- Generic festival symmetry, stock marketing polish, sci-fi fantasy unless venue fits.",
-        "- Uniform yellow/gold/mustard color cast, sepia AI filter, golden-hour wash, or "
-        "'vintage photo' yellow tint over the entire image.",
-        "- Over-saturated amber parchment, Canva 'aged paper' yellow, or monotone gold typography.",
+        "- ANY dominant yellow, gold, mustard, amber, sepia, or 'aged paper' wash — instant fail.",
+        "- Canva polish, monotone gold typography, AI-generated vintage photo look.",
         f"- {intensity_cfg['avoid_extra']}",
         "- Missing or wrong venue/date/band text.",
-        ]
-    )
+    ]
     if principles:
         lines.extend(["", "CORE PRINCIPLES:"] + [f"- {p}" for p in principles[:4]])
     if anti_visual:
-        lines.extend(["", "ANTI-SLOP:"] + [f"- No {t}" for t in anti_visual[:5]])
+        lines.extend(["", "ANTI-SLOP:"] + [f"- No {t}" for t in anti_visual[:8]])
     if anti_texture:
         lines.extend(["", "TEXTURE AVOID:"] + [f"- No {t}" for t in anti_texture[:4]])
     if research_bits:

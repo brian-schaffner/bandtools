@@ -1289,6 +1289,7 @@ def _generate_single_option(
             feedback=attempt_feedback,
             research=research,
             selected_photo=selected_photo,
+            option_letter=letter,
         ) if wild_gen else build_prompt(
             style,
             event,
