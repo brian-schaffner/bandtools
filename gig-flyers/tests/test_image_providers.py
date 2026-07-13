@@ -331,6 +331,8 @@ class ImageProviderTest(unittest.TestCase):
             self.assertIn("swap band members", kwargs["prompt"])
             self.assertIsInstance(kwargs["image"], list)
             self.assertEqual(len(kwargs["image"]), 2)
+            self.assertEqual(kwargs["image"][0][0], "poster.png")
+            self.assertEqual(kwargs["image"][1][0], "band.jpg")
 
     def test_openai_missing_reference_file_raises(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -395,6 +397,37 @@ class ImageProviderTest(unittest.TestCase):
                 provider = GeminiImageProvider()
                 provider.generate("prompt", out, reference_photo_path=ref)
             self.assertTrue(out.is_file())
+
+
+class BandReplaceFallbackTests(unittest.TestCase):
+  @patch("image_providers.base.get_image_provider")
+  def test_falls_back_to_gemini_when_openai_fails(self, mock_get_provider: MagicMock) -> None:
+    from image_providers.base import generate_band_replace_with_fallback
+
+    openai = MagicMock()
+    openai.generate.side_effect = RuntimeError("openai edit failed")
+    gemini = MagicMock()
+    mock_get_provider.side_effect = lambda name: openai if name == "openai" else gemini
+
+    with tempfile.TemporaryDirectory() as tmp:
+      out = Path(tmp) / "flyer.png"
+      poster = Path(tmp) / "poster.png"
+      band = Path(tmp) / "band.jpg"
+      _make_test_jpeg(band)
+      Image.new("RGB", (1024, 1536), color=(20, 20, 20)).save(poster)
+      with patch("image_providers.base._openai_key", return_value="test"), patch(
+        "image_providers.base._google_key", return_value="test"
+      ):
+        used = generate_band_replace_with_fallback(
+          "swap band",
+          out,
+          reference_photo_path=band,
+          design_reference_path=poster,
+          provider="openai",
+          option="B",
+        )
+      self.assertEqual(used, "gemini")
+      gemini.generate.assert_called_once()
 
 
 if __name__ == "__main__":

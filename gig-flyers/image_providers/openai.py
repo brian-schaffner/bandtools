@@ -173,17 +173,29 @@ class OpenAIImageProvider(ImageProvider):
             and design_reference_path is not None
             and reference_photo_path is not None
         ):
+            def _mime_type(path: Path) -> str:
+                ext = path.suffix.lower()
+                if ext in {".jpg", ".jpeg"}:
+                    return "image/jpeg"
+                if ext == ".webp":
+                    return "image/webp"
+                return "image/png"
+
             def _call_wild_band_replace():
                 with design_reference_path.open("rb") as poster_file, reference_photo_path.open(
                     "rb"
                 ) as band_file:
                     return client.images.edit(
                         model=model,
-                        image=[poster_file, band_file],
+                        image=[
+                            ("poster.png", poster_file, _mime_type(design_reference_path)),
+                            ("band.jpg", band_file, _mime_type(reference_photo_path)),
+                        ],
                         prompt=edit_prompt,
                         size=size,
                         quality=image_quality,
                         input_fidelity="high",
+                        output_format="png",
                         n=1,
                     )
 

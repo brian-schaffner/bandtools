@@ -129,6 +129,89 @@ def provider_display_label(provider: str = "") -> str:
     return name or "unknown"
 
 
+def generate_band_replace_with_fallback(
+    prompt: str,
+    output_path: Path,
+    *,
+    reference_photo_path: Optional[Path] = None,
+    design_reference_path: Optional[Path] = None,
+    on_progress: Optional[ProgressCallback] = None,
+    option: str = "",
+    attempt: int = 0,
+    progress: int = 0,
+    provider: Optional[str] = None,
+    quality: Optional[str] = None,
+    tier: str = "",
+) -> str:
+    """Band-swap on an existing poster — try primary provider, then the other engine."""
+    primary = _normalize_provider_name(provider or resolve_image_provider())
+    order: list[str] = []
+    for name in (primary, "gemini" if primary == "openai" else "openai"):
+        if name in order:
+            continue
+        if name == "openai" and not _openai_key():
+            continue
+        if name in _GEMINI_ALIASES and not _google_key():
+            continue
+        order.append(name)
+    if not order:
+        raise ImageGenerationError(
+            "No image API keys configured for band convert (need OpenAI and/or Google).",
+            provider=primary,
+        )
+
+    opt = option or "?"
+    last_exc: Optional[Exception] = None
+    for idx, name in enumerate(order):
+        try:
+            get_image_provider(name).generate(
+                prompt,
+                output_path,
+                reference_photo_path=reference_photo_path,
+                design_reference_path=design_reference_path,
+                on_progress=on_progress,
+                option=opt,
+                attempt=attempt,
+                progress=progress,
+                quality=quality,
+                tier=tier,
+            )
+            if idx > 0:
+                emit_progress(
+                    on_progress,
+                    step="generate",
+                    substep="fallback_done",
+                    message=f"Used {provider_display_label(name)} fallback for band convert on option {opt}",
+                    progress=progress + 1,
+                    option=opt,
+                    attempt=attempt,
+                    provider_label=provider_display_label(name),
+                    active_provider=name,
+                )
+            return name
+        except Exception as exc:
+            last_exc = exc
+            if idx >= len(order) - 1:
+                raise friendly_generation_error(exc, name) from exc
+            fallback_name = order[idx + 1]
+            emit_progress(
+                on_progress,
+                step="generate",
+                substep="fallback",
+                message=(
+                    f"{provider_display_label(name)} band convert failed, "
+                    f"trying {provider_display_label(fallback_name)}…"
+                ),
+                detail=str(exc)[:240],
+                progress=progress,
+                option=opt,
+                attempt=attempt,
+                option_phase="generating",
+                provider_label=provider_display_label(fallback_name),
+                active_provider=fallback_name,
+            )
+
+
 def generate_with_fallback(
     prompt: str,
     output_path: Path,

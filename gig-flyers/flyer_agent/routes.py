@@ -428,27 +428,23 @@ def register_agent_routes(app: FastAPI) -> None:
             raise HTTPException(status_code=409, detail="Cannot convert this gig")
         photo_id = band_photo_id.strip() or None
         append_feedback(gig_id, "convert_band", option.upper(), "", f"CONVERT {option.upper()}")
-        _generate_in_flight.add(gig_id)
-        event = detail.get("event") or {}
-        start_job(
+        job = _start_agent_job(
             gig_id,
             "convert_band",
-            title=f"{event.get('short_date')} @ {event.get('venue')}",
+            runner=partial(
+                _agent.convert_band,
+                gig_id,
+                option=option,
+                band_photo_id=photo_id,
+                on_progress=_progress_callback(gig_id),
+            ),
             detail=f"Convert option {option.upper()} to band photo",
         )
-        asyncio.create_task(
-            _run_agent_job(
-                gig_id,
-                "convert_band",
-                partial(
-                    _agent.convert_band,
-                    gig_id,
-                    option=option,
-                    band_photo_id=photo_id,
-                    on_progress=_progress_callback(gig_id),
-                ),
+        if not job.get("started"):
+            raise HTTPException(
+                status_code=409,
+                detail=job.get("message") or "A job is already running for this gig",
             )
-        )
         return RedirectResponse(route_path(f"/agent/gig/{gig_id}"), status_code=303)
 
     @add_get(app, "/agent/catalog", response_class=HTMLResponse)
