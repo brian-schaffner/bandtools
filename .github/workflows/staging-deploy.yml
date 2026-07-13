@@ -11,6 +11,10 @@ on:
         description: Skip secret sync (use existing Fly secrets)
         type: boolean
         default: true
+      run_wild_d_experiment:
+        description: After deploy, run live H1/H2 wild D band photo experiment
+        type: boolean
+        default: false
   push:
     branches:
       - cursor/flyer-agent-v2-980b
@@ -76,3 +80,38 @@ jobs:
             exit 1
           fi
           echo "Flyer Agent approve route responded with HTTP $code (expected non-404)"
+
+  wild-d-band-experiment:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_wild_d_experiment }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: deploy
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch || github.ref }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r gig-flyers/requirements.txt
+
+      - name: Run live H1/H2 experiment
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_IMAGE_MODEL: gemini-2.5-flash-image
+        run: |
+          cd gig-flyers
+          python3 scripts/experiment_wild_d_band.py --live | tee /tmp/wild_d_experiment.log
+          cat output/experiments/wild_d_band/results.json
+
+      - name: Upload experiment artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: wild-d-band-experiment
+          path: |
+            gig-flyers/output/experiments/wild_d_band/*.png
+            gig-flyers/output/experiments/wild_d_band/results.json
