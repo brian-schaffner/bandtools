@@ -8,7 +8,14 @@ from typing import Any, Optional
 
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 
-from image_providers.reference_compose import parse_output_size, prepare_canvas_with_photo
+from image_providers.reference_compose import (
+    CANVAS_BACKGROUND,
+    ComposeResult,
+    _build_photo_layer,
+    parse_output_size,
+    prepare_canvas_with_photo,
+    protection_zone,
+)
 from gig_calendar import GigEvent
 
 
@@ -63,22 +70,41 @@ def render_wild_composite_poster(
       draw.arc([x, size[1] - 180, x + 60, size[1] - 120], 0, 180, fill=(120, 110, 100), width=2)
 
     with __import__("tempfile").TemporaryDirectory(prefix="wild-compose-") as tmp:
-      compose = prepare_canvas_with_photo(
+      work_dir = Path(tmp)
+      # Untreated photo — maximum face fidelity for wild D
+      photo_layer, photo_bbox = _build_photo_layer(
         reference_photo_path,
         size,
         tier=tier,
-        work_dir=Path(tmp),
-        create_mask=False,
+        apply_treatment=False,
       )
-      photo = Image.open(compose.canvas_path).convert("RGBA")
-      # Extract photo layer from compose canvas (band region only)
-      band_layer = photo.crop(compose.photo_bbox)
-      band_layer = band_layer.convert("RGB")
-      band_layer = ImageEnhance.Contrast(band_layer).enhance(1.05)
-      band_layer = ImageEnhance.Color(band_layer).enhance(1.08)
+      left, top, right, bottom = photo_bbox
+      mat_pad = 10
+      draw.rectangle(
+        [(left - mat_pad, top - mat_pad), (right + mat_pad, bottom + mat_pad)],
+        fill=CANVAS_BACKGROUND,
+        outline=(180, 160, 120),
+        width=2,
+      )
+      patch_w, patch_h = right - left, bottom - top
+      band_patch = Image.new("RGB", (patch_w, patch_h), CANVAS_BACKGROUND)
+      band_patch.paste(photo_layer, (0, 0), photo_layer)
+      canvas.paste(band_patch, (left, top))
 
-      left, top, right, bottom = compose.photo_bbox
-      canvas.paste(band_layer, (left, top))
+      work_canvas = Image.new("RGBA", size, (*CANVAS_BACKGROUND, 255))
+      work_canvas.paste(photo_layer, (left, top), photo_layer)
+      canvas_path = work_dir / "compose_canvas.png"
+      work_canvas.convert("RGB").save(canvas_path, format="PNG")
+      compose = ComposeResult(
+        canvas_path=canvas_path,
+        mask_path=None,
+        photo_bbox=photo_bbox,
+        protection_bbox=protection_zone(photo_bbox, size),
+        photo_layer=photo_layer,
+        canvas_size=size,
+        tier=tier,
+        reference_path=reference_photo_path,
+      )
 
       # Torn-paper labels below photo
       label_y = bottom + 24
