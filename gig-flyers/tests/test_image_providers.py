@@ -393,7 +393,9 @@ class ImageProviderTest(unittest.TestCase):
             ), patch(
                 "image_providers.gemini.validate_flyer_photo",
                 return_value=MagicMock(passed=True, checks=[]),
-            ), patch("image_providers.gemini.enforce_photo_bbox"):
+            ), patch("image_providers.gemini.enforce_photo_bbox"), patch(
+                "image_providers.gemini._gemini_api_key", return_value="test-key"
+            ):
                 provider = GeminiImageProvider()
                 provider.generate("prompt", out, reference_photo_path=ref)
             self.assertTrue(out.is_file())

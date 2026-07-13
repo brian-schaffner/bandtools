@@ -110,7 +110,8 @@ class WildDesignPromptTests(unittest.TestCase):
         self.assertIn("Face distortion", prompt)
         self.assertIn("full_canvas_wild", prompt)
         self.assertIn("COLOR LOCK", prompt)
-        self.assertIn("FORBIDDEN: yellow", prompt)
+        self.assertIn("cream", prompt.lower())
+        self.assertIn("halftone", prompt.lower())
         self.assertIn("Blues Bar", prompt)
         self.assertNotIn("match the reference EXACTLY", prompt)
 
@@ -126,7 +127,7 @@ class WildDesignPromptTests(unittest.TestCase):
         )
         a = build_wild_design_prompt({}, event, wild_variation_for_letter("A"), 1, option_letter="A")
         b = build_wild_design_prompt({}, event, wild_variation_for_letter("B"), 1, option_letter="B")
-        self.assertIn("walnut", a.lower())
+        self.assertTrue("charcoal" in a.lower() or "walnut" in a.lower())
         self.assertIn("denim-blue", b.lower())
         self.assertNotEqual(a, b)
 

@@ -12,21 +12,29 @@ _YELLOW_PATTERN = re.compile(
 
 _WILD_PALETTE_LOCKS: dict[str, str] = {
     "A": (
-        "OPTION A PALETTE (mandatory): dark walnut / espresso brown background, black ink "
-        "typography, brick-red accents only. High-contrast dive-bar night interior. "
-        "FORBIDDEN: yellow, gold, mustard, amber, sepia, golden-hour wash, or yellow-tinted skin."
+        "OPTION A PALETTE (mandatory): near-black charcoal background, black ink typography, "
+        "brick-red accent blocks only. Text labels: torn WHITE or RED paper — never cream, "
+        "parchment, tan, or beige blocks. "
+        "Band depiction: natural skin tones OR true black-and-white photo — NEVER mustard, "
+        "yellow-tan, sepia, or yellow halftone/duotone on faces or skin."
     ),
     "B": (
-        "OPTION B PALETTE (mandatory): charcoal gray or denim-blue base, newsprint-white type, "
-        "rust-orange accent only. Cool shadows, blues-club handbill energy. "
-        "FORBIDDEN: yellow, gold, mustard, amber, sepia, golden-hour wash, or yellow-tinted skin."
+        "OPTION B PALETTE (mandatory): denim-blue or cool charcoal base, pure white type, "
+        "rust-orange accent only. Text labels: white or red torn paper — no cream/parchment. "
+        "Band depiction: natural skin tones OR cool B&W — NEVER yellow-tan halftone duotone."
     ),
     "C": (
-        "OPTION C PALETTE (mandatory): black + brick red + newsprint white on dark wood — "
-        "two- or three-ink promoter flyer, no filters. Clean readable hierarchy. "
-        "FORBIDDEN: yellow, gold, mustard, amber, sepia, golden-hour wash, or yellow-tinted skin."
+        "OPTION C PALETTE (mandatory): black + brick red + pure white on dark wood — "
+        "limited ink palette, no vintage filters. Text blocks: red or white only. "
+        "Band depiction: natural skin tones OR neutral grayscale — no yellow/cream color grade."
     ),
 }
+
+_BAND_DEPICTION_RULE = (
+    "BAND DEPICTION: If showing musicians, use natural skin tones or honest B&W photography. "
+    "Do NOT apply mustard, yellow-tan, sepia, cream, or 'vintage halftone' color grades to faces, "
+    "arms, or clothing. No monochromatic yellow-brown duotone over the whole band region."
+)
 
 
 def wild_palette_lock(letter: str) -> str:
@@ -41,7 +49,9 @@ def wild_color_prefix(letter: str) -> str:
     return (
         "COLOR LOCK — highest priority; overrides any other color or vintage guidance:\n"
         f"{lock}\n"
-        "This must look like real ink on paper/wood — NOT an AI 'vintage photo' filter."
+        f"{_BAND_DEPICTION_RULE}\n"
+        "FORBIDDEN globally: yellow, gold, mustard, amber, sepia, cream/parchment/tan paper blocks, "
+        "and AI 'vintage photo' filters."
     )
 
 
