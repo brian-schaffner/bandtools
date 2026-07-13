@@ -148,7 +148,7 @@ def agent_css() -> str:
     .agent-flyer-grid {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, var(--agent-poster-w)));
-      gap: 0.65rem;
+      gap: 0.75rem;
       justify-content: start;
       align-items: start;
     }
@@ -171,20 +171,49 @@ def agent_css() -> str:
       background: #e2e8f0;
     }
     .agent-flyer-card .flyer-cap {
-      padding: 0.45rem 0.55rem;
+      padding: 0.55rem 0.65rem 0.65rem;
       display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 0.35rem;
+      flex-direction: column;
+      gap: 0.5rem;
       font-size: 0.78rem;
     }
-    .agent-flyer-card .flyer-cap .btn-secondary {
-      font-size: 0.72rem;
-      padding: 0.25rem 0.45rem;
+    .agent-flyer-card .flyer-cap-head strong {
+      display: block;
+      font-size: 0.88rem;
+    }
+    .flyer-cap-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      align-items: center;
+    }
+    .agent-convert-form {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      align-items: center;
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    .agent-photo-pick {
+      flex: 1 1 7rem;
+      min-width: 0;
+      max-width: 100%;
+      font: inherit;
+      font-size: 0.78rem;
+      padding: 0.35rem 0.45rem;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      background: #fff;
+    }
+    .agent-flyer-card .flyer-cap .btn-secondary,
+    .agent-flyer-card .flyer-cap .btn-approve {
+      font-size: 0.78rem;
+      padding: 0.4rem 0.65rem;
+      min-height: 36px;
+      white-space: nowrap;
     }
     .agent-flyer-card .flyer-cap .btn-approve {
-      font-size: 0.72rem;
-      padding: 0.25rem 0.45rem;
       background: var(--green, #16a34a);
       color: #fff;
       border: none;
@@ -320,6 +349,100 @@ def agent_css() -> str:
       .agent-main {
         grid-template-rows: auto minmax(280px, 1fr) minmax(240px, 300px);
       }
+      .agent-flyer-grid {
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        justify-content: center;
+      }
+      .agent-flyer-card { max-width: none; }
+    }
+    @media (max-width: 640px) {
+      .page-main.agent-workspace-wrap {
+        padding: 0.5rem max(0.65rem, env(safe-area-inset-right))
+          max(0.75rem, env(safe-area-inset-bottom))
+          max(0.65rem, env(safe-area-inset-left));
+      }
+      .agent-workspace { gap: 0.5rem; }
+      .agent-sidebar { max-height: 180px; border-radius: 12px; }
+      .agent-gig-meta { padding: 0.85rem; border-radius: 12px; }
+      .agent-gig-meta h1 { font-size: 1.1rem; }
+      .agent-gig-meta .meta-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.5rem;
+      }
+      .agent-posters-panel { padding: 0.75rem; border-radius: 12px; }
+      .agent-flyer-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+        max-width: min(100%, 22rem);
+        margin: 0 auto;
+      }
+      .agent-flyer-card {
+        max-width: none;
+        border-radius: 12px;
+      }
+      .agent-flyer-card .flyer-cap { padding: 0.65rem 0.75rem 0.75rem; }
+      .flyer-cap-actions {
+        flex-direction: column;
+        align-items: stretch;
+        width: 100%;
+      }
+      .agent-convert-form {
+        flex-direction: column;
+        align-items: stretch;
+        width: 100%;
+      }
+      .agent-photo-pick {
+        width: 100%;
+        min-height: 44px;
+        font-size: 0.85rem;
+      }
+      .agent-flyer-card .flyer-cap .btn-secondary,
+      .agent-flyer-card .flyer-cap .btn-approve,
+      .agent-convert-form .btn-secondary {
+        width: 100%;
+        min-height: 44px;
+        font-size: 0.88rem;
+        padding: 0.55rem 0.75rem;
+      }
+      .agent-wild-badge {
+        font-size: 0.72rem;
+        padding: 0.25rem 0.45rem;
+      }
+      .agent-main {
+        grid-template-rows: auto auto minmax(220px, 38vh);
+      }
+      .agent-chat-panel { border-radius: 12px; }
+      .agent-chat-compose {
+        grid-template-columns: 1fr;
+      }
+      .agent-chat-compose button {
+        width: 100%;
+      }
+      .agent-gig-meta .meta-actions {
+        width: 100%;
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .agent-gig-meta .meta-actions form,
+      .agent-gig-meta .meta-actions .btn,
+      .agent-gig-meta .meta-actions button {
+        width: 100%;
+      }
+      .agent-gig-meta .meta-actions button,
+      .agent-gig-meta .meta-actions .btn {
+        min-height: 44px;
+      }
+      .agent-footer-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem 1rem;
+        justify-content: center;
+        text-align: center;
+      }
+    }
+    .agent-footer-links {
+      margin-top: 0.75rem;
+      font-size: 0.82rem;
     }
     """
 
@@ -469,7 +592,7 @@ def _posters_panel(detail: Optional[dict[str, Any]]) -> str:
         convert_controls = ""
         if can_approve and flyer.get("is_wild") and band_photos:
             convert_controls = f"""
-                  <form class="agent-convert-form" method="post" action="{html.escape(route_path(f'/agent/gig/{detail.get("gig_id")}/convert-band'))}" style="display:flex;gap:0.25rem;align-items:center">
+                  <form class="agent-convert-form" method="post" action="{html.escape(route_path(f'/agent/gig/{detail.get("gig_id")}/convert-band'))}">
                     <input type="hidden" name="option" value="{opt}" />
                     <select name="band_photo_id" class="agent-photo-pick" title="Band photo">
                       {photo_options}
@@ -481,11 +604,11 @@ def _posters_panel(detail: Optional[dict[str, Any]]) -> str:
             <article class="agent-flyer-card" data-option="{opt}">
               <img src="{img_url}" alt="Option {opt}" loading="lazy" />
               <div class="flyer-cap">
-                <div>
+                <div class="flyer-cap-head">
                   <strong>Option {opt}</strong>
                   {wild_badge}
                 </div>
-                <div style="display:flex;gap:0.25rem;flex-wrap:wrap;align-items:center">
+                <div class="flyer-cap-actions">
                   <button type="button" class="btn-secondary agent-select-option" data-option="{opt}">Revise</button>
                   {convert_controls}
                   {approve_btn}
@@ -596,15 +719,15 @@ def _chat_panel(*, initial_message: str, gig_label: str) -> str:
           var convertControls = "";
           if (canApprove && f.is_wild && bandPhotos.length) {{
             convertControls =
-              '<form class="agent-convert-form" method="post" action="' + convertAction + '" style="display:flex;gap:0.25rem;align-items:center">' +
+              '<form class="agent-convert-form" method="post" action="' + convertAction + '">' +
               '<input type="hidden" name="option" value="' + opt + '" />' +
               '<select name="band_photo_id" class="agent-photo-pick" title="Band photo">' + photoOptions + '</select>' +
               '<button type="submit" class="btn-secondary">My band</button></form>';
           }}
           return '<article class="agent-flyer-card" data-option="' + opt + '">' +
             '<img src="' + url + '" alt="Option ' + opt + '" loading="lazy" />' +
-            '<div class="flyer-cap"><div><strong>Option ' + opt + '</strong>' + wildBadge + '</div>' +
-            '<div style="display:flex;gap:0.25rem;flex-wrap:wrap;align-items:center">' +
+            '<div class="flyer-cap"><div class="flyer-cap-head"><strong>Option ' + opt + '</strong>' + wildBadge + '</div>' +
+            '<div class="flyer-cap-actions">' +
             '<button type="button" class="btn-secondary agent-select-option" data-option="' + opt + '">Revise</button>' +
             convertControls + approveBtn + '</div></div></article>';
         }}).join("");
@@ -892,8 +1015,8 @@ def render_agent_workspace(
         {chat}
       </div>
     </div>
-    <p class="muted" style="margin-top:0.75rem;font-size:0.82rem">
-      <a href="{html.escape(route_path('/agent/catalog'))}">Design catalog</a> ·
+    <p class="muted agent-footer-links">
+      <a href="{html.escape(route_path('/agent/catalog'))}">Design catalog</a>
       <a href="{html.escape(route_path('/agent/research'))}">Design research</a>
     </p>
   </main>
