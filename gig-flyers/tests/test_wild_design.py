@@ -31,7 +31,11 @@ class WildDesignSlotsTests(unittest.TestCase):
     def test_wild_round_when_enabled(self) -> None:
         with patch.dict(
             os.environ,
-            {"WILD_DESIGN_ENABLED": "1", "STRUCTURED_LAYOUT_OPTIONS": "A,B"},
+            {
+                "WILD_DESIGN_ENABLED": "1",
+                "WILD_ROUND_LAYOUT": "safe_plus_wild",
+                "STRUCTURED_LAYOUT_OPTIONS": "A,B",
+            },
             clear=False,
         ):
             self.assertEqual(round_option_letters(), ("A", "B", "D"))
@@ -40,6 +44,23 @@ class WildDesignSlotsTests(unittest.TestCase):
             self.assertFalse(uses_structured_layout("D"))
             self.assertTrue(is_wild_option("D"))
             self.assertFalse(is_wild_option("C"))
+
+    def test_three_canvas_round(self) -> None:
+        from option_slots import wild_variation_for_letter, wild_variations
+
+        with patch.dict(
+            os.environ,
+            {"WILD_DESIGN_ENABLED": "1", "WILD_ROUND_LAYOUT": "three_canvas"},
+            clear=False,
+        ):
+            self.assertEqual(round_option_letters(), ("A", "B", "C"))
+            self.assertFalse(uses_structured_layout("A"))
+            self.assertTrue(is_wild_option("A"))
+            self.assertTrue(is_wild_option("B"))
+            self.assertTrue(is_wild_option("C"))
+            tiers = [v["tier"] for v in wild_variations()]
+            self.assertEqual(tiers, ["wild", "wild_medium", "wild_subtle"])
+            self.assertEqual(wild_variation_for_letter("B")["generation_mode"], "full_canvas_wild_balanced")
 
     def test_select_round_variations_includes_wild(self) -> None:
         style = {
@@ -54,7 +75,11 @@ class WildDesignSlotsTests(unittest.TestCase):
             tiers = style_obj["variations"]
             return tiers[:count]
 
-        with patch.dict(os.environ, {"WILD_DESIGN_ENABLED": "1"}, clear=False):
+        with patch.dict(
+            os.environ,
+            {"WILD_DESIGN_ENABLED": "1", "WILD_ROUND_LAYOUT": "safe_plus_wild"},
+            clear=False,
+        ):
             vars_ = select_round_variations(style, [], select_variations_fn=fake_select)
         self.assertEqual(len(vars_), 3)
         self.assertEqual(vars_[-1]["tier"], "wild")
@@ -88,6 +113,41 @@ class WildDesignPromptTests(unittest.TestCase):
         self.assertIn("Blues Bar", prompt)
         self.assertNotIn("match the reference EXACTLY", prompt)
 
+    def test_prompt_intensity_tiers(self) -> None:
+        from option_slots import wild_variation_for_letter
+
+        event = GigEvent(
+            event_date=__import__("datetime").date(2026, 7, 14),
+            time_label="9pm",
+            title="Test Band",
+            venue="Blues Bar",
+            suggested_name="Jul 14 Blues Bar",
+        )
+        bold = build_wild_design_prompt({}, event, wild_variation_for_letter("A"), 1)
+        refined = build_wild_design_prompt({}, event, wild_variation_for_letter("C"), 1)
+        self.assertIn("BOLD", bold)
+        self.assertIn("REFINED", refined)
+        self.assertIn("full_canvas_wild_refined", refined)
+        self.assertIn("top-right corner", bold.lower())
+
+
+class LogoOverlayTests(unittest.TestCase):
+    def test_overlay_applies_logo(self) -> None:
+        import tempfile
+        from PIL import Image
+
+        from wild_design.logo_overlay import overlay_flyer_logo
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "flyer.png"
+            Image.new("RGB", (1024, 1536), color=(40, 30, 20)).save(path)
+            with patch.dict(os.environ, {"FLYER_LOGO_OVERLAY": "1"}, clear=False):
+                self.assertTrue(overlay_flyer_logo(path, "Lindsey Lane Band"))
+            before = Image.open(path).convert("RGB")
+            # Logo overlay should change pixels in the badge zone
+            region = before.crop((744, 28, 1000, 132))
+            self.assertTrue(any(p != (40, 30, 20) for p in region.getdata()))
+
 
 class WildBandReplaceTests(unittest.TestCase):
     def test_should_replace_on_d_fan_out(self) -> None:
@@ -95,7 +155,15 @@ class WildBandReplaceTests(unittest.TestCase):
         from wild_design.band_replace import should_wild_band_replace
 
         with tempfile.NamedTemporaryFile(suffix=".png") as poster, tempfile.NamedTemporaryFile(suffix=".jpg") as band:
-            with patch.dict(os.environ, {"WILD_DESIGN_ENABLED": "1", "WILD_BAND_REPLACE_ON_REVISE": "1"}, clear=False):
+            with patch.dict(
+                os.environ,
+                {
+                    "WILD_DESIGN_ENABLED": "1",
+                    "WILD_ROUND_LAYOUT": "safe_plus_wild",
+                    "WILD_BAND_REPLACE_ON_REVISE": "1",
+                },
+                clear=False,
+            ):
                 self.assertTrue(
                     should_wild_band_replace(
                         fan_out_base="D",
@@ -152,6 +220,7 @@ class WildBandReplaceTests(unittest.TestCase):
         with tempfile.NamedTemporaryFile(suffix=".jpg") as band:
             env = {
                 "WILD_DESIGN_ENABLED": "1",
+                "WILD_ROUND_LAYOUT": "safe_plus_wild",
                 "WILD_D_BAND_MODE": "full_canvas",
                 "WILD_BAND_REPLACE_AFTER_GEN": "1",
                 "STRUCTURED_LAYOUT_OPTIONS": "A,B",
