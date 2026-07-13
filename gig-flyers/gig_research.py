@@ -252,6 +252,7 @@ def _maybe_enrich_with_llm(event: GigEvent, base: dict[str, Any]) -> Optional[di
         f"(array of 3 short tags) for a cover band gig:\n"
         f"Venue: {event.venue}\nTitle: {event.title}\nDate: {event.event_date.isoformat()}\n"
         f"Venue type: {base['venue_type']}\nDesign language: {base['design_language']}\n"
+        "Design notes must NOT suggest yellow, gold, mustard, sepia, cream paper, or vintage filters."
     )
     try:
         response = client.chat.completions.create(

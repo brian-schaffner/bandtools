@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 from typing import Any, Optional
 
-from image_providers.base import ImageProvider
+from wild_design.palette import wild_color_prefix
 from image_providers.errors import friendly_generation_error, is_retryable_429, retry_delay_seconds
 from agent_secrets import resolve_google_api_key
 from image_providers.reference_compose import (
@@ -123,7 +123,12 @@ class GeminiImageProvider(ImageProvider):
         client = genai.Client(api_key=_gemini_api_key())
         aspect_ratio = os.getenv("GEMINI_IMAGE_ASPECT_RATIO", "2:3")
 
-        contents: list[Any] = [prompt]
+        resolved_tier = tier or ""
+        prompt_text = prompt
+        if mode == "text-to-image" and resolved_tier.startswith("wild"):
+            prompt_text = f"{wild_color_prefix(opt)}\n\n{prompt}"
+
+        contents: list[Any] = [prompt_text]
         compose = None
         image_bytes_for_api: Optional[bytes] = None
 
