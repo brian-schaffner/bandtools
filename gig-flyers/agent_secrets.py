@@ -72,14 +72,19 @@ def load_env_files(*, anchor: Path | None = None) -> list[Path]:
 
 
 def _extract_google_key(raw: str) -> str:
-    """Return a Google API key from env value (supports embedded AIza… in notes)."""
+    """Return a Google API key from env value (supports embedded key in notes)."""
     text = (raw or "").strip()
     if not text:
         return ""
     if text.startswith("AIza") and len(text) >= 30:
         return text
+    if text.startswith("AQ.") and len(text) >= 24:
+        return text
     match = _GOOGLE_KEY_RE.search(text)
-    return match.group(0) if match else ""
+    if match:
+        return match.group(0)
+    aq = re.search(r"AQ\.[A-Za-z0-9_-]{20,}", text)
+    return aq.group(0) if aq else ""
 
 
 def _google_key_env_candidates() -> list[str]:
