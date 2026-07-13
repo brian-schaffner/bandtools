@@ -173,6 +173,30 @@ def select_band_photo(
     return result
 
 
+def resolve_band_photo_selection(
+    event: GigEvent,
+    research: dict[str, Any],
+    *,
+    photo_id: Optional[str] = None,
+    on_progress: Optional[ProgressCallback] = None,
+) -> Optional[dict[str, Any]]:
+    """Pick a band photo by explicit id or venue-aware auto selection."""
+    if photo_id:
+        for photo in list_band_photos():
+            if photo.id == photo_id.strip():
+                result = photo.to_dict()
+                result["reason"] = f"User-selected band photo: {photo.id}"
+                emit_progress(
+                    on_progress,
+                    step="photo",
+                    substep="selected",
+                    message=f"Using band photo: {photo.id}",
+                    progress=18,
+                )
+                return result
+    return select_band_photo(event, research, on_progress=on_progress)
+
+
 def photo_prompt_block(selected: Optional[dict[str, Any]]) -> list[str]:
     if not selected:
         return [

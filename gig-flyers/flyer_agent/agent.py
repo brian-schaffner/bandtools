@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from flyer_agent.actions import agent_approve, agent_generate, agent_regenerate, agent_revise
+from flyer_agent.actions import agent_approve, agent_convert_band, agent_generate, agent_regenerate, agent_revise
 from flyer_agent.catalog import load_design_catalog, sync_approved_flyers_to_catalog
 from flyer_agent.context import agent_system_context, gig_agent_context
 from flyer_agent.gig_board import build_agent_gig_board, build_gig_detail
@@ -57,6 +57,23 @@ class FlyerAgent:
         on_progress: Optional[Any] = None,
     ) -> dict[str, Any]:
         return agent_revise(gig_id, option=option, feedback=feedback, on_progress=on_progress)
+
+    def convert_band(
+        self,
+        gig_id: str,
+        *,
+        option: str,
+        feedback: Optional[str] = None,
+        band_photo_id: Optional[str] = None,
+        on_progress: Optional[Any] = None,
+    ) -> dict[str, Any]:
+        return agent_convert_band(
+            gig_id,
+            option=option,
+            feedback=feedback,
+            band_photo_id=band_photo_id,
+            on_progress=on_progress,
+        )
 
     def approve(self, gig_id: str, *, option: str) -> dict[str, Any]:
         return agent_approve(gig_id, option=option)

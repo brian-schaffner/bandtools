@@ -86,6 +86,27 @@ def agent_revise(
     )
 
 
+def agent_convert_band(
+    gig_id: str,
+    *,
+    option: str,
+    feedback: Optional[str] = None,
+    band_photo_id: Optional[str] = None,
+    on_progress: Optional[Any] = None,
+) -> dict[str, Any]:
+    if is_approved(gig_id):
+        raise ValueError("Cannot convert an approved gig")
+    tag_generation_source(gig_id, "agent")
+    return generate_for_gig(
+        gig_id,
+        convert_band=option.upper(),
+        band_photo_id=band_photo_id,
+        feedback=feedback,
+        on_progress=on_progress,
+        generation_source="agent",
+    )
+
+
 def agent_approve(gig_id: str, *, option: str) -> dict[str, Any]:
     record = get_gig_state(gig_id) or {}
     if not record:

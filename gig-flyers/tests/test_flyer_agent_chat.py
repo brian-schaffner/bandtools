@@ -61,6 +61,20 @@ class ChatIntentParseTest(unittest.TestCase):
         intent = parse_chat_intent("regenerate fresh round", detail=detail)
         self.assertEqual(intent.kind, "regenerate")
 
+    def test_convert_band_intent(self) -> None:
+        intent = parse_chat_intent("convert A to my band", detail=_revise_detail())
+        self.assertEqual(intent.kind, "convert_band")
+        self.assertEqual(intent.option, "A")
+
+    def test_convert_with_photo_id(self) -> None:
+        intent = parse_chat_intent(
+            "use my band photo on B — group_energetic",
+            detail=_revise_detail(),
+        )
+        self.assertEqual(intent.kind, "convert_band")
+        self.assertEqual(intent.option, "B")
+        self.assertEqual(intent.band_photo_id, "group_energetic")
+
 
 class ChatExecutionReplyTest(unittest.TestCase):
     def test_revise_message_returns_execution(self) -> None:

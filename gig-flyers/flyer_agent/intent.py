@@ -9,6 +9,9 @@ from typing import Any, Optional
 REVISE_WORDS = (
     "revise", "change", "fix", "tweak", "adjust", "update", "feedback", "modify", "like", "love", "prefer",
 )
+CONVERT_WORDS = (
+    "convert", "swap in my band", "swap my band", "use my band", "my band photo", "real band", "our band",
+)
 GENERATE_WORDS = ("generate", "create", "make posters", "make flyer", "make options")
 REGENERATE_WORDS = ("regenerate", "fresh round", "start over", "redo", "from scratch")
 
@@ -27,9 +30,27 @@ _OPTION_MARKER = re.compile(
 
 @dataclass(frozen=True)
 class ChatIntent:
-    kind: str  # none | revise | revise_incomplete | generate | regenerate | explain | approve | approve_incomplete
+    kind: str  # none | revise | revise_incomplete | convert_band | convert_incomplete | generate | regenerate | explain | approve | approve_incomplete
     option: Optional[str] = None
     feedback: Optional[str] = None
+    band_photo_id: Optional[str] = None
+
+
+_CONVERT_OPTION = re.compile(
+    r"(?:convert|swap|use)\s+(?:option\s*)?([abc])\b",
+    re.IGNORECASE,
+)
+
+
+def _extract_convert_option(text: str) -> tuple[Optional[str], Optional[str]]:
+    match = _CONVERT_OPTION.search(text)
+    if not match:
+        return None, None
+    option = match.group(1).upper()
+    tail = text[match.end() :].strip()
+    tail = re.sub(rf"^[\s:{_DASH_CHARS}]+", "", tail).strip()
+    tail = re.sub(r"^(to|with|using)\s+(my\s+)?band\b", "", tail, flags=re.I).strip()
+    return option, tail or None
 
 
 def _contains_any(text: str, words: tuple[str, ...]) -> bool:
@@ -71,6 +92,26 @@ def parse_chat_intent(message: str, *, detail: dict[str, Any]) -> ChatIntent:
         return ChatIntent("none")
 
     option, feedback = _extract_option_and_feedback(text)
+    has_convert_signal = _contains_any(lower, CONVERT_WORDS)
+
+    if has_convert_signal:
+        photo_id = None
+        for token in ("group_energetic", "group_standing", "instruments"):
+            if token in lower.replace("-", "_").replace(" ", "_"):
+                photo_id = token
+                break
+        convert_option, convert_feedback = _extract_convert_option(text)
+        option = convert_option or option
+        feedback = convert_feedback or feedback
+        if option and detail.get("can_revise"):
+            return ChatIntent(
+                "convert_band",
+                option=option,
+                feedback=feedback,
+                band_photo_id=photo_id,
+            )
+        return ChatIntent("convert_incomplete")
+
     has_revise_signal = _contains_any(lower, REVISE_WORDS) or bool(option and feedback)
 
     if has_revise_signal or (option and feedback):

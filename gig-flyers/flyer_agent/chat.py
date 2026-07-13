@@ -70,12 +70,31 @@ def _approve_explanation(*, option: str, llm_reply: Optional[str]) -> str:
     return f"Approving Option {option.upper()} — locking it in as the official flyer for this gig."
 
 
+def _convert_explanation(*, option: str, photo_id: Optional[str], llm_reply: Optional[str]) -> str:
+    if llm_reply:
+        return llm_reply
+    photo_note = f" using `{photo_id}`" if photo_id else ""
+    return (
+        f"Converting Option {option.upper()} to your real band{photo_note}.\n\n"
+        "I'll keep the poster design and swap in your musicians from the reference photo. "
+        "This usually takes about a minute."
+    )
+
+
 def _build_execution(intent: ChatIntent, *, detail: dict[str, Any]) -> Optional[dict[str, Any]]:
     if intent.kind == "revise" and intent.option and intent.feedback:
         return {
             "type": "revise",
             "option": intent.option.upper(),
             "feedback": intent.feedback,
+            "current_round": int(detail.get("round") or 0),
+        }
+    if intent.kind == "convert_band" and intent.option:
+        return {
+            "type": "convert_band",
+            "option": intent.option.upper(),
+            "feedback": intent.feedback,
+            "band_photo_id": intent.band_photo_id,
             "current_round": int(detail.get("round") or 0),
         }
     if intent.kind == "generate":
@@ -150,6 +169,19 @@ def agent_chat_reply(
             "intent_source": intent_source,
         }
 
+    if intent.kind == "convert_band" and execution:
+        return {
+            "reply": _convert_explanation(
+                option=execution["option"],
+                photo_id=execution.get("band_photo_id"),
+                llm_reply=llm_reply,
+            ),
+            "actions": actions,
+            "execution": execution,
+            "job": None,
+            "intent_source": intent_source,
+        }
+
     if intent.kind == "generate" and execution:
         return {
             "reply": _generate_explanation(venue=venue, llm_reply=llm_reply),
@@ -193,6 +225,20 @@ def agent_chat_reply(
             }
         return {
             "reply": rec.get("message", "Generate flyers first, then we can revise."),
+            "actions": actions,
+            "execution": None,
+            "job": None,
+            "intent_source": intent_source,
+        }
+
+    if intent.kind == "convert_incomplete":
+        opts = ", ".join(f["option"] for f in (detail.get("flyers") or []))
+        return {
+            "reply": llm_reply
+            or (
+                f"Say which poster to convert — e.g. “convert A to my band” or "
+                f"“use my band photo on B”. Options: {opts}."
+            ),
             "actions": actions,
             "execution": None,
             "job": None,

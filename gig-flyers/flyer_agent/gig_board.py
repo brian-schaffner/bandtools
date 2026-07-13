@@ -7,6 +7,7 @@ from typing import Any, Optional
 
 from gig_calendar import get_cache_info, get_future_gigs, get_local_today
 from option_slots import is_wild_option
+from photo_selector import list_band_photos
 from state import can_regenerate, get_gig_state, has_existing_generation, is_approved
 
 _PICKER_MAX_DAYS = int(os.getenv("GIG_FLYERS_PICKER_DAYS", "60"))
@@ -132,6 +133,7 @@ def build_gig_detail(gig_id: str) -> Optional[dict[str, Any]]:
         "event": event.to_dict(),
         **status,
         "flyers": flyer_previews,
+        "band_photos": [p.to_dict() for p in list_band_photos()],
         "research": record.get("research"),
         "selected_photo": record.get("selected_photo"),
         "feedback_history": record.get("feedback_history") or [],
