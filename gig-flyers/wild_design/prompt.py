@@ -135,9 +135,9 @@ def build_wild_design_prompt(
         f"- {style_anchor}",
         f"- Creative intensity: {intensity_cfg['energy']}",
         "- Integrate event text into the design (torn labels, wood type, stamp lettering, "
-        "ticket stubs) — never floating captions on blank paper boxes.",
-        "- Band/musicians are part of the composition — painted, halftoned, collage-cut, "
-        "or stylized; they live inside the poster world.",
+        "ticket stubs) — use RED or pure WHITE paper blocks only, never cream/parchment/tan.",
+        "- Band/musicians are part of the composition — painted, collage-cut, or stylized; "
+        "natural skin tones or true B&W only. NO yellow-tan halftone/duotone on faces.",
         "- Leave the top-right corner relatively clear — a band logo badge will be added after render.",
         "- Memorable, authentic promoter energy — like a flyer taped in a bar window.",
         "",
@@ -153,6 +153,8 @@ def build_wild_design_prompt(
         "AVOID:",
         "- Generic festival symmetry, stock marketing polish, sci-fi fantasy unless venue fits.",
         "- ANY dominant yellow, gold, mustard, amber, sepia, or 'aged paper' wash — instant fail.",
+        "- Cream, parchment, tan, or beige torn-paper text blocks (use red or white only).",
+        "- Yellow-tan halftone/duotone color grade on band faces, skin, or clothing.",
         "- Canva polish, monotone gold typography, AI-generated vintage photo look.",
         f"- {intensity_cfg['avoid_extra']}",
         "- Missing or wrong venue/date/band text.",

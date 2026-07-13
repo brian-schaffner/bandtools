@@ -9,6 +9,7 @@ import time
 from pathlib import Path
 from typing import Any, Optional
 
+from image_providers.base import ImageProvider
 from wild_design.palette import wild_color_prefix
 from image_providers.errors import friendly_generation_error, is_retryable_429, retry_delay_seconds
 from agent_secrets import resolve_google_api_key
