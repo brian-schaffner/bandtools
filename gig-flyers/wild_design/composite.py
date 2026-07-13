@@ -182,11 +182,11 @@ def render_wild_composite_poster(
         draw, band, start_size=58, min_size=32, max_width=inner_w - 80, bold=True, western=True
     )
     centered_text_with_shadow(
-        draw, band, y=header_top + 52, width=w, font=band_font, fill=INK, shadow=RUST_DARK
+        draw, band, y=header_top + 44, width=w, font=band_font, fill=INK, shadow=RUST_DARK
     )
-    sub_font = _try_font(24, western=True)
+    sub_font = _try_font(22, western=True)
     centered_text_with_shadow(
-        draw, "OUTLAW COUNTRY • LIVE", y=header_bottom - 42, width=w, font=sub_font, fill=RUST, shadow=INK
+        draw, "OUTLAW COUNTRY • LIVE", y=header_bottom - 38, width=w, font=sub_font, fill=RUST, shadow=INK
     )
 
     draw_barbed_wire(draw, header_bottom + 14, w, margin=margin)
