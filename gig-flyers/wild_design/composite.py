@@ -186,13 +186,13 @@ def render_wild_composite_poster(
     draw = ImageDraw.Draw(canvas)
     _, _, _, photo_bottom = photo_bbox
 
-    # --- Event info card (single clean block) ---
-    footer_h = 52
-    gap = 20
-    bottom_pad = 28
+    # --- Event info card (fills space below photo) ---
+    footer_h = 40
+    bottom_pad = 24
+    gap = 24
     card_top = photo_bottom + gap
-    card_h = min(220, max(150, h - bottom_pad - footer_h - gap - card_top))
-    card_bottom = card_top + card_h
+    card_bottom = h - bottom_pad - footer_h
+    card_h = max(150, card_bottom - card_top)
     draw.rectangle(
         [(margin, card_top), (w - margin, card_bottom)],
         fill=CREAM,
@@ -205,32 +205,30 @@ def render_wild_composite_poster(
 
     venue_line = f"LIVE AT {venue}"
     venue_font = _fit_font(
-        draw, venue_line, start_size=40, min_size=24, max_width=max_text_w, bold=True
+        draw, venue_line, start_size=44, min_size=24, max_width=max_text_w, bold=True
     )
-    _draw_centered_text(draw, venue_line, y=card_top + 20, width=w, font=venue_font, fill=INK)
-
-    divider_y = card_top + min(72, card_h // 3)
-    draw.line([(pad_x, divider_y), (w - pad_x, divider_y)], fill=GOLD, width=2)
-
     date_time = f"{date}  •  {time_label}"
     dt_font = _fit_font(
-        draw, date_time, start_size=42, min_size=26, max_width=max_text_w, bold=True
-    )
-    _draw_centered_text(
-        draw, date_time, y=divider_y + 16, width=w, font=dt_font, fill=RUST
+        draw, date_time, start_size=48, min_size=28, max_width=max_text_w, bold=True
     )
 
-    footer_top = card_bottom + 12
+    # Vertically center the two-line block inside the card
+    block_h = 120
+    block_top = card_top + max(24, (card_h - block_h) // 2)
+    _draw_centered_text(draw, venue_line, y=block_top, width=w, font=venue_font, fill=INK)
+    divider_y = block_top + 56
+    draw.line([(pad_x, divider_y), (w - pad_x, divider_y)], fill=GOLD, width=2)
+    _draw_centered_text(draw, date_time, y=divider_y + 18, width=w, font=dt_font, fill=RUST)
+
+    footer_top = card_bottom + 8
     footer_bottom = h - bottom_pad
-    if footer_bottom <= footer_top + 20:
-        footer_top = footer_bottom - 40
     draw.rectangle(
         [(margin, footer_top), (w - margin, footer_bottom)],
         fill=WOOD_MID,
         outline=GOLD,
         width=1,
     )
-    tag_font = _try_font(20, bold=True)
+    tag_font = _try_font(18, bold=True)
     _draw_centered_text(
         draw, "LIVE MUSIC • NO COVER", y=footer_top + 10, width=w, font=tag_font, fill=CREAM
     )
