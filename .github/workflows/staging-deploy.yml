@@ -17,6 +17,7 @@ on:
         default: false
   push:
     branches:
+      - main
       - cursor/flyer-agent-v2-980b
       - cursor/flyer-agent-980b
 
