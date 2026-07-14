@@ -61,6 +61,6 @@ primary_region = 'ord'
     path = '/health'
 
 [[vm]]
-  memory = '1gb'
+  memory = '2gb'
   cpu_kind = 'shared'
   cpus = 1

@@ -37,6 +37,8 @@ const tools = [
     icon: Megaphone,
     accent: "from-amber-500 to-orange-600",
     available: true,
+    // Served by the flyers bridge via nginx — must be a full page load, not Next.js client nav.
+    fullNavigation: true,
   },
 ]
 
@@ -88,10 +90,17 @@ export default function BandToolsHome() {
                   </CardHeader>
                   <CardContent>
                     <Button asChild className="w-full gap-2 group-hover:gap-3 transition-all">
-                      <Link href={tool.href}>
-                        Open {tool.title}
-                        <ArrowRight className="h-4 w-4" />
-                      </Link>
+                      {"fullNavigation" in tool && tool.fullNavigation ? (
+                        <a href={tool.href}>
+                          Open {tool.title}
+                          <ArrowRight className="h-4 w-4" />
+                        </a>
+                      ) : (
+                        <Link href={tool.href}>
+                          Open {tool.title}
+                          <ArrowRight className="h-4 w-4" />
+                        </Link>
+                      )}
                     </Button>
                   </CardContent>
                 </Card>
