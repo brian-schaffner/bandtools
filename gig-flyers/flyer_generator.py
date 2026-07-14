@@ -87,6 +87,7 @@ from wild_design.band_replace import (
 )
 from wild_design.composite import render_wild_composite_poster
 from wild_design.constrained import build_wild_constrained_prompt
+from wild_design.color_correct import correct_wild_flyer_colors
 from wild_design.logo_overlay import overlay_flyer_logo
 
 OPTION_LETTERS = ("A", "B", "C", "D")
@@ -99,6 +100,10 @@ def _calendar_band_name(event: GigEvent | None = None) -> str:
 def _maybe_overlay_band_logo(path: Path, event: GigEvent) -> None:
     if overlay_flyer_logo(path, _calendar_band_name(event)):
         return
+
+
+def _maybe_correct_wild_colors(path: Path, letter: str) -> None:
+    correct_wild_flyer_colors(path, letter)
 
 
 def load_style() -> dict[str, Any]:
@@ -1063,6 +1068,7 @@ def _generate_wild_band_convert_option(
             tier="wild",
             provider=provider_name,
         )
+        _maybe_correct_wild_colors(path, letter)
         overlay_flyer_logo(path, _calendar_band_name(event))
 
     gen_elapsed = time.monotonic() - gen_started
@@ -1378,6 +1384,8 @@ def _generate_single_option(
             band_replace_applied = True
         image_url = public_output_url(path)
         if not dry_run and wild_gen and path.is_file():
+            if correct_wild_flyer_colors(path, letter):
+                image_url = public_output_url(path)
             if overlay_flyer_logo(path, _calendar_band_name(event)):
                 image_url = public_output_url(path)
         gen_elapsed = time.monotonic() - gen_started

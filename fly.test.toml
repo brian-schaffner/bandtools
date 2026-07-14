@@ -39,6 +39,7 @@ primary_region = 'ord'
   WILD_BAND_CONVERT_ENABLED = '1'
   GIG_IMAGE_PROVIDER_BAND_REPLACE = 'openai'
   FLYER_LOGO_OVERLAY = '1'
+  WILD_COLOR_CORRECT = '1'
   # Wild D: full_canvas = original Gemini wild (default); composite = exact photo PIL paste
   WILD_D_BAND_MODE = 'full_canvas'
 

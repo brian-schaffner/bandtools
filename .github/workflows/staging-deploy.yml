@@ -62,7 +62,7 @@ jobs:
       - name: Run wild Gemini import regression tests
         run: |
           pip install -r gig-flyers/requirements.txt
-          cd gig-flyers && python -m unittest tests.test_wild_gemini_integration -v
+          cd gig-flyers && python -m unittest tests.test_wild_gemini_integration tests.test_wild_color_correct -v
 
       - name: Deploy to staging
         env:
