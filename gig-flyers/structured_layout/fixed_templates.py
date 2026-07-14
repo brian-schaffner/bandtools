@@ -95,7 +95,7 @@ def _starburst_date(date: str) -> str:
     return date[:6].upper()
 
 
-MEDIUM_VARIANTS = ("paste_up", "broadside", "tri_band", "inverted_footer")
+MEDIUM_VARIANTS = ("paste_up", "broadside", "tri_band", "inverted_footer", "hatch_stack", "altamont_sidebar")
 CREATIVE_VARIANTS = (
     "dark_field",
     "light_collage",
@@ -810,6 +810,283 @@ def _create_handbill_broadside(
     return finalize_layout_spec(layout, venue, band, time, address=address, event=event)
 
 
+def _create_handbill_hatch_stack(
+    venue: str,
+    band: str,
+    date: str,
+    time: str,
+    *,
+    address: str = "",
+    event: Optional[Any] = None,
+    archetype: TierArchetype,
+    rng: random.Random,
+) -> LayoutSpec:
+    """Hatch Show Print stack — learned from 1953 Hank Williams poster visual study."""
+    from visual_studies import HATCH_INK, HATCH_PAPER, HATCH_RED
+
+    arch = archetype
+    top_y = _safe_y_pct()
+    gap = VERTICAL_GAP_PCT
+    house = is_house_series_gig(event) if event is not None else False
+    band_line = featured_act_line(band) if house else band
+
+    venue_y = top_y
+    date_y = round(venue_y + 9.0, 1)
+    bar_y = round(date_y + 8.5, 1)
+    bar_h = snap_pct(5.5)
+    photo_y = round(bar_y + bar_h + gap + 1.0, 1)
+    photo_h = _ri(34, 38, rng)
+    photo_w = snap_pct(52.0)
+    photo_x = round((100 - photo_w) / 2, 1)
+    band_y = round(photo_y + photo_h + gap + 1.5, 1)
+    time_y = round(band_y + 13.5, 1)
+
+    layout = LayoutSpec(
+        design_style=DesignStyle.HANDBILL,
+        style_notes="Medium hatch_stack — venue/date top, presenter bar, portrait, mega name (visual study)",
+        background=BackgroundSpec(
+            color=ColorSpec(HATCH_PAPER),
+            texture="paper",
+            texture_strength=0.04,
+            grain_strength=0.02,
+        ),
+        photo_frame=_build_medium_photo_frame(
+            arch,
+            rng,
+            photo_x=photo_x,
+            photo_y=photo_y,
+            photo_w=photo_w,
+            photo_h=photo_h,
+            placement=PhotoPlacement.CENTER,
+            rotation=0.0,
+            contrast=_rf(1.05, 1.12, rng),
+            saturation=_rf(0.0, 0.08, rng),
+        ),
+        text_elements=[
+            TextElement(
+                content=venue.upper(),
+                x=TEXT_MARGIN_X_PCT,
+                y=venue_y,
+                width=MAX_TEXT_WIDTH_PCT,
+                font_size=_ri(40, 48, rng),
+                font_weight=FontWeight.BLACK,
+                alignment=TextAlignment.CENTER,
+                all_caps=True,
+                color=ColorSpec(HATCH_RED),
+            ),
+            TextElement(
+                content=_compact_date_upper(date),
+                x=TEXT_MARGIN_X_PCT,
+                y=date_y,
+                width=MAX_TEXT_WIDTH_PCT,
+                font_size=_ri(34, 42, rng),
+                font_weight=FontWeight.BLACK,
+                alignment=TextAlignment.CENTER,
+                all_caps=True,
+                color=ColorSpec(HATCH_RED),
+            ),
+            TextElement(
+                content="LIVE MUSIC",
+                x=TEXT_MARGIN_X_PCT,
+                y=round(bar_y + 1.2, 1),
+                width=MAX_TEXT_WIDTH_PCT,
+                font_size=_ri(22, 26, rng),
+                font_weight=FontWeight.BLACK,
+                alignment=TextAlignment.CENTER,
+                all_caps=True,
+                color=ColorSpec(HATCH_PAPER),
+            ),
+            TextElement(
+                content=band_line.upper(),
+                x=TEXT_MARGIN_X_PCT,
+                y=band_y,
+                width=MAX_TEXT_WIDTH_PCT,
+                font_size=_ri(92, 104, rng),
+                font_weight=FontWeight.BLACK,
+                alignment=TextAlignment.CENTER,
+                all_caps=True,
+                color=ColorSpec(HATCH_RED),
+            ),
+            TextElement(
+                content=time.upper() if time else "SHOWTIME TBA",
+                x=TEXT_MARGIN_X_PCT,
+                y=time_y,
+                width=MAX_TEXT_WIDTH_PCT,
+                font_size=_ri(28, 34, rng),
+                font_weight=FontWeight.BOLD,
+                alignment=TextAlignment.CENTER,
+                all_caps=True,
+                color=ColorSpec(HATCH_INK),
+            ),
+        ],
+        graphic_elements=[
+            GraphicElement(
+                element_type="box",
+                x=TEXT_MARGIN_X_PCT,
+                y=bar_y,
+                width=MAX_TEXT_WIDTH_PCT,
+                height=bar_h,
+                fill_color=ColorSpec(HATCH_INK),
+            ),
+        ],
+        photocopy_effect=0.02,
+        age_effect=0.04,
+    )
+    if address:
+        layout.text_elements.append(
+            TextElement(
+                content=address,
+                x=TEXT_MARGIN_X_PCT,
+                y=round(time_y + 5.5, 1),
+                width=MAX_TEXT_WIDTH_PCT,
+                font_size=TYPE_XS,
+                font_weight=FontWeight.REGULAR,
+                alignment=TextAlignment.CENTER,
+                color=ColorSpec(HATCH_INK),
+            )
+        )
+    return finalize_layout_spec(layout, venue, band, time, address=address, event=event)
+
+
+def _create_handbill_altamont_sidebar(
+    venue: str,
+    band: str,
+    date: str,
+    time: str,
+    *,
+    address: str = "",
+    event: Optional[Any] = None,
+    archetype: TierArchetype,
+    rng: random.Random,
+) -> LayoutSpec:
+    """Altamont-style bill — headliner block + photo lower-left + sidebar (visual study)."""
+    from visual_studies import HATCH_INK, HATCH_PAPER, HATCH_RED
+
+    arch = archetype
+    top_y = _safe_y_pct()
+    gap = VERTICAL_GAP_PCT
+    house = is_house_series_gig(event) if event is not None else False
+    band_line = featured_act_line(band) if house else band
+
+    head_y = top_y
+    promo_y = round(head_y + 10.0, 1)
+    date_y = round(promo_y + 7.0, 1)
+    loc_y = round(date_y + 6.5, 1)
+    photo_y = round(loc_y + 8.0, 1)
+    photo_h = _ri(36, 42, rng)
+    photo_w = snap_pct(58.0)
+    photo_x = TEXT_MARGIN_X_PCT
+    sidebar_x = round(photo_x + photo_w + 2.0, 1)
+    sidebar_w = round(100 - sidebar_x - TEXT_MARGIN_X_PCT, 1)
+    time_y = round(photo_y + photo_h + gap + 1.0, 1)
+
+    layout = LayoutSpec(
+        design_style=DesignStyle.HANDBILL,
+        style_notes="Medium altamont_sidebar — headliner hook, photo left, sidebar guests (visual study)",
+        background=BackgroundSpec(
+            color=ColorSpec(HATCH_PAPER),
+            texture="paper",
+            texture_strength=0.03,
+            grain_strength=0.02,
+        ),
+        photo_frame=_build_medium_photo_frame(
+            arch,
+            rng,
+            photo_x=photo_x,
+            photo_y=photo_y,
+            photo_w=photo_w,
+            photo_h=photo_h,
+            placement=PhotoPlacement.LEFT,
+            rotation=0.0,
+            contrast=_rf(1.15, 1.28, rng),
+            saturation=0.0,
+        ),
+        text_elements=[
+            TextElement(
+                content=band_line.upper(),
+                x=TEXT_MARGIN_X_PCT,
+                y=head_y,
+                width=MAX_TEXT_WIDTH_PCT,
+                font_size=_ri(44, 52, rng),
+                font_weight=FontWeight.BLACK,
+                alignment=TextAlignment.CENTER,
+                all_caps=True,
+                color=ColorSpec(HATCH_RED),
+            ),
+            TextElement(
+                content="LIVE AT",
+                x=TEXT_MARGIN_X_PCT,
+                y=promo_y,
+                width=MAX_TEXT_WIDTH_PCT,
+                font_size=_ri(20, 24, rng),
+                font_weight=FontWeight.BOLD,
+                alignment=TextAlignment.CENTER,
+                all_caps=True,
+                color=ColorSpec(HATCH_INK),
+            ),
+            TextElement(
+                content=_compact_date_upper(date),
+                x=TEXT_MARGIN_X_PCT,
+                y=date_y,
+                width=MAX_TEXT_WIDTH_PCT,
+                font_size=_ri(32, 38, rng),
+                font_weight=FontWeight.BLACK,
+                alignment=TextAlignment.CENTER,
+                all_caps=True,
+                color=ColorSpec(HATCH_INK),
+            ),
+            TextElement(
+                content=venue.upper(),
+                x=TEXT_MARGIN_X_PCT,
+                y=loc_y,
+                width=MAX_TEXT_WIDTH_PCT,
+                font_size=_ri(28, 34, rng),
+                font_weight=FontWeight.BLACK,
+                alignment=TextAlignment.CENTER,
+                all_caps=True,
+                color=ColorSpec(HATCH_RED),
+            ),
+            TextElement(
+                content="SPECIAL\nGUESTS",
+                x=sidebar_x,
+                y=round(photo_y + 1.0, 1),
+                width=sidebar_w,
+                font_size=_ri(16, 18, rng),
+                font_weight=FontWeight.BLACK,
+                alignment=TextAlignment.CENTER,
+                all_caps=True,
+                color=ColorSpec(HATCH_RED),
+            ),
+            TextElement(
+                content="LOCAL\nOPENERS",
+                x=sidebar_x,
+                y=round(photo_y + 10.0, 1),
+                width=sidebar_w,
+                font_size=_ri(14, 16, rng),
+                font_weight=FontWeight.BOLD,
+                alignment=TextAlignment.CENTER,
+                all_caps=True,
+                color=ColorSpec(HATCH_RED),
+            ),
+            TextElement(
+                content=time.upper() if time else "SHOWTIME TBA",
+                x=TEXT_MARGIN_X_PCT,
+                y=time_y,
+                width=MAX_TEXT_WIDTH_PCT,
+                font_size=_ri(36, 44, rng),
+                font_weight=FontWeight.BLACK,
+                alignment=TextAlignment.CENTER,
+                all_caps=True,
+                color=ColorSpec(HATCH_INK),
+            ),
+        ],
+        graphic_elements=[],
+        photocopy_effect=0.04,
+        age_effect=0.02,
+    )
+    return finalize_layout_spec(layout, venue, band, time, address=address, event=event)
+
+
 def _create_handbill_inverted_footer(
     venue: str,
     band: str,
@@ -1141,6 +1418,8 @@ def create_handbill_layout(
         "broadside": _create_handbill_broadside,
         "tri_band": _create_handbill_tri_band,
         "inverted_footer": _create_handbill_inverted_footer,
+        "hatch_stack": _create_handbill_hatch_stack,
+        "altamont_sidebar": _create_handbill_altamont_sidebar,
     }
     return builders[variant](**kwargs)
 
@@ -1801,16 +2080,29 @@ def create_collage_layout(
     event: Optional[Any] = None,
     archetype: Optional[TierArchetype] = None,
     rng: Optional[random.Random] = None,
+    research: Optional[dict[str, Any]] = None,
+    graphic_archetype: str | None = None,
 ) -> LayoutSpec:
     """Option C — Graphic Composer: Style DNA pro archetypes with seeded palette/accent."""
     from structured_layout.graphic_composer import build_recipe, recipe_signature
 
     r = rng or _make_rng()
-    _ = archetype or load_tier_archetype("creative", event=event)
+    _ = archetype or load_tier_archetype("creative", event=event, research=research)
     from state import load_design_preferences
     from preference_model import preference_weights
 
-    recipe = build_recipe(r, preferences=preference_weights(load_design_preferences()))
+    forced_arch = graphic_archetype
+    if forced_arch is None and research:
+        from visual_studies import pick_study_for_research
+
+        study = pick_study_for_research(research)
+        forced_arch = study.graphic_archetype
+
+    recipe = build_recipe(
+        r,
+        archetype=forced_arch,
+        preferences=preference_weights(load_design_preferences()),
+    )
     seed = recipe.seed
     date_line = _compact_date_upper(date)
 
@@ -1906,6 +2198,7 @@ def layout_for_option(
         "event": event,
         "archetype": archetype,
         "rng": rng,
+        "research": research,
     }
 
     if opt == "A":
