@@ -22,6 +22,7 @@ from image_providers.reference_compose import (  # noqa: E402
     composite_band_photo,
     detect_double_band_photo,
     detect_footer_band_duplicate,
+    detect_header_gutter_ghost,
     detect_horizontal_strip,
     enforce_photo_bbox,
     photo_bbox_drift,
@@ -109,6 +110,26 @@ class ReferenceComposeTest(unittest.TestCase):
             flyer.paste(ref_img.resize((dup_w, dup_h)), (40, 40))
             flyer.save(out, format="PNG")
             self.assertTrue(detect_double_band_photo(out, compose))
+
+    def test_detect_header_gutter_ghost_thin_strip(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            ref = Path(tmp) / "band.jpg"
+            out = Path(tmp) / "flyer.png"
+            work = Path(tmp) / "work"
+            _write_test_jpeg(ref, (400, 300))
+            compose = prepare_photo_compose(
+                ref, (1024, 1536), tier="medium", work_dir=work, create_mask=False
+            )
+            flyer = Image.new("RGB", (1024, 1536), color=(245, 240, 230))
+            left, top, right, bottom = compose.photo_bbox
+            ref_img = Image.open(ref).convert("RGB")
+            flyer.paste(ref_img.resize((right - left, bottom - top)), (left, top))
+            strip_h = max(12, min(40, (bottom - top) // 10))
+            strip = flyer.crop((left, top, right, top + strip_h))
+            gutter_y = top - strip_h - 4
+            flyer.paste(strip, (left, gutter_y))
+            flyer.save(out, format="PNG")
+            self.assertTrue(detect_header_gutter_ghost(out, compose))
 
     def test_tier_placements_differ(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

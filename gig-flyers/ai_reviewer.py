@@ -744,6 +744,36 @@ def review_flyer_image(
             "wild_pil_composite",
         }
     )
+
+    if wild_mode:
+        try:
+            from config.profiles import assurance_fact_gate_enabled
+            from assurance.facts import validate_gig_facts_on_image
+
+            if assurance_fact_gate_enabled():
+                band_label = os.getenv("GIG_CALENDAR_BAND", event.title or "Lindsey Lane Band")
+                fact_result = validate_gig_facts_on_image(image_path, event, band=band_label)
+                if not fact_result.get("passed"):
+                    issues = list(fact_result.get("issues") or [])
+                    return _normalize_verdict(
+                        {
+                            "pass": False,
+                            "score": 4,
+                            "issues": issues,
+                            "remake_recommended": True,
+                            "feedback_for_regen": (
+                                "Gig facts must be spelled exactly per calendar — fix typos in band, "
+                                "venue, date, time, and address."
+                            ),
+                            "fact_assurance": fact_result,
+                        },
+                        retry_count=retry_count,
+                        expected_members=expected_members,
+                        has_reference=has_reference,
+                    )
+        except Exception:
+            pass
+
     if has_reference and reference_photo_path is not None and not wild_mode:
         try:
             import tempfile

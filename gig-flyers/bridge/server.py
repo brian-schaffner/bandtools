@@ -71,6 +71,10 @@ from state import (  # noqa: E402
 
 load_dotenv(ROOT / ".env")
 
+from config.profiles import apply_gig_flyers_profile  # noqa: E402
+
+apply_gig_flyers_profile()
+
 app = FastAPI(title="Gig Flyer Bridge", version="2.0.0")
 app.mount("/output", StaticFiles(directory=str(ROOT / "output")), name="output")
 app.mount("/bandphotos", StaticFiles(directory=str(ROOT / "bandphotos")), name="bandphotos")

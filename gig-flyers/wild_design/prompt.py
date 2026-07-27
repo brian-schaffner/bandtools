@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any, Optional
 
 from gig_calendar import GigEvent
+from assurance.fact_locks import build_fact_lock_prompt_block
 from wild_design.palette import sanitize_research_notes, wild_palette_lock
 
 _INTENSITY_BLOCKS: dict[str, dict[str, str]] = {
@@ -69,6 +71,7 @@ def build_wild_design_prompt(
     research: Optional[dict[str, Any]] = None,
     selected_photo: Optional[dict[str, Any]] = None,
     option_letter: str = "",
+    extra_prompt_blocks: Optional[list[str]] = None,
 ) -> str:
     """Build a full-canvas poster prompt — no photo-fidelity or template constraints."""
     intensity = _resolve_intensity(variation)
@@ -83,7 +86,7 @@ def build_wild_design_prompt(
     )
     anti_texture = (style.get("anti_ai_rules") or {}).get("texture_tropes", {}).get("reject_if_present") or []
     venue = event.venue or "Venue TBA"
-    band = event.title or "Live music"
+    band = (os.getenv("GIG_CALENDAR_BAND") or event.title or "Live music").strip()
     date = event.to_dict().get("short_date") or event.event_date.strftime("%b %d, %Y")
     time_label = event.time_label or "TBA"
 
@@ -121,6 +124,15 @@ def build_wild_design_prompt(
         "COLOR LOCK (highest priority — overrides all other color or vintage guidance):",
         wild_palette_lock(letter),
         "",
+    ]
+    fact_block = build_fact_lock_prompt_block(event, band=band)
+    if fact_block:
+        lines.extend([fact_block, ""])
+    for block in extra_prompt_blocks or []:
+        block = (block or "").strip()
+        if block:
+            lines.extend([block, ""])
+    lines.extend([
         "PRIMARY DIRECTIVE: Design a complete concert flyer poster as ONE unified designed image.",
         "Typography, textures, graphics, and band depiction must feel like a single "
         "hand-made regional bar handbill — NOT a clean Canva layout or AI vintage filter.",
@@ -158,7 +170,7 @@ def build_wild_design_prompt(
         "- Canva polish, monotone gold typography, AI-generated vintage photo look.",
         f"- {intensity_cfg['avoid_extra']}",
         "- Missing or wrong venue/date/band text.",
-    ]
+    ])
     if principles:
         lines.extend(["", "CORE PRINCIPLES:"] + [f"- {p}" for p in principles[:4]])
     if anti_visual:
