@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any, Optional
 
 from flyer_generator import generate_for_gig
@@ -72,7 +73,14 @@ def agent_revise(
 ) -> dict[str, Any]:
     if is_approved(gig_id):
         raise ValueError("Cannot revise an approved gig")
-    brief = build_revision_brief(feedback, base_option=option)
+    event = find_gig_by_id(gig_id)
+    band = (os.getenv("GIG_CALENDAR_BAND") or (event.title if event else "") or "Lindsey Lane Band").strip()
+    brief = build_revision_brief(
+        feedback,
+        base_option=option,
+        event=event,
+        band=band,
+    )
     tag_generation_source(gig_id, "agent")
     upsert_gig(gig_id, last_revision_brief=brief.summary)
     return generate_for_gig(

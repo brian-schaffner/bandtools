@@ -61,6 +61,9 @@ ROOT = Path(__file__).resolve().parent
 from agent_secrets import bootstrap_secrets  # noqa: E402
 
 bootstrap_secrets(anchor=ROOT)
+from config.profiles import apply_gig_flyers_profile  # noqa: E402
+
+apply_gig_flyers_profile()
 STYLE_PATH = ROOT / "style.yaml"
 
 
@@ -88,6 +91,7 @@ from wild_design.band_replace import (
 from wild_design.composite import render_wild_composite_poster
 from wild_design.constrained import build_wild_constrained_prompt
 from wild_design.logo_overlay import overlay_flyer_logo
+from assurance.pipeline import enrich_wild_poster
 
 OPTION_LETTERS = ("A", "B", "C", "D")
 
@@ -1063,6 +1067,7 @@ def _generate_wild_band_convert_option(
             tier="wild",
             provider=provider_name,
         )
+        enrich_wild_poster(path, letter)
         overlay_flyer_logo(path, _calendar_band_name(event))
 
     gen_elapsed = time.monotonic() - gen_started
@@ -1290,6 +1295,13 @@ def _generate_single_option(
             research=research,
             selected_photo=selected_photo,
             option_letter=letter,
+            extra_prompt_blocks=[
+                block
+                for block in [
+                    getattr(revision_brief, "fact_lock_block", "") if revision_brief else "",
+                ]
+                if block
+            ],
         ) if wild_gen else build_prompt(
             style,
             event,
@@ -1378,6 +1390,8 @@ def _generate_single_option(
             band_replace_applied = True
         image_url = public_output_url(path)
         if not dry_run and wild_gen and path.is_file():
+            if enrich_wild_poster(path, letter):
+                image_url = public_output_url(path)
             if overlay_flyer_logo(path, _calendar_band_name(event)):
                 image_url = public_output_url(path)
         gen_elapsed = time.monotonic() - gen_started

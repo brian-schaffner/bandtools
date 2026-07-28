@@ -21,6 +21,7 @@ class RevisionBrief:
     summary: str
     font_scale: float = 1.0
     variants: list[RevisionVariant] = field(default_factory=list)
+    fact_lock_block: str = ""
 
     def variant_at(self, index: int, count: int = 3) -> Optional[RevisionVariant]:
         if not self.variants:
@@ -62,11 +63,26 @@ def _parse_brief(data: dict[str, Any], feedback: str) -> RevisionBrief:
     return RevisionBrief(summary=summary, font_scale=font_scale, variants=variants[:3])
 
 
-def build_revision_brief(feedback: str, *, base_option: str) -> RevisionBrief:
+def build_revision_brief(
+    feedback: str,
+    *,
+    base_option: str,
+    event: Optional[Any] = None,
+    band: Optional[str] = None,
+) -> RevisionBrief:
     """Build a structured revision brief; uses LLM when available."""
     text = (feedback or "").strip()
     if not text:
         return RevisionBrief(summary="", variants=[])
+
+    fact_lock_block = ""
+    if event is not None:
+        from gig_calendar import GigEvent
+        from assurance.fact_locks import build_fact_lock_prompt_block
+
+        if isinstance(event, GigEvent):
+            band_name = (band or os.getenv("GIG_CALENDAR_BAND") or event.title or "Lindsey Lane Band").strip()
+            fact_lock_block = build_fact_lock_prompt_block(event, band=band_name)
 
     if os.getenv("OPENAI_API_KEY", "").strip():
         try:
@@ -95,6 +111,7 @@ def build_revision_brief(feedback: str, *, base_option: str) -> RevisionBrief:
             if isinstance(data, dict):
                 brief = _parse_brief(data, text)
                 if brief.variants:
+                    brief.fact_lock_block = fact_lock_block
                     return brief
         except Exception:
             pass
@@ -103,4 +120,4 @@ def build_revision_brief(feedback: str, *, base_option: str) -> RevisionBrief:
     lower = text.lower()
     variants = _default_pastel_variants() if "pastel" in lower else []
     scale = 1.28 if re.search(r"larger|bigger", lower) else 1.0
-    return RevisionBrief(summary=text, font_scale=scale, variants=variants)
+    return RevisionBrief(summary=text, font_scale=scale, variants=variants, fact_lock_block=fact_lock_block)

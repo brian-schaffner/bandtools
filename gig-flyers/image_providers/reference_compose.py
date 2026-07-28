@@ -625,6 +625,40 @@ def _typography_zone_has_band_match(
     return False
 
 
+def detect_header_gutter_ghost(
+    output_path: Path,
+    compose: ComposeResult,
+    *,
+    threshold: float = 16.0,
+    gutter_px: int = 56,
+) -> bool:
+    """Detect a thin band-photo strip pasted in the gutter directly above photo_bbox."""
+    if not output_path.is_file():
+        return False
+
+    flyer = _flyer_rgb(output_path, compose)
+    left, top, right, bottom = compose.photo_bbox
+    if top < 24:
+        return False
+
+    strip_h = max(12, min(40, (bottom - top) // 10))
+    template = flyer.crop((left, top, right, top + strip_h))
+    tw, th = template.size
+    if tw < 24 or th < 8:
+        return False
+
+    y_start = max(0, top - gutter_px)
+    step_y = max(6, th // 2)
+    step_x = max(10, tw // 6)
+    for y in range(y_start, top, step_y):
+        for x in range(left, right - tw + 1, step_x):
+            patch = flyer.crop((x, y, x + tw, y + th))
+            mae = _patch_mean_abs_error(patch, template)
+            if mae <= threshold:
+                return True
+    return False
+
+
 def detect_double_band_photo(
     output_path: Path, compose: ComposeResult, *, threshold: float = 22.0
 ) -> bool:
@@ -857,6 +891,19 @@ def validate_flyer_photo(
         not duplicate,
         "duplicate band imagery outside photo_bbox" if duplicate else "no duplicate detected",
     )
+
+    try:
+        from config.profiles import assurance_header_ghost_enabled
+
+        if assurance_header_ghost_enabled():
+            gutter = detect_header_gutter_ghost(output_path, compose)
+            _record(
+                "no_header_gutter_ghost",
+                not gutter,
+                "thin band-photo strip above main photo slot" if gutter else "no header gutter ghost",
+            )
+    except Exception:
+        pass
 
     strip = detect_horizontal_strip(output_path, compose)
     _record(

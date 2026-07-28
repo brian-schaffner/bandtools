@@ -18,29 +18,11 @@ primary_region = 'ord'
   GIG_OUTPUT_DIR = '/data/flyers-output'
   GIG_CALENDAR_CACHE_PATH = '/data/cache/calendar.json'
   SETLOADER_DATA_DIR = '/data/setloader'
-  # Full-canvas wild tiers A/B/C (Gemini)
-  GIG_IMAGE_PROVIDER_SPLIT = '1'
-  GIG_IMAGE_PROVIDER_A = 'gemini'
-  GIG_IMAGE_PROVIDER_B = 'gemini'
-  GIG_IMAGE_PROVIDER_C = 'gemini'
+  # Staging-wild profile (see gig-flyers/docs/generation-modes.md)
+  GIG_FLYERS_PROFILE = 'staging-wild'
   GEMINI_IMAGE_MODEL = 'gemini-2.5-flash-image'
-  GEMINI_IMAGE_ASPECT_RATIO = '2:3'
   OPENAI_IMAGE_USE_REFERENCE = '1'
   OPENAI_IMAGE_POST_COMPOSE = '1'
-  # Flyer Agent v2: LLM chat orchestration + revision briefs (OPENAI_API_KEY on Fly)
-  FLYER_AGENT_LLM_CHAT = '1'
-  FLYER_AGENT_CHAT_MODEL = 'gpt-4o-mini'
-  FLYER_AGENT_REVISION_MODEL = 'gpt-4o-mini'
-  # Three full-canvas wild tiers (Gemini) — no band replace for now
-  WILD_DESIGN_ENABLED = '1'
-  WILD_ROUND_LAYOUT = 'three_canvas'
-  WILD_BAND_REPLACE_ON_REVISE = '0'
-  WILD_BAND_REPLACE_AFTER_GEN = '0'
-  WILD_BAND_CONVERT_ENABLED = '1'
-  GIG_IMAGE_PROVIDER_BAND_REPLACE = 'openai'
-  FLYER_LOGO_OVERLAY = '1'
-  # Wild D: full_canvas = original Gemini wild (default); composite = exact photo PIL paste
-  WILD_D_BAND_MODE = 'full_canvas'
 
 [mounts]
   source = 'bandtools_test_data'
