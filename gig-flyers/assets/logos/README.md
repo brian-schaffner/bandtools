@@ -1,19 +1,20 @@
-Official Lindsey Lane Band nested-L lockup from `IMG_8016.png` (dark/transparent)
-and `IMG_8015.png` (on white) at the **repo root**.
+# Lindsey Lane Band logos
 
-Re-install after updating root uploads:
+## Source files
+
+Official uploads live in [`../logos/`](../logos/) (2026 stack + circle). Processed PNGs for the app are in this directory.
 
 ```bash
-python3 scripts/install_band_logos.py
+cd gig-flyers && python3 scripts/install_band_logos.py
 ```
 
-| File | Source | Use |
-|------|--------|-----|
-| `lindsey-lane-band-dark.png` | IMG_8016 | Dark ink, transparent — light/paper flyers |
-| `lindsey-lane-band-light.png` | derived | Light ink, transparent — dark/neon flyers |
-| `lindsey-lane-band-on-white.png` | IMG_8015 | Full lockup on white |
-| `lindsey-lane-band-on-black.png` | derived | Full lockup on black |
+| Output | Use |
+|--------|-----|
+| `lindsey-lane-band-dark.png` | Dark ink, transparent — light/paper flyers |
+| `lindsey-lane-band-light.png` | Light ink, transparent — dark/neon flyers |
+| `lindsey-lane-band-circle.png` | Circular badge — corner placement when `FLY_LOGO_PLACEMENT=corner` |
+| `lindsey-lane-band-on-white.png` / `-on-black.png` | Full lockups with background |
 
-`find_band_logo()` picks light vs dark from flyer background automatically.
+Wild flyers use **large footer/top lockups** (`wild_design/logo_placement.py`). `find_band_logo()` picks light vs dark from background luminance.
 
-Other bands: add `{band-slug}-dark.png` and `{band-slug}-light.png`.
+Legacy fallback: repo-root `IMG_8015.png` / `IMG_8016.png` if `logos/` uploads are missing.
