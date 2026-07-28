@@ -74,6 +74,7 @@ if [[ "$SKIP_SECRETS" -eq 0 ]]; then
 fi
 
 BUILD_SECRET="$(resolve_build_secret "$ENV_FILE")"
+export BANDTOOLS_DEPLOY_ENV="${BANDTOOLS_DEPLOY_ENV:-staging}"
 fly_deploy_image "$FLY_APP_NAME" "$CONFIG_PATH" "$BUILD_SECRET"
 
 print_deploy_success "$FLY_APP_NAME"

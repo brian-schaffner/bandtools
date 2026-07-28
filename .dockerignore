@@ -16,6 +16,7 @@ gig-flyers/output
 gig-flyers/cache
 gig-flyers/logs
 gig-flyers/state.json
+build-info.json
 **/*.pdf
 **/*.sbpbackup
 **/.DS_Store

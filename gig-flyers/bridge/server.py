@@ -336,13 +336,22 @@ async def _run_interactive_generation(gig_id: str) -> None:
 @app.get("/health")
 @app.get("/flyers/health")
 async def health() -> dict[str, Any]:
+    from bridge.build_info import build_info_for_api
     from image_providers.provider_status import provider_status
 
     status = provider_status()
     return {
         "status": "healthy" if status["ready"] else "degraded",
         "providers": status,
+        "build": build_info_for_api(),
     }
+
+
+@add_get(app, "/build")
+async def build_info() -> dict[str, Any]:
+    from bridge.build_info import build_info_for_api
+
+    return build_info_for_api()
 
 
 @add_get(app, "/", response_class=HTMLResponse)

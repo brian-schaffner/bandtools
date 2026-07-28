@@ -79,6 +79,25 @@ def base_css() -> str:
         rgba(60, 150, 18, 0.95) 100%
       );
     }
+    .site-build-stamp {
+      position: fixed;
+      right: max(0.5rem, env(safe-area-inset-right));
+      bottom: max(0.35rem, env(safe-area-inset-bottom));
+      z-index: 9999;
+      margin: 0;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.62rem;
+      line-height: 1.25;
+      padding: 0.22rem 0.5rem;
+      border-radius: 6px;
+      background: rgba(15, 23, 42, 0.88);
+      color: #e2e8f0;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+      max-width: min(96vw, 22rem);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
     .page-main {
       max-width: var(--container-max);
       margin: 0 auto;
@@ -724,4 +743,6 @@ def page_head(title: str, *, extra_css: str = "") -> str:
 
 
 def page_close() -> str:
-    return "</div>\n</body>\n</html>"
+    from bridge.build_info import build_stamp_html
+
+    return f"{build_stamp_html()}</div>\n</body>\n</html>"
