@@ -81,6 +81,7 @@ class AgentWorkspaceUiTest(unittest.TestCase):
         self.assertIn("agent-flyer-lightbox", html)
         self.assertIn('data-option="A"', html)
         self.assertIn("openFlyerLightbox", html)
+        self.assertIn('ev.target.closest(".agent-flyer-enlarge-btn")', html)
 
 
 class AgentChatTest(unittest.TestCase):
