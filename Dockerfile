@@ -44,7 +44,8 @@ RUN python3 -m venv /opt/flyers-venv \
 COPY setloader/ ./setloader/
 COPY gig-flyers/ ./gig-flyers/
 
-RUN /opt/flyers-venv/bin/python /app/gig-flyers/scripts/render_band_logo_assets.py
+RUN /opt/flyers-venv/bin/python /app/gig-flyers/scripts/install_band_logos.py \
+    || /opt/flyers-venv/bin/python /app/gig-flyers/scripts/render_band_logo_assets.py
 
 # Next.js standalone output (static assets must live under standalone/.next/static)
 COPY --from=frontend-build /app/setloader/setlist-helper/.next/standalone ./setlist-helper/.next/standalone/
