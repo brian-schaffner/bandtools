@@ -216,7 +216,10 @@ def agent_css() -> str:
       padding: 1rem;
     }
     .agent-flyer-lightbox.is-open {
-      display: flex;
+      display: flex !important;
+    }
+    .agent-flyer-lightbox[hidden] {
+      display: none !important;
     }
     .agent-flyer-lightbox-backdrop {
       position: absolute;
@@ -973,19 +976,39 @@ def _chat_panel(*, initial_message: str, gig_label: str) -> str:
             approveOption(btn.getAttribute("data-option"));
           }});
         }});
-        bindPosterEnlarge();
       }}
 
-      var flyerLightbox = document.getElementById("agent-flyer-lightbox");
-      var flyerLightboxImg = flyerLightbox ? flyerLightbox.querySelector(".agent-flyer-lightbox-img") : null;
-      var flyerLightboxTitle = document.getElementById("agent-flyer-lightbox-title");
+      var flyerLightboxDismissReady = false;
+
+      function flyerLightboxRoot() {{
+        return document.getElementById("agent-flyer-lightbox");
+      }}
+
+      function ensureFlyerLightboxDismiss() {{
+        if (flyerLightboxDismissReady) return;
+        var flyerLightbox = flyerLightboxRoot();
+        if (!flyerLightbox) return;
+        flyerLightboxDismissReady = true;
+        flyerLightbox.querySelectorAll("[data-lightbox-dismiss]").forEach(function(el) {{
+          el.addEventListener("click", closeFlyerLightbox);
+        }});
+        document.addEventListener("keydown", function(ev) {{
+          var lb = flyerLightboxRoot();
+          if (ev.key === "Escape" && lb && lb.classList.contains("is-open")) {{
+            ev.preventDefault();
+            closeFlyerLightbox();
+          }}
+        }});
+      }}
 
       function closeFlyerLightbox() {{
+        var flyerLightbox = flyerLightboxRoot();
         if (!flyerLightbox) return;
         flyerLightbox.classList.remove("is-open");
         flyerLightbox.setAttribute("hidden", "");
         flyerLightbox.setAttribute("aria-hidden", "true");
         document.body.style.overflow = "";
+        var flyerLightboxImg = flyerLightbox.querySelector(".agent-flyer-lightbox-img");
         if (flyerLightboxImg) {{
           flyerLightboxImg.removeAttribute("src");
           flyerLightboxImg.alt = "";
@@ -993,7 +1016,13 @@ def _chat_panel(*, initial_message: str, gig_label: str) -> str:
       }}
 
       function openFlyerLightbox(src, opt) {{
-        if (!flyerLightbox || !flyerLightboxImg || !src) return;
+        if (!src) return;
+        ensureFlyerLightboxDismiss();
+        var flyerLightbox = flyerLightboxRoot();
+        if (!flyerLightbox) return;
+        var flyerLightboxImg = flyerLightbox.querySelector(".agent-flyer-lightbox-img");
+        var flyerLightboxTitle = document.getElementById("agent-flyer-lightbox-title");
+        if (!flyerLightboxImg) return;
         flyerLightboxImg.src = src;
         flyerLightboxImg.alt = "Option " + (opt || "");
         if (flyerLightboxTitle) {{
@@ -1007,27 +1036,12 @@ def _chat_panel(*, initial_message: str, gig_label: str) -> str:
         if (closeBtn) closeBtn.focus();
       }}
 
-      function bindPosterEnlarge() {{
-        document.querySelectorAll(".agent-flyer-enlarge-btn").forEach(function(btn) {{
-          if (btn.getAttribute("data-enlarge-bound") === "1") return;
-          btn.setAttribute("data-enlarge-bound", "1");
-          btn.addEventListener("click", function() {{
-            openFlyerLightbox(btn.getAttribute("data-enlarge-src"), btn.getAttribute("data-option"));
-          }});
-        }});
-      }}
-
-      if (flyerLightbox) {{
-        flyerLightbox.querySelectorAll("[data-lightbox-dismiss]").forEach(function(el) {{
-          el.addEventListener("click", closeFlyerLightbox);
-        }});
-        document.addEventListener("keydown", function(ev) {{
-          if (ev.key === "Escape" && flyerLightbox.classList.contains("is-open")) {{
-            ev.preventDefault();
-            closeFlyerLightbox();
-          }}
-        }});
-      }}
+      document.addEventListener("click", function(ev) {{
+        var btn = ev.target && ev.target.closest ? ev.target.closest(".agent-flyer-enlarge-btn") : null;
+        if (!btn) return;
+        ev.preventDefault();
+        openFlyerLightbox(btn.getAttribute("data-enlarge-src"), btn.getAttribute("data-option"));
+      }});
 
       function refreshGigDetail() {{
         var id = gigId();
@@ -1112,7 +1126,6 @@ def _chat_panel(*, initial_message: str, gig_label: str) -> str:
 
       bindPosterButtons();
       bindConvertForms();
-      bindPosterEnlarge();
       resumeActiveJob();
     }})();
     </script>
