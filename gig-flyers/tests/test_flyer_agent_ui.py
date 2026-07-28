@@ -58,6 +58,30 @@ class AgentWorkspaceUiTest(unittest.TestCase):
         self.assertIn('class="active"', html)
         self.assertIn("Generate 3 options", html)
 
+    def test_workspace_poster_enlarge_lightbox(self) -> None:
+        detail = {
+            "gig_id": "2026-07-04_test-venue",
+            "event": {"venue": "Test Venue"},
+            "workflow": "review",
+            "round": 1,
+            "updated_at": "2026-07-04T12:00:00Z",
+            "flyers": [
+                {"option": "A", "path": "/flyers/out/a.png", "is_wild": True},
+                {"option": "B", "path": "/flyers/out/b.png", "is_wild": True},
+                {"option": "C", "path": "/flyers/out/c.png", "is_wild": True},
+            ],
+        }
+        html = render_agent_workspace(
+            user={"name": "Brian"},
+            board={"gigs": [], "count": 0, "today": "2026-07-03"},
+            selected_gig_id="2026-07-04_test-venue",
+            detail=detail,
+        )
+        self.assertIn("agent-flyer-enlarge-btn", html)
+        self.assertIn("agent-flyer-lightbox", html)
+        self.assertIn('data-option="A"', html)
+        self.assertIn("openFlyerLightbox", html)
+
 
 class AgentChatTest(unittest.TestCase):
     def test_chat_without_gig(self) -> None:
