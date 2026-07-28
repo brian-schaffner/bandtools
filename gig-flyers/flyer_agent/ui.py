@@ -163,12 +163,111 @@ def agent_css() -> str:
       border-color: var(--agent-accent);
       box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.15);
     }
-    .agent-flyer-card img {
+    .agent-flyer-enlarge-btn {
+      display: block;
+      width: 100%;
+      padding: 0;
+      margin: 0;
+      border: none;
+      background: #e2e8f0;
+      cursor: zoom-in;
+      position: relative;
+      line-height: 0;
+    }
+    .agent-flyer-enlarge-btn:focus-visible {
+      outline: 2px solid var(--agent-accent);
+      outline-offset: 2px;
+    }
+    .agent-flyer-enlarge-btn img {
       width: 100%;
       display: block;
       aspect-ratio: 2/3;
       object-fit: cover;
       background: #e2e8f0;
+      pointer-events: none;
+    }
+    .agent-flyer-enlarge-btn::after {
+      content: "Click to enlarge";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      padding: 0.35rem 0.5rem;
+      font-size: 0.65rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      color: #fff;
+      background: linear-gradient(transparent, rgba(15, 23, 42, 0.72));
+      line-height: 1.2;
+      opacity: 0;
+      transition: opacity 0.15s ease;
+    }
+    .agent-flyer-enlarge-btn:hover::after,
+    .agent-flyer-enlarge-btn:focus-visible::after {
+      opacity: 1;
+    }
+    .agent-flyer-lightbox {
+      position: fixed;
+      inset: 0;
+      z-index: 10000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    .agent-flyer-lightbox.is-open {
+      display: flex;
+    }
+    .agent-flyer-lightbox-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.82);
+      cursor: zoom-out;
+    }
+    .agent-flyer-lightbox-dialog {
+      position: relative;
+      z-index: 1;
+      max-width: min(540px, 96vw);
+      max-height: min(96dvh, 900px);
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      align-items: stretch;
+    }
+    .agent-flyer-lightbox-title {
+      margin: 0;
+      text-align: center;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #f8fafc;
+    }
+    .agent-flyer-lightbox-img {
+      width: 100%;
+      height: auto;
+      max-height: calc(96dvh - 4rem);
+      object-fit: contain;
+      border-radius: 10px;
+      box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+      background: #0f172a;
+    }
+    .agent-flyer-lightbox-close {
+      position: absolute;
+      top: -0.25rem;
+      right: -0.25rem;
+      transform: translateY(-100%);
+      border: none;
+      background: #fff;
+      color: #0f172a;
+      width: 2.25rem;
+      height: 2.25rem;
+      border-radius: 999px;
+      font-size: 1.35rem;
+      line-height: 1;
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+    }
+    .agent-flyer-lightbox-close:hover {
+      background: #f1f5f9;
     }
     .agent-flyer-card .flyer-cap {
       padding: 0.55rem 0.65rem 0.65rem;
@@ -547,6 +646,30 @@ def _meta_panel(
     """
 
 
+def _flyer_enlarge_button(*, img_url: str, option: str) -> str:
+    opt = html.escape(option)
+    url = html.escape(img_url)
+    return (
+        f'<button type="button" class="agent-flyer-enlarge-btn" '
+        f'data-enlarge-src="{url}" data-option="{opt}" '
+        f'aria-label="Enlarge option {opt}">'
+        f'<img src="{url}" alt="Option {opt}" loading="lazy" /></button>'
+    )
+
+
+def _agent_flyer_lightbox_markup() -> str:
+    return """
+    <div id="agent-flyer-lightbox" class="agent-flyer-lightbox" hidden aria-hidden="true">
+      <div class="agent-flyer-lightbox-backdrop" data-lightbox-dismiss="1"></div>
+      <div class="agent-flyer-lightbox-dialog" role="dialog" aria-modal="true" aria-labelledby="agent-flyer-lightbox-title">
+        <button type="button" class="agent-flyer-lightbox-close" aria-label="Close enlarged poster" data-lightbox-dismiss="1">×</button>
+        <p id="agent-flyer-lightbox-title" class="agent-flyer-lightbox-title"></p>
+        <img class="agent-flyer-lightbox-img" src="" alt="" />
+      </div>
+    </div>
+    """
+
+
 def _posters_panel(detail: Optional[dict[str, Any]]) -> str:
     if not detail:
         return """
@@ -575,9 +698,7 @@ def _posters_panel(detail: Optional[dict[str, Any]]) -> str:
     )
     for flyer in flyers:
         opt = html.escape(flyer["option"])
-        img_url = html.escape(
-            flyer_asset_url(flyer["path"], round_num=round_num, updated_at=updated_at)
-        )
+        raw_img_url = flyer_asset_url(flyer["path"], round_num=round_num, updated_at=updated_at)
         approve_btn = (
             f'<button type="button" class="btn-approve agent-approve-option" data-option="{opt}">Approve</button>'
             if can_approve
@@ -599,10 +720,11 @@ def _posters_panel(detail: Optional[dict[str, Any]]) -> str:
                     </select>
                     <button type="submit" class="btn-secondary">My band</button>
                   </form>"""
+        preview = _flyer_enlarge_button(img_url=raw_img_url, option=flyer["option"])
         cards.append(
             f"""
             <article class="agent-flyer-card" data-option="{opt}">
-              <img src="{img_url}" alt="Option {opt}" loading="lazy" />
+              {preview}
               <div class="flyer-cap">
                 <div class="flyer-cap-head">
                   <strong>Option {opt}</strong>
@@ -725,7 +847,8 @@ def _chat_panel(*, initial_message: str, gig_label: str) -> str:
               '<button type="submit" class="btn-secondary">My band</button></form>';
           }}
           return '<article class="agent-flyer-card" data-option="' + opt + '">' +
-            '<img src="' + url + '" alt="Option ' + opt + '" loading="lazy" />' +
+            '<button type="button" class="agent-flyer-enlarge-btn" data-enlarge-src="' + url + '" data-option="' + opt + '" aria-label="Enlarge option ' + opt + '">' +
+            '<img src="' + url + '" alt="Option ' + opt + '" loading="lazy" /></button>' +
             '<div class="flyer-cap"><div class="flyer-cap-head"><strong>Option ' + opt + '</strong>' + wildBadge + '</div>' +
             '<div class="flyer-cap-actions">' +
             '<button type="button" class="btn-secondary agent-select-option" data-option="' + opt + '">Revise</button>' +
@@ -850,6 +973,60 @@ def _chat_panel(*, initial_message: str, gig_label: str) -> str:
             approveOption(btn.getAttribute("data-option"));
           }});
         }});
+        bindPosterEnlarge();
+      }}
+
+      var flyerLightbox = document.getElementById("agent-flyer-lightbox");
+      var flyerLightboxImg = flyerLightbox ? flyerLightbox.querySelector(".agent-flyer-lightbox-img") : null;
+      var flyerLightboxTitle = document.getElementById("agent-flyer-lightbox-title");
+
+      function closeFlyerLightbox() {{
+        if (!flyerLightbox) return;
+        flyerLightbox.classList.remove("is-open");
+        flyerLightbox.setAttribute("hidden", "");
+        flyerLightbox.setAttribute("aria-hidden", "true");
+        document.body.style.overflow = "";
+        if (flyerLightboxImg) {{
+          flyerLightboxImg.removeAttribute("src");
+          flyerLightboxImg.alt = "";
+        }}
+      }}
+
+      function openFlyerLightbox(src, opt) {{
+        if (!flyerLightbox || !flyerLightboxImg || !src) return;
+        flyerLightboxImg.src = src;
+        flyerLightboxImg.alt = "Option " + (opt || "");
+        if (flyerLightboxTitle) {{
+          flyerLightboxTitle.textContent = opt ? ("Option " + opt) : "Poster preview";
+        }}
+        flyerLightbox.classList.add("is-open");
+        flyerLightbox.removeAttribute("hidden");
+        flyerLightbox.setAttribute("aria-hidden", "false");
+        document.body.style.overflow = "hidden";
+        var closeBtn = flyerLightbox.querySelector(".agent-flyer-lightbox-close");
+        if (closeBtn) closeBtn.focus();
+      }}
+
+      function bindPosterEnlarge() {{
+        document.querySelectorAll(".agent-flyer-enlarge-btn").forEach(function(btn) {{
+          if (btn.getAttribute("data-enlarge-bound") === "1") return;
+          btn.setAttribute("data-enlarge-bound", "1");
+          btn.addEventListener("click", function() {{
+            openFlyerLightbox(btn.getAttribute("data-enlarge-src"), btn.getAttribute("data-option"));
+          }});
+        }});
+      }}
+
+      if (flyerLightbox) {{
+        flyerLightbox.querySelectorAll("[data-lightbox-dismiss]").forEach(function(el) {{
+          el.addEventListener("click", closeFlyerLightbox);
+        }});
+        document.addEventListener("keydown", function(ev) {{
+          if (ev.key === "Escape" && flyerLightbox.classList.contains("is-open")) {{
+            ev.preventDefault();
+            closeFlyerLightbox();
+          }}
+        }});
       }}
 
       function refreshGigDetail() {{
@@ -935,6 +1112,7 @@ def _chat_panel(*, initial_message: str, gig_label: str) -> str:
 
       bindPosterButtons();
       bindConvertForms();
+      bindPosterEnlarge();
       resumeActiveJob();
     }})();
     </script>
@@ -1019,6 +1197,7 @@ def render_agent_workspace(
       <a href="{html.escape(route_path('/agent/catalog'))}">Design catalog</a>
       <a href="{html.escape(route_path('/agent/research'))}">Design research</a>
     </p>
+    {_agent_flyer_lightbox_markup()}
   </main>
 """
         + page_close()
