@@ -1068,7 +1068,7 @@ def _generate_wild_band_convert_option(
             provider=provider_name,
         )
         enrich_wild_poster(path, letter)
-        overlay_flyer_logo(path, _calendar_band_name(event))
+        overlay_flyer_logo(path, _calendar_band_name(event), option=letter)
 
     gen_elapsed = time.monotonic() - gen_started
     image_url = public_output_url(path)
@@ -1365,7 +1365,7 @@ def _generate_single_option(
                 on_progress,
                 step="generate",
                 substep="band_replace",
-                message=f"Replacing AI musicians with your band on option {letter} via OpenAI…",
+                message=f"Pass 2: swapping in your band photo on option {letter}…",
                 progress=slot_base + 5,
                 option=letter,
                 attempt=attempt_num,
@@ -1392,7 +1392,7 @@ def _generate_single_option(
         if not dry_run and wild_gen and path.is_file():
             if enrich_wild_poster(path, letter):
                 image_url = public_output_url(path)
-            if overlay_flyer_logo(path, _calendar_band_name(event)):
+            if overlay_flyer_logo(path, _calendar_band_name(event), option=letter):
                 image_url = public_output_url(path)
         gen_elapsed = time.monotonic() - gen_started
         if not dry_run:

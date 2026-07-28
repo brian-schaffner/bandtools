@@ -8,6 +8,7 @@ from typing import Any, Optional
 from gig_calendar import GigEvent
 from assurance.fact_locks import build_fact_lock_prompt_block
 from wild_design.palette import sanitize_research_notes, wild_palette_lock
+from wild_design.logo_placement import combined_layout_reserve_prompt
 
 _INTENSITY_BLOCKS: dict[str, dict[str, str]] = {
     "wild": {
@@ -150,7 +151,8 @@ def build_wild_design_prompt(
         "ticket stubs) — use RED or pure WHITE paper blocks only, never cream/parchment/tan.",
         "- Band/musicians are part of the composition — painted, collage-cut, or stylized; "
         "natural skin tones or true B&W only. NO yellow-tan halftone/duotone on faces.",
-        "- Leave the top-right corner relatively clear — a band logo badge will be added after render.",
+        "",
+        combined_layout_reserve_prompt(letter),
         "- Memorable, authentic promoter energy — like a flyer taped in a bar window.",
         "",
         "COLOR RULES (reinforce COLOR LOCK):",

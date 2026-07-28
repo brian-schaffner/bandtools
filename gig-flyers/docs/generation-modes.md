@@ -13,6 +13,8 @@ Set **`GIG_FLYERS_PROFILE`** once; explicit env vars always win over profile def
 
 - `WILD_DESIGN_ENABLED=1`, `WILD_ROUND_LAYOUT=three_canvas`
 - Gemini for A/B/C; OpenAI for band convert
+- **Pass 2:** `WILD_BAND_REPLACE_AFTER_GEN=1` — after wild gen, auto band-photo swap when a reference photo is selected
+- **Logo:** `FLY_LOGO_PLACEMENT=per_option` — A/C large footer lockup, B large top banner (see `wild_design/logo_placement.py`)
 - `WILD_COLOR_CORRECT=1`, `WILD_FACT_LOCKS=1`, `FLYER_LOGO_OVERLAY=1`
 - `ASSURANCE_ENABLED=1`, `ASSURANCE_FACT_GATE=1`, `ASSURANCE_HEADER_GHOST=1`
 - Flyer Agent LLM chat enabled
