@@ -12,7 +12,7 @@ _PROFILE_ENV: dict[str, dict[str, str]] = {
         "WILD_DESIGN_ENABLED": "1",
         "WILD_ROUND_LAYOUT": "three_canvas",
         "WILD_BAND_REPLACE_ON_REVISE": "0",
-        "WILD_BAND_REPLACE_AFTER_GEN": "0",
+        "WILD_BAND_REPLACE_AFTER_GEN": "1",
         "WILD_BAND_CONVERT_ENABLED": "1",
         "WILD_COLOR_CORRECT": "1",
         "WILD_FACT_LOCKS": "1",

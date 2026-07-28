@@ -276,6 +276,18 @@ class WildBandReplaceTests(unittest.TestCase):
                         fan_out_base=None,
                     )
                 )
+            with patch.dict(
+                os.environ,
+                {**env, "WILD_ROUND_LAYOUT": "three_canvas"},
+                clear=False,
+            ):
+                self.assertTrue(
+                    should_auto_wild_band_replace(
+                        letter="A",
+                        reference_photo_path=Path(band.name),
+                        fan_out_base=None,
+                    )
+                )
 
     def test_should_band_convert(self) -> None:
         import tempfile

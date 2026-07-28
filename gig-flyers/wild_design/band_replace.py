@@ -46,14 +46,14 @@ def should_auto_wild_band_replace(
     reference_photo_path: Optional[Path],
     fan_out_base: Optional[str],
 ) -> bool:
-    """After initial wild full-canvas D, swap AI musicians for the real band photo."""
+    """After initial wild full-canvas gen, swap AI musicians for the real band photo (pass 2)."""
     if not wild_band_replace_after_gen_enabled():
         return False
     if fan_out_base:
         return False
     if not is_wild_option(letter):
         return False
-    if wild_d_band_mode() != "full_canvas":
+    if wild_d_band_mode() not in {"full_canvas", "constrained"}:
         return False
     return bool(reference_photo_path and reference_photo_path.is_file())
 
