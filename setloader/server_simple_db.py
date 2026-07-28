@@ -84,7 +84,13 @@ async def root():
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
-    return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
+    from build_info import build_info_for_api
+
+    return {
+        "status": "healthy",
+        "timestamp": datetime.utcnow().isoformat(),
+        "build": build_info_for_api(),
+    }
 
 @app.get("/gig/suggestions")
 async def gig_suggestions(

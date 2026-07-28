@@ -143,9 +143,26 @@ fly_deploy_image() {
   local app="$1"
   local config="$2"
   local build_secret="$3"
-  echo "Deploying image to ${app}..."
+  local root
+  root="$(deploy_repo_root)"
+  local sha_full sha_short build_num build_time deploy_env label
+  sha_full="${BANDTOOLS_GIT_SHA:-$(git -C "$root" rev-parse HEAD 2>/dev/null || echo unknown)}"
+  sha_short="$(printf '%s' "$sha_full" | cut -c1-7)"
+  build_num="${BANDTOOLS_BUILD_NUMBER:-${GITHUB_RUN_NUMBER:-local}}"
+  build_time="${BANDTOOLS_BUILD_TIME:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"
+  deploy_env="${BANDTOOLS_DEPLOY_ENV:-staging}"
+  label="${BANDTOOLS_BUILD_LABEL:-${build_num}-${sha_short}}"
+  echo "Deploying image to ${app} (build ${label})..."
   fly deploy -a "$app" -c "$config" --ha=false \
-    --build-arg "NEXT_PUBLIC_API_SECRET=${build_secret}"
+    --build-arg "NEXT_PUBLIC_API_SECRET=${build_secret}" \
+    --build-arg "BANDTOOLS_GIT_SHA=${sha_full}" \
+    --build-arg "BANDTOOLS_BUILD_NUMBER=${build_num}" \
+    --build-arg "BANDTOOLS_BUILD_TIME=${build_time}" \
+    --build-arg "BANDTOOLS_DEPLOY_ENV=${deploy_env}" \
+    --build-arg "BANDTOOLS_BUILD_LABEL=${label}" \
+    --build-arg "NEXT_PUBLIC_BANDTOOLS_BUILD_LABEL=${label}" \
+    --build-arg "NEXT_PUBLIC_BANDTOOLS_BUILT_AT=${build_time}" \
+    --build-arg "NEXT_PUBLIC_BANDTOOLS_DEPLOY_ENV=${deploy_env}"
 }
 
 resolve_build_secret() {
