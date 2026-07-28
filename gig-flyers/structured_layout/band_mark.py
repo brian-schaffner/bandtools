@@ -51,8 +51,23 @@ def _luminance(rgb: tuple[int, int, int]) -> float:
     return 0.2126 * r + 0.7152 * g + 0.0722 * b
 
 
-def find_band_logo(band: str, *, paper: tuple[int, int, int] | None = None) -> Path | None:
+def find_band_logo(
+    band: str,
+    *,
+    paper: tuple[int, int, int] | None = None,
+    variant: str = "lockup",
+) -> Path | None:
     slug = band_slug(band)
+    if variant in {"badge", "circle"}:
+        for name in (
+            f"{slug}-circle.png",
+            f"{slug}-badge.png",
+            "lindsey-lane-band-circle.png",
+            "lindsey-lane-band-badge.png",
+        ):
+            path = LOGO_DIR / name
+            if path.is_file():
+                return path
     if paper is not None and _luminance(paper) < 128:
         for name in (f"{slug}-light.png", f"{slug}-light.webp", "lindsey-lane-band-light.png"):
             path = LOGO_DIR / name
@@ -195,7 +210,9 @@ def draw_band_logo_badge(
     box: tuple[int, int, int, int],
     paper: tuple[int, int, int],
 ) -> bool:
-    logo_path = find_band_logo(band, paper=paper)
+    logo_path = find_band_logo(band, paper=paper, variant="badge")
+    if logo_path is None:
+        logo_path = find_band_logo(band, paper=paper, variant="lockup")
     if logo_path is None:
         return False
     _paste_in_box(canvas, _load_logo(logo_path), box, logo_style=LogoStyle())
