@@ -31,6 +31,11 @@ class BandMarkTest(unittest.TestCase):
         self.assertIsNotNone(path)
         self.assertTrue(path.name.endswith(".png"))
 
+    def test_find_badge_prefers_circle_asset(self) -> None:
+        path = find_band_logo("Lindsey Lane Band", variant="badge")
+        self.assertIsNotNone(path)
+        self.assertIn("circle", path.name.lower())
+
     def test_hero_logo_replaces_header_cramp(self) -> None:
         """Logo belongs in band zone, not squeezed beside venue header."""
         paper = (220, 50, 45)
