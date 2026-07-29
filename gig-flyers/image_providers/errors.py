@@ -23,6 +23,8 @@ def is_quota_error(exc: BaseException) -> bool:
     text = _exc_text(exc).lower()
     if "resource_exhausted" in text or "quota" in text:
         return True
+    if "quota tier unavailable" in text:
+        return True
     code = getattr(exc, "status_code", None) or getattr(exc, "code", None)
     if code == 429:
         return True
@@ -40,6 +42,8 @@ def is_retryable_429(exc: BaseException) -> bool:
     text = _exc_text(exc).lower()
     # Hard quota (limit: 0) won't clear with a short wait — skip retry.
     if "limit: 0" in text or "limit:0" in text:
+        return False
+    if "quota tier unavailable" in text:
         return False
     return True
 
@@ -61,11 +65,12 @@ def retry_delay_seconds(exc: BaseException, *, default: float = 58.0, maximum: f
 
 
 def friendly_generation_error(exc: BaseException, provider: str) -> ImageGenerationError:
-    text = _exc_text(exc)
     if is_quota_error(exc):
         if provider == "gemini":
             return ImageGenerationError(
-                "Gemini image quota exceeded. Set GIG_IMAGE_PROVIDER=openai or upgrade Gemini billing.",
+                "Gemini image quota unavailable for this Google Cloud project. "
+                "Enable billing in AI Studio, ask your org admin to allow the Generative Language API, "
+                "or set VISUAL_PREDICT_PROVIDER=openai to use OpenAI for visual prediction.",
                 provider=provider,
             )
         return ImageGenerationError(f"{provider} quota exceeded: {exc}", provider=provider)
