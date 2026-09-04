@@ -582,11 +582,12 @@ KEY_STRING_TO_INDEX = {
     'G': 10, 'G#': 11, 'Ab': 11
 }
 
-# Minor keys use relative major (root + 3 semitones)
+# Minor keys - use root note index for key_offset transposition
+# (e.g., Dm uses D=5, not its relative major F=8)
 MINOR_KEY_STRING_TO_INDEX = {
-    'Am': 3, 'A#m': 4, 'Bbm': 4, 'Bm': 5, 'Cm': 6, 'C#m': 7, 'Dbm': 7,
-    'Dm': 8, 'D#m': 9, 'Ebm': 9, 'Em': 10, 'Fm': 11, 'F#m': 0, 'Gbm': 0,
-    'Gm': 1, 'G#m': 2, 'Abm': 2
+    'Am': 0, 'A#m': 1, 'Bbm': 1, 'Bm': 2, 'Cm': 3, 'C#m': 4, 'Dbm': 4,
+    'Dm': 5, 'D#m': 6, 'Ebm': 6, 'Em': 7, 'Fm': 8, 'F#m': 9, 'Gbm': 9,
+    'Gm': 10, 'G#m': 11, 'Abm': 11
 }
 
 # Reverse mapping for display
