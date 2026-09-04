@@ -20,7 +20,7 @@ import {
 } from "lucide-react"
 import CatalogBasedMapping from "./catalog-based-mapping"
 import { TitleValidationComponent } from "./shared/TitleValidationComponent"
-import { apiService, API_SECRET, getApiBaseUrl } from "@/lib/api"
+import { apiService, API_SECRET, getApiBaseUrl, getApiAuthHeaders } from "@/lib/api"
 import { GigNameField } from "@/components/gig-name-field"
 
 interface ProcessingStage {
@@ -566,6 +566,7 @@ export function StepByStepProcessor({ setlistFile, onComplete, onProcessingChang
 
     const response = await fetch(`${getApiBaseUrl()}/standalone/pdf-extraction`, {
       method: 'POST',
+      headers: getApiAuthHeaders(),
       body: formData
     })
     
@@ -626,6 +627,7 @@ export function StepByStepProcessor({ setlistFile, onComplete, onProcessingChang
 
     const response = await fetch(`${getApiBaseUrl()}/standalone/title-validation`, {
       method: 'POST',
+      headers: getApiAuthHeaders(),
       body: formData
     })
 
@@ -703,6 +705,7 @@ export function StepByStepProcessor({ setlistFile, onComplete, onProcessingChang
 
     const response = await fetch(`${getApiBaseUrl()}/standalone/song-extraction`, {
       method: 'POST',
+      headers: getApiAuthHeaders(),
       body: formData
     })
 

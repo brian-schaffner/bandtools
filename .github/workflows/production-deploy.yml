@@ -1,0 +1,171 @@
+name: Deploy Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Branch to deploy (main or feature branch)
+        required: false
+        default: main
+      skip_backup:
+        description: Skip pre-deploy volume snapshot
+        type: boolean
+        default: false
+      skip_secrets:
+        description: Skip secret sync (use existing Fly secrets)
+        type: boolean
+        default: true
+      confirm_production:
+        description: Type 'DEPLOY' to confirm production deployment
+        required: true
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  confirm:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm production deployment
+        run: |
+          if [[ "${{ inputs.confirm_production }}" != "DEPLOY" ]]; then
+            echo "ERROR: You must type 'DEPLOY' to confirm production deployment" >&2
+            exit 1
+          fi
+          echo "✅ Production deployment confirmed"
+
+  backup:
+    needs: confirm
+    if: ${{ !inputs.skip_backup }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      snapshot_id: ${{ steps.snapshot.outputs.snapshot_id }}
+    steps:
+      - name: Setup Fly CLI
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Create volume snapshot
+        id: snapshot
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          echo "==> Creating pre-deploy backup snapshot of production volume"
+          
+          # Get the volume ID
+          VOLUME_ID=$(flyctl volumes list -a bandtools --json | jq -r '.[0].id')
+          echo "Volume ID: $VOLUME_ID"
+          
+          # Create snapshot
+          flyctl volumes snapshots create "$VOLUME_ID" -a bandtools
+          
+          # Get the latest snapshot ID
+          SNAPSHOT_ID=$(flyctl volumes snapshots list "$VOLUME_ID" -a bandtools --json | jq -r '.[0].id')
+          echo "snapshot_id=$SNAPSHOT_ID" >> "$GITHUB_OUTPUT"
+          echo "✅ Created snapshot: $SNAPSHOT_ID"
+
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [confirm, backup]
+    if: always() && needs.confirm.result == 'success' && (needs.backup.result == 'success' || needs.backup.result == 'skipped')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch || github.ref }}
+
+      - name: Setup Fly CLI
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Preflight Fly auth
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          flyctl version
+          flyctl auth whoami
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run tests
+        run: |
+          pip install -r gig-flyers/requirements.txt
+          cd gig-flyers && python -m unittest \
+            tests.test_wild_gemini_integration \
+            tests.test_wild_color_correct \
+            tests.test_assurance_profile \
+            -v
+
+      - name: Deploy to production
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          source scripts/deploy/lib.sh
+          resolve_fly_api_token
+          
+          APP="bandtools"
+          CONFIG="fly.toml"
+          
+          echo ""
+          echo "╔══════════════════════════════════════════════════════════════╗"
+          echo "║  Band Tools — PRODUCTION DEPLOY                              ║"
+          echo "╠══════════════════════════════════════════════════════════════╣"
+          printf "║  App:     %-51s║\n" "$APP"
+          printf "║  URL:     %-51s║\n" "https://bandtools.fly.dev"
+          printf "║  Config:  %-51s║\n" "$CONFIG"
+          printf "║  Git:     %-51s║\n" "$(git rev-parse --abbrev-ref HEAD) @ $(git rev-parse --short HEAD)"
+          echo "╚══════════════════════════════════════════════════════════════╝"
+          echo ""
+          
+          # Ensure volume exists
+          ensure_fly_volume "$APP" "bandtools_data" "ord"
+          
+          # Get build info
+          BUILD_SECRET="${NEXT_PUBLIC_API_SECRET:-${SECRET:-change-me}}"
+          export BANDTOOLS_DEPLOY_ENV="production"
+          
+          # Deploy
+          fly_deploy_image "$APP" "$CONFIG" "$BUILD_SECRET"
+          
+          echo ""
+          echo "✅ Production deploy complete: https://bandtools.fly.dev/"
+
+      - name: Verify deployment health
+        run: |
+          echo "Waiting for deployment to stabilize..."
+          sleep 20
+          
+          echo "Checking health endpoint..."
+          HEALTH=$(curl -sS https://bandtools.fly.dev/health)
+          echo "$HEALTH" | jq .
+          
+          STATUS=$(echo "$HEALTH" | jq -r '.status')
+          if [[ "$STATUS" != "healthy" ]]; then
+            echo "ERROR: Health check failed!" >&2
+            exit 1
+          fi
+          
+          echo "✅ Production is healthy"
+
+      - name: Print recovery info
+        if: always()
+        env:
+          SNAPSHOT_ID: ${{ needs.backup.outputs.snapshot_id }}
+        run: |
+          echo ""
+          echo "╔══════════════════════════════════════════════════════════════╗"
+          echo "║  RECOVERY INFO                                               ║"
+          echo "╠══════════════════════════════════════════════════════════════╣"
+          if [[ -n "$SNAPSHOT_ID" ]]; then
+            printf "║  Backup snapshot: %-43s║\n" "$SNAPSHOT_ID"
+            echo "║                                                              ║"
+            echo "║  To restore from backup:                                     ║"
+            echo "║    fly volumes snapshots restore \$SNAPSHOT_ID -a bandtools   ║"
+          else
+            echo "║  No backup snapshot was created (skipped or failed)          ║"
+          fi
+          echo "╚══════════════════════════════════════════════════════════════╝"

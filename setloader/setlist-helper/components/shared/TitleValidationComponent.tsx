@@ -206,6 +206,7 @@ export function TitleValidationComponent({
 
       const response = await fetch(`${getApiBaseUrl()}/standalone/title-validation`, {
         method: 'POST',
+        headers: getApiAuthHeaders(),
         body: formData
       })
 

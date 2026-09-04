@@ -570,6 +570,112 @@ def validate_sbp(file_path: Union[str, Path]) -> Tuple[bool, List[str]]:
     library = SBPLibrary()
     return library.validate_sbp_file(file_path)
 
+
+# Key conversion utilities for Song Book Pro format
+# SBP uses: A=0, A#/Bb=1, B=2, C=3, C#/Db=4, D=5, D#/Eb=6, E=7, F=8, F#/Gb=9, G=10, G#/Ab=11
+# Minor keys use their relative major (add 3 semitones to root)
+
+# Major keys mapping
+KEY_STRING_TO_INDEX = {
+    'A': 0, 'A#': 1, 'Bb': 1, 'B': 2, 'C': 3, 'C#': 4, 'Db': 4,
+    'D': 5, 'D#': 6, 'Eb': 6, 'E': 7, 'F': 8, 'F#': 9, 'Gb': 9,
+    'G': 10, 'G#': 11, 'Ab': 11
+}
+
+# Minor keys use relative major (root + 3 semitones)
+MINOR_KEY_STRING_TO_INDEX = {
+    'Am': 3, 'A#m': 4, 'Bbm': 4, 'Bm': 5, 'Cm': 6, 'C#m': 7, 'Dbm': 7,
+    'Dm': 8, 'D#m': 9, 'Ebm': 9, 'Em': 10, 'Fm': 11, 'F#m': 0, 'Gbm': 0,
+    'Gm': 1, 'G#m': 2, 'Abm': 2
+}
+
+# Reverse mapping for display
+INDEX_TO_KEY_STRING = {
+    0: 'A', 1: 'Bb', 2: 'B', 3: 'C', 4: 'Db', 5: 'D',
+    6: 'Eb', 7: 'E', 8: 'F', 9: 'Gb', 10: 'G', 11: 'Ab'
+}
+
+
+def key_string_to_index(key_str: str) -> Optional[int]:
+    """
+    Convert a key string (like 'A', 'G', 'Dm', 'F#m') to SBP numeric index.
+    
+    Args:
+        key_str: Key string (e.g., 'A', 'G', 'Dm', 'F#m', 'Bb')
+        
+    Returns:
+        Numeric key index (0-11) or None if key cannot be parsed
+    """
+    if not key_str:
+        return None
+    
+    # Normalize the key string
+    key_str = key_str.strip()
+    
+    # Handle compound keys like "G/A" - use the first key
+    if '/' in key_str:
+        key_str = key_str.split('/')[0].strip()
+    
+    # Check minor keys first (they end with 'm')
+    if key_str in MINOR_KEY_STRING_TO_INDEX:
+        return MINOR_KEY_STRING_TO_INDEX[key_str]
+    
+    # Check major keys
+    if key_str in KEY_STRING_TO_INDEX:
+        return KEY_STRING_TO_INDEX[key_str]
+    
+    # Try to parse manually for edge cases
+    # Handle lowercase
+    key_upper = key_str[0].upper() + key_str[1:] if len(key_str) > 1 else key_str.upper()
+    
+    if key_upper in MINOR_KEY_STRING_TO_INDEX:
+        return MINOR_KEY_STRING_TO_INDEX[key_upper]
+    if key_upper in KEY_STRING_TO_INDEX:
+        return KEY_STRING_TO_INDEX[key_upper]
+    
+    return None
+
+
+def index_to_key_string(index: int) -> str:
+    """
+    Convert a numeric key index to a key string.
+    
+    Args:
+        index: Numeric key index (0-11)
+        
+    Returns:
+        Key string (e.g., 'A', 'G', 'C')
+    """
+    return INDEX_TO_KEY_STRING.get(index % 12, 'C')
+
+
+def calculate_key_offset(target_key: str, song_default_key: int, song_key_shift: int = 0) -> int:
+    """
+    Calculate the key_offset needed to transpose a song from its default key to the target key.
+    
+    Args:
+        target_key: Target key string from setlist (e.g., 'A', 'G', 'Dm')
+        song_default_key: Song's default key index from backup (0-11)
+        song_key_shift: Song's existing key shift from backup (default 0)
+        
+    Returns:
+        Key offset value (0-11) to apply to SetItem, or 0 if target_key is invalid
+    """
+    target_index = key_string_to_index(target_key)
+    
+    if target_index is None:
+        # Can't parse target key, return 0 (no transpose)
+        return 0
+    
+    # Calculate the effective current key of the song
+    effective_key = (song_default_key + song_key_shift) % 12
+    
+    # Calculate offset needed to go from effective key to target key
+    offset = (target_index - effective_key) % 12
+    
+    return offset
+
+
 # Example usage
 if __name__ == "__main__":
     # Example: Load and analyze a .sbp file
