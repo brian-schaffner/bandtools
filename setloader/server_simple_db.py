@@ -1477,14 +1477,20 @@ async def standalone_title_validation(
 
 @app.get("/standalone/user-catalog")
 async def standalone_user_catalog(
+    request: Request,
     secret: str = Header(None, alias="X-Secret")
 ):
     """Get user catalog for standalone components."""
     if secret != SECRET:
         raise HTTPException(status_code=403, detail="Forbidden")
     
-    # Use hardcoded user for testing
-    user_id = "35e76f8b-65f7-48c1-9920-932122e98219"
+    # Try to get user from session first, fall back to hardcoded user for testing
+    user = get_user_from_request(request)
+    if user:
+        user_id = user['id']
+    else:
+        # Fallback to hardcoded user for standalone testing
+        user_id = "35e76f8b-65f7-48c1-9920-932122e98219"
     
     try:
         # Get user's backup file
