@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       branch:
-        description: Branch to deploy
+        description: Branch to deploy (main or feature branch)
         required: false
         default: main
       skip_backup:
@@ -15,13 +15,28 @@ on:
         description: Skip secret sync (use existing Fly secrets)
         type: boolean
         default: true
+      confirm_production:
+        description: Type 'DEPLOY' to confirm production deployment
+        required: true
 
 concurrency:
   group: production-deploy
   cancel-in-progress: false
 
 jobs:
+  confirm:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm production deployment
+        run: |
+          if [[ "${{ inputs.confirm_production }}" != "DEPLOY" ]]; then
+            echo "ERROR: You must type 'DEPLOY' to confirm production deployment" >&2
+            exit 1
+          fi
+          echo "✅ Production deployment confirmed"
+
   backup:
+    needs: confirm
     if: ${{ !inputs.skip_backup }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -53,8 +68,8 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: [backup]
-    if: always() && (needs.backup.result == 'success' || needs.backup.result == 'skipped')
+    needs: [confirm, backup]
+    if: always() && needs.confirm.result == 'success' && (needs.backup.result == 'success' || needs.backup.result == 'skipped')
     steps:
       - name: Checkout
         uses: actions/checkout@v4
