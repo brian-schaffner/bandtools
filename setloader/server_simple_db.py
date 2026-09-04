@@ -1304,6 +1304,7 @@ async def reprocess_setlist(
 # Standalone processing endpoints
 @app.post("/standalone/pdf-extraction")
 async def standalone_pdf_extraction(
+    request: Request,
     pdf: UploadFile = File(...),
     secret: str = Form(...),
     name: str = Form("Standalone Extraction")
@@ -1312,8 +1313,13 @@ async def standalone_pdf_extraction(
     if secret != SECRET:
         raise HTTPException(status_code=403, detail="Forbidden")
     
-    # Use hardcoded user for testing
-    user_id = "35e76f8b-65f7-48c1-9920-932122e98219"
+    # Try to get user from session first, fall back to hardcoded user for testing
+    user = get_user_from_request(request)
+    if user:
+        user_id = user['id']
+    else:
+        # Fallback to hardcoded user for standalone testing
+        user_id = "35e76f8b-65f7-48c1-9920-932122e98219"
     
     try:
         # Create working directory
@@ -1377,6 +1383,7 @@ async def standalone_pdf_extraction(
 
 @app.post("/standalone/title-validation")
 async def standalone_title_validation(
+    request: Request,
     json_file: UploadFile = File(...),
     secret: str = Form(...)
 ):
@@ -1384,8 +1391,13 @@ async def standalone_title_validation(
     if secret != SECRET:
         raise HTTPException(status_code=403, detail="Forbidden")
     
-    # Use hardcoded user for testing
-    user_id = "35e76f8b-65f7-48c1-9920-932122e98219"
+    # Try to get user from session first, fall back to hardcoded user for testing
+    user = get_user_from_request(request)
+    if user:
+        user_id = user['id']
+    else:
+        # Fallback to hardcoded user for standalone testing
+        user_id = "35e76f8b-65f7-48c1-9920-932122e98219"
     
     try:
         # Get user's backup file
@@ -1515,8 +1527,13 @@ async def standalone_save_mapping(
     if secret != SECRET:
         raise HTTPException(status_code=403, detail="Forbidden")
     
-    # Use hardcoded user for testing
-    user_id = "35e76f8b-65f7-48c1-9920-932122e98219"
+    # Try to get user from session first, fall back to hardcoded user for testing
+    user = get_user_from_request(request)
+    if user:
+        user_id = user['id']
+    else:
+        # Fallback to hardcoded user for standalone testing
+        user_id = "35e76f8b-65f7-48c1-9920-932122e98219"
     
     try:
         # Get mapping data from request body
@@ -1546,6 +1563,7 @@ async def standalone_save_mapping(
 
 @app.post("/standalone/song-extraction")
 async def standalone_song_extraction(
+    request: Request,
     json_file: UploadFile = File(...),
     secret: str = Form(...),
     set_name: str = Form("Extracted Set")
@@ -1554,8 +1572,13 @@ async def standalone_song_extraction(
     if secret != SECRET:
         raise HTTPException(status_code=403, detail="Forbidden")
     
-    # Use hardcoded user for testing
-    user_id = "35e76f8b-65f7-48c1-9920-932122e98219"
+    # Try to get user from session first, fall back to hardcoded user for testing
+    user = get_user_from_request(request)
+    if user:
+        user_id = user['id']
+    else:
+        # Fallback to hardcoded user for standalone testing
+        user_id = "35e76f8b-65f7-48c1-9920-932122e98219"
     
     try:
         # Get user's backup file
