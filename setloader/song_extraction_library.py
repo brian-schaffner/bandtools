@@ -6,7 +6,7 @@ Reusable library for extracting songs from validated titles and creating SBP fil
 import json
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Tuple
-from sbp_library import SBPLibrary, SBPFile, Song, Set, SetItem
+from sbp_library import SBPLibrary, SBPFile, Song, Set, SetItem, calculate_key_offset
 from sbp_naming import format_sbp_set_name, truncate_name
 from datetime import datetime
 
@@ -98,7 +98,7 @@ class SongExtractor:
         
         return normalized
     
-    def extract_songs_from_set(self, set_data: Dict[str, Any]) -> Tuple[List[Song], List[str]]:
+    def extract_songs_from_set(self, set_data: Dict[str, Any]) -> Tuple[List[Tuple[Song, Optional[str]]], List[str]]:
         """
         Extract songs from a validated set.
         
@@ -106,7 +106,8 @@ class SongExtractor:
             set_data: Set data with validated songs
             
         Returns:
-            Tuple of (extracted_songs, missing_titles)
+            Tuple of (extracted_songs_with_keys, missing_titles)
+            where extracted_songs_with_keys is a list of (Song, setlist_key) tuples
         """
         extracted_songs = []
         missing_titles = []
@@ -116,12 +117,15 @@ class SongExtractor:
                 missing_titles.append(song_data.get('title', 'Unknown'))
                 continue
             
+            # Get the key from the setlist (if specified)
+            setlist_key = song_data.get('key')
+            
             song_id = song_data.get('song_id')
             if song_id:
                 # Try to find by ID first (most reliable)
                 song = self._find_song_by_id(song_id)
                 if song:
-                    extracted_songs.append(song)
+                    extracted_songs.append((song, setlist_key))
                     continue
             
             # Fallback to mapped catalog title, then original PDF title
@@ -129,13 +133,13 @@ class SongExtractor:
             if title:
                 song = self._find_song_by_title(title)
                 if song:
-                    extracted_songs.append(song)
+                    extracted_songs.append((song, setlist_key))
                 else:
                     missing_titles.append(title)
         
         return extracted_songs, missing_titles
     
-    def extract_songs_from_extras(self, extras: List[Dict[str, Any]]) -> Tuple[List[Song], List[str]]:
+    def extract_songs_from_extras(self, extras: List[Dict[str, Any]]) -> Tuple[List[Tuple[Song, Optional[str]]], List[str]]:
         """
         Extract songs from validated extras.
         
@@ -143,7 +147,8 @@ class SongExtractor:
             extras: List of extra song data
             
         Returns:
-            Tuple of (extracted_songs, missing_titles)
+            Tuple of (extracted_songs_with_keys, missing_titles)
+            where extracted_songs_with_keys is a list of (Song, setlist_key) tuples
         """
         extracted_songs = []
         missing_titles = []
@@ -153,12 +158,15 @@ class SongExtractor:
                 missing_titles.append(song_data.get('title', 'Unknown'))
                 continue
             
+            # Get the key from the setlist (if specified)
+            setlist_key = song_data.get('key')
+            
             song_id = song_data.get('song_id')
             if song_id:
                 # Try to find by ID first (most reliable)
                 song = self._find_song_by_id(song_id)
                 if song:
-                    extracted_songs.append(song)
+                    extracted_songs.append((song, setlist_key))
                     continue
             
             # Fallback to mapped catalog title, then original PDF title
@@ -166,7 +174,7 @@ class SongExtractor:
             if title:
                 song = self._find_song_by_title(title)
                 if song:
-                    extracted_songs.append(song)
+                    extracted_songs.append((song, setlist_key))
                 else:
                     missing_titles.append(title)
         
@@ -188,8 +196,8 @@ class SongExtractor:
         
         # Process each set to collect used songs
         for set_data in validated_data.get('sets', []):
-            set_songs, _ = self.extract_songs_from_set(set_data)
-            for song in set_songs:
+            set_songs_with_keys, _ = self.extract_songs_from_set(set_data)
+            for song, _ in set_songs_with_keys:
                 used_songs.add(song.id)
         
         # Process extras to collect used songs
@@ -216,9 +224,9 @@ class SongExtractor:
         total_pdf_sets = len(pdf_sets)
 
         for set_data in pdf_sets:
-            set_songs, missing_titles = self.extract_songs_from_set(set_data)
+            set_songs_with_keys, missing_titles = self.extract_songs_from_set(set_data)
             
-            if set_songs:
+            if set_songs_with_keys:
                 set_label = set_data.get('name', 'Set')
                 set_obj = self.sbp_lib.create_set(
                     name=format_sbp_set_name(
@@ -231,15 +239,24 @@ class SongExtractor:
                     id=set_id
                 )
                 
-                # Add songs to set
-                for i, song in enumerate(set_songs):
+                # Add songs to set with key offsets
+                for i, (song, setlist_key) in enumerate(set_songs_with_keys):
+                    # Calculate key_offset based on setlist key vs song default key
+                    key_offset = 0
+                    if setlist_key:
+                        key_offset = calculate_key_offset(
+                            setlist_key, 
+                            song.key, 
+                            song.key_shift
+                        )
+                    
                     item = SetItem(
                         id=i,
                         order=i,
                         capo=0,
                         set_id=set_id,
                         song_id=song.id,
-                        key_offset=0,
+                        key_offset=key_offset,
                         modified_datetime=datetime.now().isoformat() + 'Z',
                         deleted=False,
                         sync_id=None,
@@ -256,9 +273,9 @@ class SongExtractor:
         # Process extras as a separate set
         extras = validated_data.get('extras', [])
         if extras:
-            extra_songs, missing_extras = self.extract_songs_from_extras(extras)
+            extra_songs_with_keys, missing_extras = self.extract_songs_from_extras(extras)
             
-            if extra_songs:
+            if extra_songs_with_keys:
                 extras_set = self.sbp_lib.create_set(
                     name=format_sbp_set_name(
                         set_name,
@@ -270,15 +287,24 @@ class SongExtractor:
                     id=set_id
                 )
                 
-                # Add extra songs to set
-                for i, song in enumerate(extra_songs):
+                # Add extra songs to set with key offsets
+                for i, (song, setlist_key) in enumerate(extra_songs_with_keys):
+                    # Calculate key_offset based on setlist key vs song default key
+                    key_offset = 0
+                    if setlist_key:
+                        key_offset = calculate_key_offset(
+                            setlist_key, 
+                            song.key, 
+                            song.key_shift
+                        )
+                    
                     item = SetItem(
                         id=i,
                         order=i,
                         capo=0,
                         set_id=set_id,
                         song_id=song.id,
-                        key_offset=0,
+                        key_offset=key_offset,
                         modified_datetime=datetime.now().isoformat() + 'Z',
                         deleted=False,
                         sync_id=None,
