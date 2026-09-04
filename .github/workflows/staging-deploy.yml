@@ -20,6 +20,7 @@ on:
       - main
       - cursor/flyer-agent-v2-980b
       - cursor/flyer-agent-980b
+      - cursor/setlist-key-offset-fix-c597
 
 concurrency:
   group: staging-deploy
