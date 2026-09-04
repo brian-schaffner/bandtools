@@ -249,6 +249,9 @@ class SongExtractor:
                             song.key, 
                             song.key_shift
                         )
+                        print(f"[KEY_OFFSET] Song: {song.name}, setlist_key: {setlist_key}, song.key: {song.key}, song.key_shift: {song.key_shift} -> key_offset: {key_offset}")
+                    else:
+                        print(f"[KEY_OFFSET] Song: {song.name}, NO setlist_key provided, using key_offset: 0")
                     
                     item = SetItem(
                         id=i,
@@ -297,6 +300,9 @@ class SongExtractor:
                             song.key, 
                             song.key_shift
                         )
+                        print(f"[KEY_OFFSET] Extra: {song.name}, setlist_key: {setlist_key}, song.key: {song.key}, song.key_shift: {song.key_shift} -> key_offset: {key_offset}")
+                    else:
+                        print(f"[KEY_OFFSET] Extra: {song.name}, NO setlist_key provided, using key_offset: 0")
                     
                     item = SetItem(
                         id=i,
