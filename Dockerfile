@@ -42,6 +42,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     fonts-dejavu-core \
     fonts-liberation2 \
     fontconfig \
+    ffmpeg \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/* \
@@ -59,8 +60,13 @@ COPY gig-flyers/requirements.txt /tmp/flyers-requirements.txt
 RUN python3 -m venv /opt/flyers-venv \
     && /opt/flyers-venv/bin/pip install --no-cache-dir -r /tmp/flyers-requirements.txt
 
+COPY show-recap/requirements.txt /tmp/show-recap-requirements.txt
+RUN python3 -m venv /opt/show-recap-venv \
+    && /opt/show-recap-venv/bin/pip install --no-cache-dir -r /tmp/show-recap-requirements.txt
+
 COPY setloader/ ./setloader/
 COPY gig-flyers/ ./gig-flyers/
+COPY show-recap/ ./show-recap/
 
 RUN /opt/flyers-venv/bin/python /app/gig-flyers/scripts/install_band_logos.py \
     || /opt/flyers-venv/bin/python /app/gig-flyers/scripts/render_band_logo_assets.py
