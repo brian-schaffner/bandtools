@@ -105,6 +105,138 @@ async def health_check():
     }
 
 
+@app.post("/upload/init")
+async def init_upload(
+    show_name: str = Form(...),
+    show_date: str = Form(None),
+    file_count: int = Form(...),
+    total_size: int = Form(...),
+    silence_threshold_db: float = Form(-40.0),
+    min_silence_duration: float = Form(10.0),
+    min_set_duration: float = Form(300.0),
+):
+    """
+    Initialize a chunked upload session.
+    
+    Returns a job_id to use for subsequent chunk uploads.
+    """
+    job_id = f"{int(time.time())}_{show_name.replace(' ', '_').replace('/', '_')}"
+    job_dir = UPLOAD_DIR / job_id
+    job_dir.mkdir(parents=True, exist_ok=True)
+    
+    jobs[job_id] = {
+        "job_id": job_id,
+        "status": "uploading",
+        "message": f"Waiting for {file_count} files ({total_size / (1024*1024*1024):.2f} GB)",
+        "progress": 0,
+        "created_at": datetime.utcnow().isoformat(),
+        "updated_at": datetime.utcnow().isoformat(),
+        "show_name": show_name,
+        "show_date": show_date or datetime.now().strftime("%Y-%m-%d"),
+        "files": [],
+        "expected_files": file_count,
+        "total_size_bytes": total_size,
+        "uploaded_size_bytes": 0,
+        "settings": {
+            "silence_threshold_db": silence_threshold_db,
+            "min_silence_duration": min_silence_duration,
+            "min_set_duration": min_set_duration,
+        },
+        "analysis": None,
+        "output_files": [],
+    }
+    
+    # Save job metadata
+    with open(job_dir / "job.json", "w") as f:
+        json.dump(jobs[job_id], f, indent=2)
+    
+    return {"job_id": job_id, "status": "ready"}
+
+
+@app.post("/upload/chunk/{job_id}")
+async def upload_chunk(
+    job_id: str,
+    file: UploadFile = File(...),
+    filename: str = Form(...),
+    chunk_index: int = Form(...),
+    total_chunks: int = Form(...),
+    file_index: int = Form(0),
+):
+    """
+    Upload a chunk of a file.
+    
+    For large files, split into chunks and upload sequentially.
+    """
+    if job_id not in jobs:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    job = jobs[job_id]
+    job_dir = UPLOAD_DIR / job_id
+    
+    # Create temp file for chunks
+    temp_file = job_dir / f"{filename}.part{chunk_index}"
+    chunk_data = await file.read()
+    
+    with open(temp_file, "wb") as f:
+        f.write(chunk_data)
+    
+    job["uploaded_size_bytes"] = job.get("uploaded_size_bytes", 0) + len(chunk_data)
+    
+    # If this is the last chunk, combine all chunks
+    if chunk_index == total_chunks - 1:
+        final_path = job_dir / filename
+        with open(final_path, "wb") as outfile:
+            for i in range(total_chunks):
+                chunk_path = job_dir / f"{filename}.part{i}"
+                if chunk_path.exists():
+                    with open(chunk_path, "rb") as infile:
+                        outfile.write(infile.read())
+                    chunk_path.unlink()  # Delete chunk
+        
+        job["files"].append(str(final_path))
+        print(f"[UPLOAD] Completed file: {filename}")
+    
+    # Update progress
+    if job.get("total_size_bytes", 0) > 0:
+        job["progress"] = (job["uploaded_size_bytes"] / job["total_size_bytes"]) * 50  # 0-50% for upload
+    
+    job["updated_at"] = datetime.utcnow().isoformat()
+    
+    return {
+        "status": "ok",
+        "chunk": chunk_index,
+        "total_chunks": total_chunks,
+        "progress": job["progress"]
+    }
+
+
+@app.post("/upload/complete/{job_id}")
+async def complete_upload(
+    job_id: str,
+    background_tasks: BackgroundTasks,
+    auto_process: bool = Form(True),
+):
+    """
+    Mark upload as complete and optionally start processing.
+    """
+    if job_id not in jobs:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    job = jobs[job_id]
+    job["status"] = "pending"
+    job["message"] = f"Upload complete: {len(job['files'])} files"
+    job["progress"] = 50
+    
+    # Save job metadata
+    with open(UPLOAD_DIR / job_id / "job.json", "w") as f:
+        json.dump(job, f, indent=2)
+    
+    if auto_process:
+        background_tasks.add_task(process_job, job_id)
+    
+    return {"status": "complete", "job_id": job_id}
+
+
 @app.post("/upload")
 async def upload_audio(
     background_tasks: BackgroundTasks,
@@ -119,6 +251,8 @@ async def upload_audio(
     """
     Upload multitrack audio files for processing.
     
+    Supports large files (multi-GB) via streaming upload.
+    
     Args:
         files: Audio files (WAV format expected)
         show_name: Name of the show/gig
@@ -132,31 +266,45 @@ async def upload_audio(
         raise HTTPException(status_code=400, detail="No files uploaded")
     
     # Create job
-    job_id = f"{int(time.time())}_{show_name.replace(' ', '_')}"
+    job_id = f"{int(time.time())}_{show_name.replace(' ', '_').replace('/', '_')}"
     job_dir = UPLOAD_DIR / job_id
     job_dir.mkdir(parents=True, exist_ok=True)
     
-    # Save uploaded files
+    # Save uploaded files using streaming to handle large files
     saved_files = []
+    total_size = 0
+    CHUNK_SIZE = 1024 * 1024 * 10  # 10MB chunks
+    
     for f in files:
         file_path = job_dir / f.filename
+        file_size = 0
+        
+        print(f"[UPLOAD] Starting: {f.filename}")
+        
         with open(file_path, "wb") as out:
-            content = await f.read()
-            out.write(content)
+            while True:
+                chunk = await f.read(CHUNK_SIZE)
+                if not chunk:
+                    break
+                out.write(chunk)
+                file_size += len(chunk)
+                
         saved_files.append(str(file_path))
-        print(f"[UPLOAD] Saved: {file_path} ({len(content)} bytes)")
+        total_size += file_size
+        print(f"[UPLOAD] Saved: {file_path} ({file_size / (1024*1024):.1f} MB)")
     
     # Create job record
     jobs[job_id] = {
         "job_id": job_id,
         "status": "pending",
-        "message": f"Uploaded {len(saved_files)} files",
+        "message": f"Uploaded {len(saved_files)} files ({total_size / (1024*1024*1024):.2f} GB)",
         "progress": 0,
         "created_at": datetime.utcnow().isoformat(),
         "updated_at": datetime.utcnow().isoformat(),
         "show_name": show_name,
         "show_date": show_date or datetime.now().strftime("%Y-%m-%d"),
         "files": saved_files,
+        "total_size_bytes": total_size,
         "settings": {
             "silence_threshold_db": silence_threshold_db,
             "min_silence_duration": min_silence_duration,

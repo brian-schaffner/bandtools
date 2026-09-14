@@ -129,6 +129,8 @@ export default function ShowRecapPage() {
     }
   }
 
+  const [uploadProgress, setUploadProgress] = useState(0)
+
   const handleUpload = async () => {
     if (files.length === 0) {
       setError("Please select at least one audio file")
@@ -141,38 +143,123 @@ export default function ShowRecapPage() {
 
     setUploading(true)
     setError(null)
+    setUploadProgress(0)
+
+    const totalSize = files.reduce((sum, f) => sum + f.size, 0)
+    const CHUNK_SIZE = 10 * 1024 * 1024 // 10MB chunks
 
     try {
-      const formData = new FormData()
-      files.forEach(file => formData.append('files', file))
-      formData.append('show_name', showName)
-      formData.append('show_date', showDate)
-      formData.append('silence_threshold_db', silenceThreshold.toString())
-      formData.append('min_silence_duration', minSilenceDuration.toString())
+      // For smaller files (<100MB total), use simple upload
+      if (totalSize < 100 * 1024 * 1024) {
+        const formData = new FormData()
+        files.forEach(file => formData.append('files', file))
+        formData.append('show_name', showName)
+        formData.append('show_date', showDate)
+        formData.append('silence_threshold_db', silenceThreshold.toString())
+        formData.append('min_silence_duration', minSilenceDuration.toString())
 
-      const response = await fetch(`${apiBase}/upload`, {
-        method: 'POST',
-        body: formData,
-      })
+        const response = await fetch(`${apiBase}/upload`, {
+          method: 'POST',
+          body: formData,
+        })
 
-      if (!response.ok) {
+        if (!response.ok) {
+          const data = await response.json()
+          throw new Error(data.detail || 'Upload failed')
+        }
+
         const data = await response.json()
-        throw new Error(data.detail || 'Upload failed')
-      }
+        setCurrentJob({
+          job_id: data.job_id,
+          status: 'pending',
+          message: data.message,
+          progress: 0,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          output_files: [],
+        })
+      } else {
+        // Use chunked upload for large files
+        // 1. Initialize upload
+        const initForm = new FormData()
+        initForm.append('show_name', showName)
+        initForm.append('show_date', showDate)
+        initForm.append('file_count', files.length.toString())
+        initForm.append('total_size', totalSize.toString())
+        initForm.append('silence_threshold_db', silenceThreshold.toString())
+        initForm.append('min_silence_duration', minSilenceDuration.toString())
 
-      const data = await response.json()
-      setCurrentJob({
-        job_id: data.job_id,
-        status: 'pending',
-        message: data.message,
-        progress: 0,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        output_files: [],
-      })
+        const initResponse = await fetch(`${apiBase}/upload/init`, {
+          method: 'POST',
+          body: initForm,
+        })
+
+        if (!initResponse.ok) {
+          throw new Error('Failed to initialize upload')
+        }
+
+        const { job_id } = await initResponse.json()
+
+        // 2. Upload files in chunks
+        let uploadedBytes = 0
+
+        for (let fileIndex = 0; fileIndex < files.length; fileIndex++) {
+          const file = files[fileIndex]
+          const totalChunks = Math.ceil(file.size / CHUNK_SIZE)
+
+          for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+            const start = chunkIndex * CHUNK_SIZE
+            const end = Math.min(start + CHUNK_SIZE, file.size)
+            const chunk = file.slice(start, end)
+
+            const chunkForm = new FormData()
+            chunkForm.append('file', chunk)
+            chunkForm.append('filename', file.name)
+            chunkForm.append('chunk_index', chunkIndex.toString())
+            chunkForm.append('total_chunks', totalChunks.toString())
+            chunkForm.append('file_index', fileIndex.toString())
+
+            const chunkResponse = await fetch(`${apiBase}/upload/chunk/${job_id}`, {
+              method: 'POST',
+              body: chunkForm,
+            })
+
+            if (!chunkResponse.ok) {
+              throw new Error(`Failed to upload chunk ${chunkIndex + 1}/${totalChunks}`)
+            }
+
+            uploadedBytes += (end - start)
+            setUploadProgress(Math.round((uploadedBytes / totalSize) * 100))
+          }
+        }
+
+        // 3. Complete upload
+        const completeForm = new FormData()
+        completeForm.append('auto_process', 'true')
+
+        const completeResponse = await fetch(`${apiBase}/upload/complete/${job_id}`, {
+          method: 'POST',
+          body: completeForm,
+        })
+
+        if (!completeResponse.ok) {
+          throw new Error('Failed to complete upload')
+        }
+
+        setCurrentJob({
+          job_id: job_id,
+          status: 'pending',
+          message: `Uploaded ${files.length} files (${(totalSize / (1024*1024*1024)).toFixed(2)} GB)`,
+          progress: 50,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          output_files: [],
+        })
+      }
       
       setFiles([])
       setShowName("")
+      setUploadProgress(0)
       loadJobs()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed')
@@ -321,6 +408,16 @@ export default function ShowRecapPage() {
                 </div>
               )}
 
+              {uploading && uploadProgress > 0 && (
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Uploading...</span>
+                    <span>{uploadProgress}%</span>
+                  </div>
+                  <Progress value={uploadProgress} />
+                </div>
+              )}
+
               <Button 
                 onClick={handleUpload} 
                 disabled={uploading || files.length === 0}
@@ -329,7 +426,7 @@ export default function ShowRecapPage() {
                 {uploading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Uploading...
+                    {uploadProgress > 0 ? `Uploading ${uploadProgress}%` : 'Starting upload...'}
                   </>
                 ) : (
                   <>
@@ -338,6 +435,12 @@ export default function ShowRecapPage() {
                   </>
                 )}
               </Button>
+
+              {files.length > 0 && (
+                <p className="text-sm text-gray-500 text-center">
+                  Total size: {(files.reduce((sum, f) => sum + f.size, 0) / (1024*1024*1024)).toFixed(2)} GB
+                </p>
+              )}
             </CardContent>
           </Card>
 
