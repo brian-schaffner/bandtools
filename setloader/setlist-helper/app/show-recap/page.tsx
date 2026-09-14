@@ -78,7 +78,7 @@ export default function ShowRecapPage() {
   const [jobs, setJobs] = useState<JobStatus[]>([])
   const [showAdvanced, setShowAdvanced] = useState(false)
 
-  const apiBase = getApiBaseUrl().replace('/api', '/show-recap')
+  const apiBase = `${getApiBaseUrl()}/show-recap`
 
   const loadJobs = useCallback(async () => {
     try {
