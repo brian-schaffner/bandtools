@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { FileText, Megaphone, ArrowRight } from "lucide-react"
+import { FileText, Megaphone, ArrowRight, Scissors } from "lucide-react"
 import { BandToolsLogo } from "@/components/band-tools-logo"
 import { GoogleAuth } from "@/components/google-auth"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -36,6 +36,16 @@ const tools = [
     href: "/flyers/",
     icon: Megaphone,
     accent: "from-amber-500 to-orange-600",
+    available: true,
+  },
+  {
+    id: "show-recap",
+    title: "Show Recap",
+    description:
+      "Upload multitrack recordings from your mixer and automatically split them into individual sets as MP3s.",
+    href: "/show-recap",
+    icon: Scissors,
+    accent: "from-purple-500 to-pink-600",
     available: true,
   },
 ]
