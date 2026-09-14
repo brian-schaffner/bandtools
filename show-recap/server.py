@@ -105,6 +105,76 @@ async def health_check():
     }
 
 
+@app.post("/process-local")
+async def process_local_files(
+    background_tasks: BackgroundTasks,
+    file_paths: List[str],
+    show_name: str,
+    show_date: str = None,
+    silence_threshold_db: float = -40.0,
+    min_silence_duration: float = 10.0,
+    min_set_duration: float = 300.0,
+):
+    """
+    Process local audio files by path (no upload needed).
+    
+    Args:
+        file_paths: List of absolute paths to audio files
+        show_name: Name of the show/gig
+        show_date: Date of the show (YYYY-MM-DD)
+        silence_threshold_db: Silence threshold in dB
+        min_silence_duration: Minimum silence duration for break detection
+        min_set_duration: Minimum set duration in seconds
+    """
+    # Validate all paths exist
+    for path in file_paths:
+        if not Path(path).exists():
+            raise HTTPException(status_code=400, detail=f"File not found: {path}")
+    
+    # Create job
+    job_id = f"{int(time.time())}_{show_name.replace(' ', '_').replace('/', '_')}"
+    job_dir = UPLOAD_DIR / job_id
+    job_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Calculate total size
+    total_size = sum(Path(p).stat().st_size for p in file_paths)
+    
+    # Create job record (files are already on disk, just reference them)
+    jobs[job_id] = {
+        "job_id": job_id,
+        "status": "pending",
+        "message": f"Processing {len(file_paths)} local files ({total_size / (1024*1024*1024):.2f} GB)",
+        "progress": 50,  # Skip upload progress
+        "created_at": datetime.utcnow().isoformat(),
+        "updated_at": datetime.utcnow().isoformat(),
+        "show_name": show_name,
+        "show_date": show_date or datetime.now().strftime("%Y-%m-%d"),
+        "files": file_paths,
+        "total_size_bytes": total_size,
+        "settings": {
+            "silence_threshold_db": silence_threshold_db,
+            "min_silence_duration": min_silence_duration,
+            "min_set_duration": min_set_duration,
+        },
+        "analysis": None,
+        "output_files": [],
+    }
+    
+    # Save job metadata
+    with open(job_dir / "job.json", "w") as f:
+        json.dump(jobs[job_id], f, indent=2)
+    
+    # Start processing
+    background_tasks.add_task(process_job, job_id)
+    
+    return {
+        "job_id": job_id,
+        "status": "processing",
+        "message": f"Processing {len(file_paths)} files",
+        "files": [Path(f).name for f in file_paths],
+    }
+
+
 @app.post("/upload/init")
 async def init_upload(
     show_name: str = Form(...),
