@@ -1,0 +1,14 @@
+# Show Recap Service Dependencies
+fastapi>=0.100.0
+uvicorn[standard]>=0.23.0
+python-multipart>=0.0.6
+pydantic>=2.0.0
+
+# Audio processing (uses ffmpeg via subprocess)
+# ffmpeg must be installed on the system
+
+# Future: Dropbox integration
+# dropbox>=11.36.0
+
+# Future: SMS notifications
+# twilio>=8.0.0
