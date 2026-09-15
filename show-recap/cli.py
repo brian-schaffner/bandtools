@@ -28,6 +28,10 @@ def process_recording(
     min_silence_duration: float = 10.0,
     min_set_duration: float = 300.0,
     skip_start: float = 0.0,
+    pad_start: float = 5.0,
+    pad_end: float = 3.0,
+    fade_in: float = 0.5,
+    fade_out: float = 2.0,
 ):
     """Process multitrack recording and split into sets."""
     
@@ -68,6 +72,8 @@ def process_recording(
     print(f"  Min set duration: {min_set_duration}s")
     if skip_start > 0:
         print(f"  Skip start: {skip_start}s ({skip_start/60:.1f} min)")
+    print(f"  Padding: +{pad_start}s before, +{pad_end}s after each set")
+    print(f"  Fades: {fade_in}s in, {fade_out}s out")
     print(f"{'='*60}\n")
     
     # Use first file for analysis (timing should match both tracks)
@@ -107,6 +113,8 @@ def process_recording(
         print("    - Try adjusting --silence-threshold or --min-break")
         return 1
     
+    total_duration = analysis.get("total_duration", float('inf'))
+    
     print(f"\n  Found {len(sets)} sets:")
     for s in sets:
         start = s['start_time']
@@ -128,15 +136,21 @@ def process_recording(
         start_time = s['start_time']
         end_time = s['end_time']
         
+        # Apply padding (but don't go before 0 or past end of file)
+        padded_start = max(0, start_time - pad_start)
+        padded_end = min(total_duration, end_time + pad_end)
+        
         output_name = f"{show_date}_{show_name.replace(' ', '_')}_Set{set_num}.mp3"
         output_path = out_path / output_name
         
         print(f"  Exporting Set {set_num}{'(stereo L+R)' if stereo_mix else ''}...")
+        print(f"    Detected: {_format_time(start_time)} - {_format_time(end_time)}")
+        print(f"    With padding: {_format_time(padded_start)} - {_format_time(padded_end)}")
         processor.export_segment(
             left_channel,
             str(output_path),
-            start_time,
-            end_time,
+            padded_start,
+            padded_end,
             metadata={
                 "title": f"{show_name} - Set {set_num}",
                 "artist": show_name,
@@ -144,6 +158,8 @@ def process_recording(
                 "track": str(set_num),
             },
             right_channel_path=right_channel,
+            fade_in=fade_in,
+            fade_out=fade_out,
         )
         output_files.append(output_path)
         print(f"    -> {output_path}")
@@ -200,6 +216,14 @@ Examples:
                       help="Minimum set duration in seconds (default: 300)")
     proc.add_argument("--skip-start", type=float, default=0.0,
                       help="Skip this many seconds from the start (default: 0)")
+    proc.add_argument("--pad-start", type=float, default=5.0,
+                      help="Extra seconds to include BEFORE each set starts (default: 5)")
+    proc.add_argument("--pad-end", type=float, default=3.0,
+                      help="Extra seconds to include AFTER each set ends (default: 3)")
+    proc.add_argument("--fade-in", type=float, default=0.5,
+                      help="Fade in duration in seconds (default: 0.5)")
+    proc.add_argument("--fade-out", type=float, default=2.0,
+                      help="Fade out duration in seconds (default: 2.0)")
     
     args = parser.parse_args()
     
@@ -213,6 +237,10 @@ Examples:
             min_silence_duration=args.min_break,
             min_set_duration=args.min_set,
             skip_start=args.skip_start,
+            pad_start=args.pad_start,
+            pad_end=args.pad_end,
+            fade_in=args.fade_in,
+            fade_out=args.fade_out,
         )
     else:
         parser.print_help()
