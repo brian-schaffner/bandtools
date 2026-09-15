@@ -27,6 +27,7 @@ def process_recording(
     silence_threshold_db: float = -40.0,
     min_silence_duration: float = 10.0,
     min_set_duration: float = 300.0,
+    skip_start: float = 0.0,
 ):
     """Process multitrack recording and split into sets."""
     
@@ -46,6 +47,9 @@ def process_recording(
         print("Error: No audio files found")
         return 1
     
+    # Sort files by name for consistent L/R assignment
+    files = sorted(files, key=lambda x: x.name)
+    
     print(f"\n{'='*60}")
     print(f"  SHOW RECAP - {show_name}")
     print(f"{'='*60}")
@@ -53,13 +57,21 @@ def process_recording(
     for f in files:
         size_mb = f.stat().st_size / (1024*1024)
         print(f"    - {f.name} ({size_mb:.1f} MB)")
+    
+    # Check for stereo mixing (2 mono files)
+    stereo_mix = len(files) == 2
+    if stereo_mix:
+        print(f"  Stereo mode: {files[0].name} (L) + {files[1].name} (R)")
+    
     print(f"  Silence threshold: {silence_threshold_db} dB")
     print(f"  Min break duration: {min_silence_duration}s")
     print(f"  Min set duration: {min_set_duration}s")
+    if skip_start > 0:
+        print(f"  Skip start: {skip_start}s ({skip_start/60:.1f} min)")
     print(f"{'='*60}\n")
     
-    # Use first file as the main mix (or stereo mix)
-    main_file = str(files[0])
+    # Use first file for analysis (timing should match both tracks)
+    analysis_file = str(files[0])
     
     # Setup output directory
     if output_dir:
@@ -76,9 +88,10 @@ def process_recording(
         silence_threshold_db=silence_threshold_db,
         min_silence_duration=min_silence_duration,
         min_set_duration=min_set_duration,
+        skip_start=skip_start,
     )
     
-    analysis = analyzer.analyze(main_file)
+    analysis = analyzer.analyze(analysis_file)
     
     # Save analysis
     analysis_file = out_path / "analysis.json"
@@ -105,6 +118,10 @@ def process_recording(
     print(f"\n[2/3] Exporting sets as MP3...")
     processor = AudioProcessor()
     
+    # For stereo mixing, use first file as L and second as R
+    left_channel = str(files[0])
+    right_channel = str(files[1]) if stereo_mix else None
+    
     output_files = []
     for s in sets:
         set_num = s['set_number']
@@ -114,9 +131,9 @@ def process_recording(
         output_name = f"{show_date}_{show_name.replace(' ', '_')}_Set{set_num}.mp3"
         output_path = out_path / output_name
         
-        print(f"  Exporting Set {set_num}...")
+        print(f"  Exporting Set {set_num}{'(stereo L+R)' if stereo_mix else ''}...")
         processor.export_segment(
-            main_file,
+            left_channel,
             str(output_path),
             start_time,
             end_time,
@@ -125,7 +142,8 @@ def process_recording(
                 "artist": show_name,
                 "album": f"{show_name} - {show_date}",
                 "track": str(set_num),
-            }
+            },
+            right_channel_path=right_channel,
         )
         output_files.append(output_path)
         print(f"    -> {output_path}")
@@ -180,6 +198,8 @@ Examples:
                       help="Minimum break duration in seconds (default: 10)")
     proc.add_argument("--min-set", type=float, default=300.0,
                       help="Minimum set duration in seconds (default: 300)")
+    proc.add_argument("--skip-start", type=float, default=0.0,
+                      help="Skip this many seconds from the start (default: 0)")
     
     args = parser.parse_args()
     
@@ -192,6 +212,7 @@ Examples:
             silence_threshold_db=args.silence_threshold,
             min_silence_duration=args.min_break,
             min_set_duration=args.min_set,
+            skip_start=args.skip_start,
         )
     else:
         parser.print_help()
