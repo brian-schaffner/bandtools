@@ -7,6 +7,9 @@ pydantic>=2.0.0
 # Audio processing (uses ffmpeg via subprocess)
 # ffmpeg must be installed on the system
 
+# Music recognition (detect commercial break music)
+pyacrcloud>=1.0.0
+
 # Future: Dropbox integration
 # dropbox>=11.36.0
 
