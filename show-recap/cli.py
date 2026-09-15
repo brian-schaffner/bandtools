@@ -32,6 +32,7 @@ def process_recording(
     pad_end: float = 3.0,
     fade_in: float = 0.5,
     fade_out: float = 2.0,
+    trim_set_starts: str = None,
 ):
     """Process multitrack recording and split into sets."""
     
@@ -74,6 +75,13 @@ def process_recording(
         print(f"  Skip start: {skip_start}s ({skip_start/60:.1f} min)")
     print(f"  Padding: +{pad_start}s before, +{pad_end}s after each set")
     print(f"  Fades: {fade_in}s in, {fade_out}s out")
+    
+    # Parse trim_set_starts
+    set_trims = []
+    if trim_set_starts:
+        set_trims = [float(x.strip()) for x in trim_set_starts.split(',')]
+        print(f"  Trim from set starts: {set_trims}")
+    
     print(f"{'='*60}\n")
     
     # Use first file for analysis (timing should match both tracks)
@@ -131,13 +139,17 @@ def process_recording(
     right_channel = str(files[1]) if stereo_mix else None
     
     output_files = []
-    for s in sets:
+    for i, s in enumerate(sets):
         set_num = s['set_number']
         start_time = s['start_time']
         end_time = s['end_time']
         
+        # Apply per-set trim (skip break music at start of set)
+        set_trim = set_trims[i] if i < len(set_trims) else 0
+        trimmed_start = start_time + set_trim
+        
         # Apply padding (but don't go before 0 or past end of file)
-        padded_start = max(0, start_time - pad_start)
+        padded_start = max(0, trimmed_start - pad_start)
         padded_end = min(total_duration, end_time + pad_end)
         
         output_name = f"{show_date}_{show_name.replace(' ', '_')}_Set{set_num}.mp3"
@@ -145,7 +157,9 @@ def process_recording(
         
         print(f"  Exporting Set {set_num}{'(stereo L+R)' if stereo_mix else ''}...")
         print(f"    Detected: {_format_time(start_time)} - {_format_time(end_time)}")
-        print(f"    With padding: {_format_time(padded_start)} - {_format_time(padded_end)}")
+        if set_trim > 0:
+            print(f"    Trim: +{_format_time(set_trim)} from start -> {_format_time(trimmed_start)}")
+        print(f"    Final: {_format_time(padded_start)} - {_format_time(padded_end)} (with padding)")
         processor.export_segment(
             left_channel,
             str(output_path),
@@ -224,6 +238,8 @@ Examples:
                       help="Fade in duration in seconds (default: 0.5)")
     proc.add_argument("--fade-out", type=float, default=2.0,
                       help="Fade out duration in seconds (default: 2.0)")
+    proc.add_argument("--trim-set-starts", type=str, default=None,
+                      help="Comma-separated seconds to trim from START of each set (e.g., '0,1136,0' trims 18:56 from Set 2)")
     
     args = parser.parse_args()
     
@@ -241,6 +257,7 @@ Examples:
             pad_end=args.pad_end,
             fade_in=args.fade_in,
             fade_out=args.fade_out,
+            trim_set_starts=args.trim_set_starts,
         )
     else:
         parser.print_help()
