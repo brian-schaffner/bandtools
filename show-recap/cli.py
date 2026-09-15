@@ -17,6 +17,7 @@ from datetime import datetime
 
 from audio_analyzer import AudioAnalyzer
 from audio_processor import AudioProcessor
+from music_recognizer import MusicRecognizer
 
 
 def process_recording(
@@ -34,6 +35,9 @@ def process_recording(
     fade_out: float = 2.0,
     trim_set_starts: str = None,
     extend_set_ends: str = None,
+    detect_breaks: bool = False,
+    acrcloud_key: str = None,
+    acrcloud_secret: str = None,
 ):
     """Process multitrack recording and split into sets."""
     
@@ -135,6 +139,46 @@ def process_recording(
         end = s['end_time']
         duration = s['duration']
         print(f"    Set {s['set_number']}: {_format_time(start)} - {_format_time(end)} ({duration/60:.1f} min)")
+    
+    # Optional: Use ACRCloud to detect commercial break music
+    if detect_breaks:
+        print(f"\n[1.5/3] Detecting commercial break music with ACRCloud...")
+        recognizer = MusicRecognizer(
+            access_key=acrcloud_key,
+            access_secret=acrcloud_secret,
+        )
+        
+        if recognizer.available:
+            for s in sets:
+                set_num = s['set_number']
+                original_start = s['start_time']
+                
+                print(f"\n  Checking Set {set_num} start ({_format_time(original_start)})...")
+                live_start, had_commercial = recognizer.find_live_music_start(
+                    str(files[0]),
+                    original_start,
+                    max_search_duration=1800,  # Search up to 30 min
+                    step_size=30,  # Check every 30 seconds
+                )
+                
+                if had_commercial:
+                    skip_duration = live_start - original_start
+                    print(f"    -> Live music starts at {_format_time(live_start)} (skip {_format_time(skip_duration)} of break music)")
+                    s['start_time'] = live_start
+                    s['duration'] = s['end_time'] - live_start
+                else:
+                    print(f"    -> No commercial music detected, keeping original start")
+            
+            # Print updated set times
+            print(f"\n  Adjusted sets:")
+            for s in sets:
+                start = s['start_time']
+                end = s['end_time']
+                duration = s['duration']
+                print(f"    Set {s['set_number']}: {_format_time(start)} - {_format_time(end)} ({duration/60:.1f} min)")
+        else:
+            print("  Warning: ACRCloud not available. Set ACRCLOUD_KEY and ACRCLOUD_SECRET.")
+            print("  Continuing without break detection...")
     
     # Step 2: Export sets
     print(f"\n[2/3] Exporting sets as MP3...")
@@ -254,6 +298,12 @@ Examples:
                       help="Comma-separated seconds to trim from START of each set (e.g., '0,1136,0' trims 18:56 from Set 2)")
     proc.add_argument("--extend-set-ends", type=str, default=None,
                       help="Comma-separated extra seconds to add to END of each set (e.g., '0,3,0' adds 3s to Set 2)")
+    proc.add_argument("--detect-breaks", action="store_true",
+                      help="Use ACRCloud to detect commercial break music and auto-adjust set starts")
+    proc.add_argument("--acrcloud-key", type=str, default=None,
+                      help="ACRCloud access key (or set ACRCLOUD_KEY env var)")
+    proc.add_argument("--acrcloud-secret", type=str, default=None,
+                      help="ACRCloud access secret (or set ACRCLOUD_SECRET env var)")
     
     args = parser.parse_args()
     
@@ -273,6 +323,9 @@ Examples:
             fade_out=args.fade_out,
             trim_set_starts=args.trim_set_starts,
             extend_set_ends=args.extend_set_ends,
+            detect_breaks=args.detect_breaks,
+            acrcloud_key=args.acrcloud_key,
+            acrcloud_secret=args.acrcloud_secret,
         )
     else:
         parser.print_help()
