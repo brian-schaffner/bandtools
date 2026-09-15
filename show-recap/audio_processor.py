@@ -69,20 +69,23 @@ class AudioProcessor:
         metadata: Optional[Dict[str, str]] = None,
         fade_in: float = 0.5,
         fade_out: float = 2.0,
+        right_channel_path: Optional[str] = None,
     ):
         """
         Export a segment of audio to MP3.
         
         Args:
-            input_path: Source audio file
+            input_path: Source audio file (or left channel if right_channel_path provided)
             output_path: Destination MP3 file
             start_time: Start time in seconds
             end_time: End time in seconds
             metadata: ID3 metadata (title, artist, album, etc.)
             fade_in: Fade in duration in seconds
             fade_out: Fade out duration in seconds
+            right_channel_path: Optional right channel file for stereo mixing
         """
         duration = end_time - start_time
+        stereo_mix = right_channel_path is not None
         
         # Build filter chain
         filters = []
@@ -104,18 +107,42 @@ class AudioProcessor:
         cmd = [
             "ffmpeg",
             "-y",  # Overwrite output
-            "-i", input_path,
-            "-ss", str(start_time),
-            "-t", str(duration),
         ]
         
-        # Add filter if any
-        if filter_str:
-            cmd.extend(["-af", filter_str])
+        if stereo_mix:
+            # Two input files - combine into stereo
+            cmd.extend([
+                "-ss", str(start_time),
+                "-t", str(duration),
+                "-i", input_path,
+                "-ss", str(start_time),
+                "-t", str(duration),
+                "-i", right_channel_path,
+            ])
+            
+            # Join two mono inputs into stereo, then apply filters
+            if filter_str:
+                complex_filter = f"[0:a][1:a]join=inputs=2:channel_layout=stereo[stereo];[stereo]{filter_str}[aout]"
+            else:
+                complex_filter = "[0:a][1:a]join=inputs=2:channel_layout=stereo[aout]"
+            
+            cmd.extend(["-filter_complex", complex_filter, "-map", "[aout]"])
+        else:
+            # Single input file
+            cmd.extend([
+                "-i", input_path,
+                "-ss", str(start_time),
+                "-t", str(duration),
+            ])
+            
+            # Add filter if any
+            if filter_str:
+                cmd.extend(["-af", filter_str])
+            
+            cmd.extend(["-ac", "2"])  # Stereo output (duplicate mono to stereo)
         
         # Add output settings
         cmd.extend([
-            "-ac", "2",  # Stereo output
             "-ar", str(self.sample_rate),
             "-b:a", self.bitrate,
             "-map_metadata", "-1",  # Strip existing metadata
@@ -128,13 +155,50 @@ class AudioProcessor:
         
         cmd.append(output_path)
         
-        print(f"[PROCESSOR] Exporting: {start_time:.1f}s to {end_time:.1f}s -> {output_path}")
+        if stereo_mix:
+            print(f"[PROCESSOR] Exporting stereo: {start_time:.1f}s to {end_time:.1f}s (L+R) -> {output_path}")
+        else:
+            print(f"[PROCESSOR] Exporting: {start_time:.1f}s to {end_time:.1f}s -> {output_path}")
         
         result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode != 0:
             raise RuntimeError(f"ffmpeg failed: {result.stderr}")
         
         print(f"[PROCESSOR] Created: {output_path}")
+        return output_path
+    
+    def create_stereo_from_mono_pair(
+        self,
+        left_file: str,
+        right_file: str,
+        output_path: str,
+    ):
+        """
+        Combine two mono files into a stereo file (L/R).
+        
+        Args:
+            left_file: Left channel mono audio file
+            right_file: Right channel mono audio file  
+            output_path: Destination stereo audio file
+        """
+        cmd = [
+            "ffmpeg",
+            "-y",
+            "-i", left_file,
+            "-i", right_file,
+            "-filter_complex", "[0:a][1:a]join=inputs=2:channel_layout=stereo[aout]",
+            "-map", "[aout]",
+            "-c:a", "pcm_s16le",
+            output_path
+        ]
+        
+        print(f"[PROCESSOR] Creating stereo from L: {left_file}, R: {right_file}")
+        
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            raise RuntimeError(f"ffmpeg stereo creation failed: {result.stderr}")
+        
+        print(f"[PROCESSOR] Created stereo file: {output_path}")
         return output_path
     
     def mix_multitrack(
