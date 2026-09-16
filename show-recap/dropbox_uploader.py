@@ -43,8 +43,9 @@ class DropboxUploader:
         """
         self.access_token = access_token or os.environ.get("DROPBOX_ACCESS_TOKEN")
         self.refresh_token = refresh_token or os.environ.get("DROPBOX_REFRESH_TOKEN")
-        self.app_key = app_key or os.environ.get("DROPBOX_APP_KEY")
-        self.app_secret = app_secret or os.environ.get("DROPBOX_APP_SECRET")
+        # Support both naming conventions for app credentials
+        self.app_key = app_key or os.environ.get("DROPBOX_KEY") or os.environ.get("DROPBOX_APP_KEY")
+        self.app_secret = app_secret or os.environ.get("DROPBOX_SECRET") or os.environ.get("DROPBOX_APP_SECRET")
         self.folder = folder
         self.dbx = None
         
