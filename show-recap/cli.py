@@ -14,10 +14,13 @@ import sys
 import time
 from pathlib import Path
 from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from threading import Lock
 
 from audio_analyzer import AudioAnalyzer
 from audio_processor import AudioProcessor
 from music_recognizer import MusicRecognizer
+from dropbox_uploader import DropboxUploader
 
 
 def process_recording(
@@ -38,6 +41,8 @@ def process_recording(
     detect_breaks: bool = False,
     acrcloud_key: str = None,
     acrcloud_secret: str = None,
+    upload: bool = False,
+    dropbox_folder: str = "/Show Recap",
 ):
     """Process multitrack recording and split into sets."""
     
@@ -180,7 +185,7 @@ def process_recording(
             print("  Warning: ACRCloud not available. Set ACRCLOUD_KEY and ACRCLOUD_SECRET.")
             print("  Continuing without break detection...")
     
-    # Step 2: Export sets
+    # Step 2: Export sets (with background upload if enabled)
     print(f"\n[2/3] Exporting sets as MP3...")
     processor = AudioProcessor()
     
@@ -188,7 +193,38 @@ def process_recording(
     left_channel = str(files[0])
     right_channel = str(files[1]) if stereo_mix else None
     
+    # Setup Dropbox uploader if --upload enabled
+    uploader = None
+    upload_futures = []
+    upload_results = {}
+    print_lock = Lock()
+    
+    if upload:
+        uploader = DropboxUploader(folder=dropbox_folder)
+        if uploader.available:
+            print(f"  Dropbox upload enabled -> {dropbox_folder}/{show_date} - {show_name}/")
+            executor = ThreadPoolExecutor(max_workers=2)
+        else:
+            print("  Warning: Dropbox not configured, skipping uploads")
+            uploader = None
+    
+    def upload_in_background(file_path, set_num, subfolder):
+        """Upload a file to Dropbox in the background."""
+        try:
+            remote_path = uploader.upload_file(file_path, subfolder=subfolder)
+            if remote_path:
+                link = uploader.get_share_link(remote_path)
+                with print_lock:
+                    print(f"  [UPLOAD] Set {set_num} uploaded! {link}")
+                return {"set": set_num, "path": remote_path, "link": link}
+        except Exception as e:
+            with print_lock:
+                print(f"  [UPLOAD] Set {set_num} failed: {e}")
+        return {"set": set_num, "error": str(e) if 'e' in dir() else "Unknown error"}
+    
     output_files = []
+    subfolder = f"{show_date} - {show_name}"
+    
     for i, s in enumerate(sets):
         set_num = s['set_number']
         start_time = s['start_time']
@@ -233,6 +269,19 @@ def process_recording(
         )
         output_files.append(output_path)
         print(f"    -> {output_path}")
+        
+        # Start background upload immediately after extraction
+        if uploader:
+            future = executor.submit(upload_in_background, output_path, set_num, subfolder)
+            upload_futures.append(future)
+    
+    # Wait for any remaining uploads to complete
+    if upload_futures:
+        print(f"\n  Waiting for uploads to complete...")
+        for future in as_completed(upload_futures):
+            result = future.result()
+            upload_results[result.get("set")] = result
+        executor.shutdown(wait=True)
     
     # Step 3: Summary
     print(f"\n[3/3] Complete!")
@@ -243,6 +292,17 @@ def process_recording(
         size_mb = f.stat().st_size / (1024*1024)
         print(f"  {f.name} ({size_mb:.1f} MB)")
     print(f"\n  Location: {out_path}")
+    
+    if upload_results:
+        print(f"\n  DROPBOX LINKS")
+        print(f"  {'-'*50}")
+        for set_num in sorted(upload_results.keys()):
+            result = upload_results[set_num]
+            if result.get("link"):
+                print(f"  Set {set_num}: {result['link']}")
+            else:
+                print(f"  Set {set_num}: Upload failed - {result.get('error', 'Unknown')}")
+    
     print(f"{'='*60}\n")
     
     return 0
@@ -304,6 +364,10 @@ Examples:
                       help="ACRCloud access key (or set ACRCLOUD_KEY env var)")
     proc.add_argument("--acrcloud-secret", type=str, default=None,
                       help="ACRCloud access secret (or set ACRCLOUD_SECRET env var)")
+    proc.add_argument("--upload", action="store_true",
+                      help="Upload to Dropbox as each set is extracted")
+    proc.add_argument("--dropbox-folder", type=str, default="/Show Recap",
+                      help="Dropbox folder to upload to (default: /Show Recap)")
     
     args = parser.parse_args()
     
@@ -326,6 +390,8 @@ Examples:
             detect_breaks=args.detect_breaks,
             acrcloud_key=args.acrcloud_key,
             acrcloud_secret=args.acrcloud_secret,
+            upload=args.upload,
+            dropbox_folder=args.dropbox_folder,
         )
     else:
         parser.print_help()
