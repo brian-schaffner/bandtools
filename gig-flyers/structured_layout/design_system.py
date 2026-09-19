@@ -381,13 +381,68 @@ def _luminance(hex_color: str) -> float:
     return 0.299 * r + 0.587 * g + 0.114 * b
 
 
+def _is_visual_study_layout(layout: LayoutSpec) -> bool:
+    notes = (layout.style_notes or "").lower()
+    return "hatch_stack" in notes or "altamont_sidebar" in notes
+
+
+def _polish_visual_study_typography(layout: LayoutSpec) -> LayoutSpec:
+    """Preserve hierarchy learned from real poster studies (Hatch, Altamont)."""
+    notes = (layout.style_notes or "").lower()
+    tier = _tier_from_layout(layout)
+    ranked = sorted(layout.text_elements, key=lambda t: t.font_size, reverse=True)
+    size_map: dict[int, int] = {}
+
+    if "hatch_stack" in notes:
+        tiers = [TYPE_XXL, TYPE_LG, TYPE_MD, TYPE_SM, TYPE_XS]
+        for idx, el in enumerate(ranked):
+            size_map[id(el)] = tiers[min(idx, len(tiers) - 1)]
+    elif "altamont_sidebar" in notes:
+        tiers = [TYPE_XL, TYPE_LG, TYPE_MD, TYPE_SM, TYPE_XS]
+        for idx, el in enumerate(ranked):
+            size_map[id(el)] = tiers[min(idx, len(tiers) - 1)]
+    else:
+        return layout
+
+    updated: list[TextElement] = []
+    for text in layout.text_elements:
+        role = _text_role(text.content)
+        font_size = size_map.get(id(text), TYPE_MD)
+        font_family = _role_font(role, tier)
+        if "hatch_stack" in notes and font_size >= TYPE_XXL:
+            font_family = FONT_DISPLAY
+        weight = FontWeight.BLACK if font_size >= TYPE_LG else text.font_weight
+        updated.append(
+            TextElement(
+                content=text.content,
+                x=snap_pct(text.x),
+                y=snap_pct(text.y),
+                width=snap_pct(min(text.width, MAX_TEXT_WIDTH_PCT)),
+                font_size=font_size,
+                font_family=font_family,
+                font_weight=weight,
+                color=text.color,
+                alignment=text.alignment,
+                rotation=text.rotation,
+                letter_spacing=text.letter_spacing,
+                line_height=text.line_height,
+                all_caps=text.all_caps,
+            )
+        )
+    layout.text_elements = updated
+    return layout
+
+
 def apply_pro_polish(layout: LayoutSpec) -> LayoutSpec:
     """Snap layout to professional design tokens: type, spacing, photo, accents."""
     tier = _tier_from_layout(layout)
     layout = _polish_background(layout, tier)
     layout = _polish_photo(layout, tier)
     layout = _polish_bars(layout, tier)
-    layout = _polish_typography(layout, tier)
+    if _is_visual_study_layout(layout):
+        layout = _polish_visual_study_typography(layout)
+    else:
+        layout = _polish_typography(layout, tier)
     layout = _polish_accents(layout)
     layout = _polish_footer_band(layout)
     return layout
