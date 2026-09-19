@@ -11,6 +11,10 @@ _HYBRID_STYLE_BLOCKS: dict[str, str] = {
     "xerox_punk": "STYLE: Xerox punk club flyer — high-contrast black ink on cream, utilitarian type, black footer bar.",
     "duotone_modern": "STYLE: Modern duotone poster — bold two-color panels, Swiss grid energy, photo strip.",
     "psychedelic": "STYLE: Fillmore psychedelic poster — concentric rings, oval photo, 1960s rock poster borders.",
+    "woodstock_festival": (
+        "STYLE: 1969 festival poster — solid red field, symbolic bird/guitar hero art, "
+        "yellow bubbly slogan, 3-column footer grid. Band photo and logo in footer only."
+    ),
     "boutique": "STYLE: Boutique community event — string lights, warm serif headline, rounded info card.",
     "neon_bar": "STYLE: Dark blues bar handbill — neon accent type on dark field, moody duotone photo.",
     "pasteup_zine": "STYLE: Cut-and-paste zine — torn edges, tape strips, halftone photo, typewriter dates.",
