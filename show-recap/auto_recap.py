@@ -28,19 +28,21 @@ from cli import process_recording
 from dropbox_uploader import DropboxUploader
 from notifier import Notifier
 
-# Add setloader to path for gig_calendar access
-sys.path.insert(0, str(Path(__file__).parent.parent / "setloader"))
+# Import gig cache for auto-detecting show info
 try:
-    from gig_calendar import get_all_events, get_local_today, GigEvent
+    from gig_cache import get_gig_cache, get_most_recent_past_gig as get_cached_recent_gig
     GIG_CALENDAR_AVAILABLE = True
 except ImportError:
     GIG_CALENDAR_AVAILABLE = False
-    print("[WARNING] gig_calendar not available - auto show matching disabled")
+    print("[WARNING] gig_cache not available - auto show matching disabled")
 
 
-def get_most_recent_gig(days_back: int = 7) -> dict:
+def get_most_recent_gig(days_back: int = 30) -> dict:
     """
-    Find the most recent past gig from the band calendar.
+    Find the most recent past gig using the local gig cache.
+    
+    The cache stores all events we've ever seen from the calendar,
+    so we can find past gigs even after they're removed from the website.
     
     Args:
         days_back: How many days back to look for a gig
@@ -51,61 +53,20 @@ def get_most_recent_gig(days_back: int = 7) -> dict:
     if not GIG_CALENDAR_AVAILABLE:
         return None
     
-    try:
-        today = get_local_today()
-        events = get_all_events()
-        
-        # Find past gigs within the last N days
-        cutoff = today - timedelta(days=days_back)
-        past_gigs = [
-            e for e in events 
-            if cutoff <= e.event_date <= today
-        ]
-        
-        if not past_gigs:
-            print(f"[GIG CALENDAR] No gigs found in the last {days_back} days")
-            return None
-        
-        # Get the most recent one
-        most_recent = max(past_gigs, key=lambda e: e.event_date)
-        
-        print(f"[GIG CALENDAR] Most recent gig: {most_recent.suggested_name} ({most_recent.event_date})")
-        
-        return {
-            "date": most_recent.event_date.isoformat(),
-            "venue": most_recent.venue,
-            "suggested_name": most_recent.suggested_name,
-            "title": most_recent.title,
-        }
-    
-    except Exception as e:
-        print(f"[GIG CALENDAR] Error fetching calendar: {e}")
-        return None
+    return get_cached_recent_gig(days_back)
 
 
-def list_recent_gigs(days_back: int = 14) -> list:
-    """List recent gigs from the calendar."""
+def list_recent_gigs(days_back: int = 30) -> list:
+    """List recent past gigs from the cache."""
     if not GIG_CALENDAR_AVAILABLE:
         return []
     
     try:
-        today = get_local_today()
-        events = get_all_events()
-        
-        cutoff = today - timedelta(days=days_back)
-        recent = [e for e in events if cutoff <= e.event_date <= today]
-        recent.sort(key=lambda e: e.event_date, reverse=True)
-        
-        return [
-            {
-                "date": e.event_date.isoformat(),
-                "venue": e.venue,
-                "suggested_name": e.suggested_name,
-            }
-            for e in recent
-        ]
+        cache = get_gig_cache()
+        cache.refresh_from_calendar()
+        return cache.get_past_events(days_back)
     except Exception as e:
-        print(f"[GIG CALENDAR] Error: {e}")
+        print(f"[GIG CACHE] Error: {e}")
         return []
 
 
@@ -475,17 +436,23 @@ Examples:
     
     # Handle gig listing
     if args.list_gigs:
-        gigs = list_recent_gigs(days_back=args.gig_days)
-        if not gigs:
-            print(f"No gigs found in the last {args.gig_days} days")
-            if not GIG_CALENDAR_AVAILABLE:
-                print("(gig_calendar module not available)")
+        if not GIG_CALENDAR_AVAILABLE:
+            print("Gig cache not available")
+            return 1
+        
+        cache = get_gig_cache()
+        cache.refresh_from_calendar()
+        cache.list_events(limit=20)
+        
+        # Also show most recent past gig
+        recent = cache.get_most_recent_past_gig(args.gig_days)
+        if recent:
+            print(f"\n>>> Most recent past gig (auto-select):")
+            print(f"    {recent.get('date')} - {recent.get('suggested_name')}")
         else:
-            print(f"Recent gigs (last {args.gig_days} days):\n")
-            for g in gigs:
-                print(f"  {g['date']}  {g['suggested_name']}")
-                print(f"            Venue: {g['venue']}")
-                print()
+            print(f"\nNo past gigs in last {args.gig_days} days.")
+            print("Add one manually:")
+            print("  python gig_cache.py --add 2026-09-06 'The Dock'")
         return 0
     
     # Handle history commands first (before pipeline init)
