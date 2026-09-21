@@ -14,6 +14,8 @@ Usage:
 import os
 import sys
 import time
+import json
+import hashlib
 import argparse
 from pathlib import Path
 from typing import List, Optional, Dict, Any
@@ -35,6 +37,66 @@ USBMTK_FOLDER = "USBMTK"
 MIN_SESSION_FILE_SIZE = 500 * 1024 * 1024   # 500 MB minimum
 MIN_SHOW_TOTAL_SIZE = 1 * 1024 * 1024 * 1024  # 1 GB minimum total
 
+# Default history file location
+DEFAULT_HISTORY_FILE = Path.home() / ".show-recap-history.json"
+
+
+class ProcessingHistory:
+    """Track which sessions have been processed to avoid duplicates."""
+    
+    def __init__(self, history_file: Path = None):
+        self.history_file = history_file or DEFAULT_HISTORY_FILE
+        self.processed: Dict[str, dict] = {}  # fingerprint -> info
+        self._load()
+    
+    def _load(self):
+        """Load processing history from file."""
+        if self.history_file.exists():
+            try:
+                with open(self.history_file, 'r') as f:
+                    data = json.load(f)
+                    self.processed = data.get("processed", {})
+                print(f"[HISTORY] Loaded {len(self.processed)} processed sessions")
+            except Exception as e:
+                print(f"[HISTORY] Failed to load history: {e}")
+                self.processed = {}
+    
+    def _save(self):
+        """Save processing history to file."""
+        try:
+            with open(self.history_file, 'w') as f:
+                json.dump({"processed": self.processed}, f, indent=2)
+        except Exception as e:
+            print(f"[HISTORY] Failed to save history: {e}")
+    
+    def is_processed(self, session: 'QuSession') -> bool:
+        """Check if a session has already been processed."""
+        return session.fingerprint in self.processed
+    
+    def mark_processed(self, session: 'QuSession', show_name: str, output_dir: str):
+        """Mark a session as processed."""
+        self.processed[session.fingerprint] = {
+            "folder_name": session.name,
+            "show_name": show_name,
+            "recording_date": session.date_str,
+            "processed_at": datetime.now().isoformat(),
+            "output_dir": str(output_dir),
+            "total_size_gb": round(session.total_size / (1024**3), 2),
+            "track_count": len(session.wav_files),
+        }
+        self._save()
+        print(f"[HISTORY] Marked as processed: {session.name} [{session.fingerprint[:8]}]")
+    
+    def get_info(self, session: 'QuSession') -> Optional[dict]:
+        """Get processing info for a session if it was processed."""
+        return self.processed.get(session.fingerprint)
+    
+    def clear(self):
+        """Clear all processing history."""
+        self.processed = {}
+        self._save()
+        print("[HISTORY] Cleared all processing history")
+
 
 class QuSession:
     """Represents an A&H Qu-16 recording session."""
@@ -44,33 +106,54 @@ class QuSession:
         self.name = path.name
         self.wav_files: List[Path] = []
         self.total_size = 0
-        self.created_date: Optional[datetime] = None
+        self.file_sizes: List[int] = []  # For fingerprinting
+        self.recording_date: Optional[datetime] = None  # Actual recording time from files
+        self.fingerprint: str = ""  # Unique identifier for this session's content
         self._scan()
     
     def _scan(self):
         """Scan the session folder for WAV files."""
+        newest_mtime = 0
+        
         for f in self.path.glob("*.WAV"):
             if f.is_file():
-                size = f.stat().st_size
+                stat = f.stat()
+                size = stat.st_size
                 self.wav_files.append(f)
                 self.total_size += size
+                self.file_sizes.append(size)
+                # Track newest file modification time
+                if stat.st_mtime > newest_mtime:
+                    newest_mtime = stat.st_mtime
         
         # Also check lowercase
         for f in self.path.glob("*.wav"):
             if f.is_file() and f not in self.wav_files:
-                size = f.stat().st_size
+                stat = f.stat()
+                size = stat.st_size
                 self.wav_files.append(f)
                 self.total_size += size
+                self.file_sizes.append(size)
+                if stat.st_mtime > newest_mtime:
+                    newest_mtime = stat.st_mtime
         
         # Sort by name for consistent channel ordering
         self.wav_files.sort(key=lambda x: x.name)
+        self.file_sizes.sort()  # Sort for consistent fingerprint
         
-        # Get creation date from folder
-        try:
-            stat = self.path.stat()
-            self.created_date = datetime.fromtimestamp(stat.st_mtime)
-        except:
-            pass
+        # Use actual file timestamp as recording date (most reliable)
+        if newest_mtime > 0:
+            self.recording_date = datetime.fromtimestamp(newest_mtime)
+        
+        # Create fingerprint from file count + sizes (unique per actual recording)
+        self._create_fingerprint()
+    
+    def _create_fingerprint(self):
+        """Create a unique fingerprint for this session based on content."""
+        # Combine: number of files + total size + individual file sizes
+        # This uniquely identifies the recording even if folder name is reused
+        fp_data = f"{len(self.wav_files)}:{self.total_size}:{','.join(map(str, self.file_sizes))}"
+        self.fingerprint = hashlib.sha256(fp_data.encode()).hexdigest()[:16]
     
     @property
     def is_valid_show(self) -> bool:
@@ -90,6 +173,13 @@ class QuSession:
             return False
         
         return True
+    
+    @property
+    def date_str(self) -> str:
+        """Get formatted date string."""
+        if self.recording_date:
+            return self.recording_date.strftime("%Y-%m-%d %H:%M")
+        return "Unknown date"
     
     def get_stereo_pair(self, left_track: int = 17, right_track: int = 18) -> Optional[tuple]:
         """
@@ -124,16 +214,16 @@ class QuSession:
     
     def __str__(self):
         size_gb = self.total_size / (1024**3)
-        date_str = self.created_date.strftime("%Y-%m-%d") if self.created_date else "Unknown"
-        return f"{self.name} ({len(self.wav_files)} tracks, {size_gb:.1f} GB, {date_str})"
+        return f"{self.name} ({len(self.wav_files)} tracks, {size_gb:.1f} GB, {self.date_str}) [fp:{self.fingerprint[:8]}]"
 
 
 class USBWatcher:
     """Watch for USB drives with A&H Qu-16 recordings."""
     
-    def __init__(self, volumes_path: Path = VOLUMES_PATH):
+    def __init__(self, volumes_path: Path = VOLUMES_PATH, history: ProcessingHistory = None):
         self.volumes_path = volumes_path
         self.known_volumes: set = set()
+        self.history = history or ProcessingHistory()
         self._update_known_volumes()
     
     def _update_known_volumes(self):
@@ -154,11 +244,15 @@ class USBWatcher:
         self.known_volumes = current
         return list(new_volumes)
     
-    def find_qu_recordings(self, volume: Path) -> List[QuSession]:
+    def find_qu_recordings(self, volume: Path, include_processed: bool = True) -> List[QuSession]:
         """
         Find A&H Qu-16 recording sessions on a volume.
         
         Looks for: <volume>/AHQU/USBMTK/<session_folders>/
+        
+        Args:
+            volume: Path to the mounted volume
+            include_processed: If False, filter out already-processed sessions
         """
         sessions = []
         
@@ -182,10 +276,18 @@ class USBWatcher:
                 if session.is_valid_show:
                     sessions.append(session)
         
-        # Sort by date, newest first
-        sessions.sort(key=lambda s: s.created_date or datetime.min, reverse=True)
+        # Sort by recording date (from actual file timestamps), newest first
+        sessions.sort(key=lambda s: s.recording_date or datetime.min, reverse=True)
+        
+        # Optionally filter out already-processed sessions
+        if not include_processed:
+            sessions = [s for s in sessions if not self.history.is_processed(s)]
         
         return sessions
+    
+    def get_unprocessed_sessions(self, volume: Path) -> List[QuSession]:
+        """Get only sessions that haven't been processed yet."""
+        return self.find_qu_recordings(volume, include_processed=False)
     
     def scan_all_volumes(self) -> Dict[Path, List[QuSession]]:
         """Scan all mounted volumes for Qu recordings."""
@@ -251,10 +353,34 @@ def main():
                        help="Scan currently mounted volumes and exit")
     parser.add_argument("--volume", type=str,
                        help="Scan a specific volume path")
+    parser.add_argument("--clear-history", action="store_true",
+                       help="Clear processing history")
+    parser.add_argument("--show-history", action="store_true",
+                       help="Show processing history")
     
     args = parser.parse_args()
     
-    watcher = USBWatcher()
+    history = ProcessingHistory()
+    watcher = USBWatcher(history=history)
+    
+    if args.clear_history:
+        history.clear()
+        return 0
+    
+    if args.show_history:
+        if not history.processed:
+            print("No sessions have been processed yet.")
+        else:
+            print(f"Processing History ({len(history.processed)} sessions):\n")
+            for fp, info in sorted(history.processed.items(), 
+                                   key=lambda x: x[1].get('processed_at', ''), 
+                                   reverse=True):
+                print(f"  {info.get('show_name', 'Unknown')} ({info.get('recording_date', '?')})")
+                print(f"    Folder: {info.get('folder_name')}")
+                print(f"    Processed: {info.get('processed_at', '?')}")
+                print(f"    Fingerprint: {fp[:8]}...")
+                print()
+        return 0
     
     if args.volume:
         volume = Path(args.volume)
@@ -264,12 +390,27 @@ def main():
         
         sessions = watcher.find_qu_recordings(volume)
         if sessions:
-            print(f"Found {len(sessions)} recording session(s) on {volume.name}:")
+            print(f"Found {len(sessions)} recording session(s) on {volume.name}:\n")
             for s in sessions:
-                print(f"\n  {s}")
+                is_processed = history.is_processed(s)
+                status = " [ALREADY PROCESSED]" if is_processed else " [NEW]"
+                print(f"  {s}{status}")
                 pair = s.get_stereo_pair()
                 if pair:
                     print(f"    Stereo pair: {pair[0].name} (L), {pair[1].name} (R)")
+                if is_processed:
+                    info = history.get_info(s)
+                    if info:
+                        print(f"    Previously processed as: {info.get('show_name')}")
+                        print(f"    Output: {info.get('output_dir')}")
+                print()
+            
+            # Summary
+            unprocessed = [s for s in sessions if not history.is_processed(s)]
+            if unprocessed:
+                print(f"  {len(unprocessed)} session(s) ready to process")
+            else:
+                print(f"  All sessions already processed")
         else:
             print(f"No Qu-16 recordings found on {volume.name}")
         return 0
@@ -280,7 +421,9 @@ def main():
             for volume, sessions in results.items():
                 print(f"\n{volume.name}:")
                 for s in sessions:
-                    print(f"  - {s}")
+                    is_processed = history.is_processed(s)
+                    status = " [PROCESSED]" if is_processed else " [NEW]"
+                    print(f"  - {s}{status}")
                     pair = s.get_stereo_pair()
                     if pair:
                         print(f"      Stereo: {pair[0].name} (L), {pair[1].name} (R)")

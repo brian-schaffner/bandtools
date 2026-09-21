@@ -23,7 +23,7 @@ import sys
 from pathlib import Path
 from datetime import datetime
 
-from usb_watcher import USBWatcher, QuSession
+from usb_watcher import USBWatcher, QuSession, ProcessingHistory
 from cli import process_recording
 from dropbox_uploader import DropboxUploader
 from notifier import Notifier
@@ -72,7 +72,8 @@ class AutoRecap:
         self.pad_end = pad_end
         
         # Initialize components
-        self.watcher = USBWatcher()
+        self.history = ProcessingHistory()
+        self.watcher = USBWatcher(history=self.history)
         self.uploader = DropboxUploader()
         self.notifier = Notifier()
         self.notifier.load_band_members_from_env()
@@ -93,6 +94,7 @@ class AutoRecap:
         session: QuSession,
         show_name: str = None,
         show_date: str = None,
+        force: bool = False,
     ) -> dict:
         """
         Process a recording session.
@@ -101,22 +103,34 @@ class AutoRecap:
             session: QuSession to process
             show_name: Override show name (default: use session folder name)
             show_date: Override date (default: use session date)
+            force: Process even if already processed
             
         Returns:
             Dict with processing results
         """
+        # Check if already processed
+        if not force and self.history.is_processed(session):
+            info = self.history.get_info(session)
+            print(f"\n[SKIP] Session already processed:")
+            print(f"  Folder: {session.name}")
+            print(f"  Fingerprint: {session.fingerprint[:8]}...")
+            print(f"  Previously processed as: {info.get('show_name')}")
+            print(f"  Output: {info.get('output_dir')}")
+            print(f"  Use --force to reprocess")
+            return {"success": False, "error": "Already processed", "skipped": True}
+        
         # Determine show name and date
         show_name = show_name or self._parse_show_name(session.name)
         show_date = show_date or (
-            session.created_date.strftime("%Y-%m-%d") 
-            if session.created_date 
+            session.recording_date.strftime("%Y-%m-%d") 
+            if session.recording_date 
             else datetime.now().strftime("%Y-%m-%d")
         )
         
         print(f"\n{'#'*60}")
         print(f"  PROCESSING: {show_name}")
         print(f"  Date: {show_date}")
-        print(f"  Session: {session.name}")
+        print(f"  Session: {session.name} [fp:{session.fingerprint[:8]}]")
         print(f"{'#'*60}\n")
         
         # Get stereo pair
@@ -153,6 +167,9 @@ class AutoRecap:
         # Find output MP3s
         mp3_files = list(output_dir.glob("*.mp3"))
         
+        # Mark session as processed
+        self.history.mark_processed(session, show_name, str(output_dir))
+        
         return {
             "success": True,
             "show_name": show_name,
@@ -160,6 +177,7 @@ class AutoRecap:
             "output_dir": output_dir,
             "mp3_files": mp3_files,
             "set_count": len(mp3_files),
+            "session": session,
         }
     
     def upload_and_notify(self, result: dict) -> dict:
@@ -213,13 +231,15 @@ class AutoRecap:
         
         return result
     
-    def process_volume(self, volume: Path, show_name: str = None) -> list:
+    def process_volume(self, volume: Path, show_name: str = None, force: bool = False, process_all: bool = False) -> list:
         """
-        Process all sessions on a volume.
+        Process sessions on a volume.
         
         Args:
             volume: Volume path to scan
             show_name: Override show name for all sessions
+            force: Process even if already processed
+            process_all: Process all unprocessed sessions (not just newest)
             
         Returns:
             List of processing results
@@ -230,14 +250,33 @@ class AutoRecap:
             print(f"No Qu-16 recordings found on {volume}")
             return []
         
+        # Show what's available
+        print(f"\nFound {len(sessions)} session(s) on {volume.name}:")
+        for s in sessions:
+            is_processed = self.history.is_processed(s)
+            status = " [PROCESSED]" if is_processed else " [NEW]"
+            print(f"  - {s}{status}")
+        print()
+        
+        # Filter to unprocessed unless force
+        if not force:
+            to_process = [s for s in sessions if not self.history.is_processed(s)]
+        else:
+            to_process = sessions
+        
+        if not to_process:
+            print("All sessions already processed. Use --force to reprocess.")
+            return []
+        
         results = []
-        for session in sessions:
-            # For now, just process the most recent session
-            # Could prompt user or process all
-            result = self.process_session(session, show_name=show_name)
-            result = self.upload_and_notify(result)
+        for session in to_process:
+            result = self.process_session(session, show_name=show_name, force=force)
+            if result.get("success"):
+                result = self.upload_and_notify(result)
             results.append(result)
-            break  # Just process first (most recent) session
+            
+            if not process_all:
+                break  # Just process first (most recent unprocessed) session
         
         return results
     
@@ -329,8 +368,42 @@ Examples:
                        help="Right channel track number (default: 18)")
     parser.add_argument("--output", "-o", type=str,
                        help="Output base directory")
+    parser.add_argument("--force", "-f", action="store_true",
+                       help="Process even if session was already processed")
+    parser.add_argument("--all", "-a", action="store_true",
+                       help="Process all unprocessed sessions (not just newest)")
+    parser.add_argument("--show-history", action="store_true",
+                       help="Show processing history and exit")
+    parser.add_argument("--clear-history", action="store_true",
+                       help="Clear processing history")
     
     args = parser.parse_args()
+    
+    # Handle history commands first (before pipeline init)
+    if args.show_history or args.clear_history:
+        from usb_watcher import ProcessingHistory
+        history = ProcessingHistory()
+        
+        if args.clear_history:
+            history.clear()
+            print("Processing history cleared.")
+            return 0
+        
+        if args.show_history:
+            if not history.processed:
+                print("No sessions have been processed yet.")
+            else:
+                print(f"Processing History ({len(history.processed)} sessions):\n")
+                for fp, info in sorted(history.processed.items(), 
+                                       key=lambda x: x[1].get('processed_at', ''), 
+                                       reverse=True):
+                    print(f"  {info.get('show_name', 'Unknown')} ({info.get('recording_date', '?')})")
+                    print(f"    Folder: {info.get('folder_name')}")
+                    print(f"    Processed: {info.get('processed_at', '?')}")
+                    print(f"    Output: {info.get('output_dir')}")
+                    print(f"    Fingerprint: {fp[:8]}...")
+                    print()
+            return 0
     
     # Initialize pipeline
     pipeline = AutoRecap(
@@ -347,7 +420,12 @@ Examples:
             print(f"Error: Volume not found: {volume}")
             return 1
         
-        results = pipeline.process_volume(volume, show_name=args.show_name)
+        results = pipeline.process_volume(
+            volume, 
+            show_name=args.show_name,
+            force=args.force,
+            process_all=args.all,
+        )
         for result in results:
             pipeline._print_summary(result)
         return 0
@@ -361,7 +439,9 @@ Examples:
         for volume, sessions in results_by_volume.items():
             print(f"\n{volume.name}:")
             for s in sessions:
-                print(f"  - {s}")
+                is_processed = pipeline.history.is_processed(s)
+                status = " [PROCESSED]" if is_processed else " [NEW]"
+                print(f"  - {s}{status}")
         return 0
     
     # Default: watch for USB drives
