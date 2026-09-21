@@ -78,7 +78,7 @@ class ProcessingHistory:
         self.processed[session.fingerprint] = {
             "folder_name": session.name,
             "show_name": show_name,
-            "recording_date": session.date_str,
+            "duration_estimate": session.duration_estimate,
             "processed_at": datetime.now().isoformat(),
             "output_dir": str(output_dir),
             "total_size_gb": round(session.total_size / (1024**3), 2),
@@ -107,45 +107,32 @@ class QuSession:
         self.wav_files: List[Path] = []
         self.total_size = 0
         self.file_sizes: List[int] = []  # For fingerprinting
-        self.recording_date: Optional[datetime] = None  # Actual recording time from files
         self.fingerprint: str = ""  # Unique identifier for this session's content
         self._scan()
     
     def _scan(self):
         """Scan the session folder for WAV files."""
-        newest_mtime = 0
-        
         for f in self.path.glob("*.WAV"):
             if f.is_file():
-                stat = f.stat()
-                size = stat.st_size
+                size = f.stat().st_size
                 self.wav_files.append(f)
                 self.total_size += size
                 self.file_sizes.append(size)
-                # Track newest file modification time
-                if stat.st_mtime > newest_mtime:
-                    newest_mtime = stat.st_mtime
         
         # Also check lowercase
         for f in self.path.glob("*.wav"):
             if f.is_file() and f not in self.wav_files:
-                stat = f.stat()
-                size = stat.st_size
+                size = f.stat().st_size
                 self.wav_files.append(f)
                 self.total_size += size
                 self.file_sizes.append(size)
-                if stat.st_mtime > newest_mtime:
-                    newest_mtime = stat.st_mtime
         
         # Sort by name for consistent channel ordering
         self.wav_files.sort(key=lambda x: x.name)
         self.file_sizes.sort()  # Sort for consistent fingerprint
         
-        # Use actual file timestamp as recording date (most reliable)
-        if newest_mtime > 0:
-            self.recording_date = datetime.fromtimestamp(newest_mtime)
-        
         # Create fingerprint from file count + sizes (unique per actual recording)
+        # Note: Qu-16 has no RTC so we can't use timestamps
         self._create_fingerprint()
     
     def _create_fingerprint(self):
@@ -175,11 +162,17 @@ class QuSession:
         return True
     
     @property
-    def date_str(self) -> str:
-        """Get formatted date string."""
-        if self.recording_date:
-            return self.recording_date.strftime("%Y-%m-%d %H:%M")
-        return "Unknown date"
+    def duration_estimate(self) -> str:
+        """Estimate recording duration from file sizes (rough: ~10MB/min for WAV)."""
+        # Rough estimate: stereo 48kHz 24-bit WAV is about 17MB/min per track
+        # Main mix tracks (17+18) together ~34MB/min
+        largest_file = max(self.file_sizes) if self.file_sizes else 0
+        minutes = largest_file / (17 * 1024 * 1024)  # Rough estimate
+        hours = int(minutes // 60)
+        mins = int(minutes % 60)
+        if hours > 0:
+            return f"~{hours}h {mins}m"
+        return f"~{mins}m"
     
     def get_stereo_pair(self, left_track: int = 17, right_track: int = 18) -> Optional[tuple]:
         """
@@ -214,7 +207,7 @@ class QuSession:
     
     def __str__(self):
         size_gb = self.total_size / (1024**3)
-        return f"{self.name} ({len(self.wav_files)} tracks, {size_gb:.1f} GB, {self.date_str}) [fp:{self.fingerprint[:8]}]"
+        return f"{self.name} ({len(self.wav_files)} tracks, {size_gb:.1f} GB, {self.duration_estimate}) [fp:{self.fingerprint[:8]}]"
 
 
 class USBWatcher:
@@ -276,8 +269,9 @@ class USBWatcher:
                 if session.is_valid_show:
                     sessions.append(session)
         
-        # Sort by recording date (from actual file timestamps), newest first
-        sessions.sort(key=lambda s: s.recording_date or datetime.min, reverse=True)
+        # Sort by folder name (Qu-16 has no RTC, so timestamps are unreliable)
+        # QU-MT001, QU-MT002, etc. - higher number = more recent (usually)
+        sessions.sort(key=lambda s: s.name)
         
         # Optionally filter out already-processed sessions
         if not include_processed:
@@ -375,7 +369,7 @@ def main():
             for fp, info in sorted(history.processed.items(), 
                                    key=lambda x: x[1].get('processed_at', ''), 
                                    reverse=True):
-                print(f"  {info.get('show_name', 'Unknown')} ({info.get('recording_date', '?')})")
+                print(f"  {info.get('show_name', 'Unknown')} ({info.get('duration_estimate', '?')})")
                 print(f"    Folder: {info.get('folder_name')}")
                 print(f"    Processed: {info.get('processed_at', '?')}")
                 print(f"    Fingerprint: {fp[:8]}...")

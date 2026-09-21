@@ -120,12 +120,9 @@ class AutoRecap:
             return {"success": False, "error": "Already processed", "skipped": True}
         
         # Determine show name and date
+        # Note: Qu-16 has no RTC, so we can't get date from files
         show_name = show_name or self._parse_show_name(session.name)
-        show_date = show_date or (
-            session.recording_date.strftime("%Y-%m-%d") 
-            if session.recording_date 
-            else datetime.now().strftime("%Y-%m-%d")
-        )
+        show_date = show_date or datetime.now().strftime("%Y-%m-%d")
         
         print(f"\n{'#'*60}")
         print(f"  PROCESSING: {show_name}")
@@ -354,10 +351,14 @@ Examples:
     
     parser.add_argument("--volume", "-v", type=str,
                        help="Process a specific volume")
+    parser.add_argument("--session", "-s", type=str,
+                       help="Process a specific session by folder name (e.g., QU-MT002)")
     parser.add_argument("--scan-now", action="store_true",
                        help="Scan currently mounted drives")
     parser.add_argument("--show-name", "-n", type=str,
                        help="Override show name")
+    parser.add_argument("--date", "-d", type=str,
+                       help="Override show date (YYYY-MM-DD)")
     parser.add_argument("--skip-start", type=float, default=3600,
                        help="Seconds to skip from start (default: 3600)")
     parser.add_argument("--no-detect-breaks", action="store_true",
@@ -397,7 +398,7 @@ Examples:
                 for fp, info in sorted(history.processed.items(), 
                                        key=lambda x: x[1].get('processed_at', ''), 
                                        reverse=True):
-                    print(f"  {info.get('show_name', 'Unknown')} ({info.get('recording_date', '?')})")
+                    print(f"  {info.get('show_name', 'Unknown')} ({info.get('duration_estimate', '?')})")
                     print(f"    Folder: {info.get('folder_name')}")
                     print(f"    Processed: {info.get('processed_at', '?')}")
                     print(f"    Output: {info.get('output_dir')}")
@@ -419,6 +420,29 @@ Examples:
         if not volume.exists():
             print(f"Error: Volume not found: {volume}")
             return 1
+        
+        # If specific session requested, find and process just that one
+        if args.session:
+            sessions = pipeline.watcher.find_qu_recordings(volume)
+            session = next((s for s in sessions if s.name == args.session), None)
+            
+            if not session:
+                print(f"Error: Session '{args.session}' not found on {volume.name}")
+                print(f"Available sessions:")
+                for s in sessions:
+                    print(f"  - {s.name}")
+                return 1
+            
+            result = pipeline.process_session(
+                session, 
+                show_name=args.show_name,
+                show_date=args.date,
+                force=args.force,
+            )
+            if result.get("success"):
+                result = pipeline.upload_and_notify(result)
+            pipeline._print_summary(result)
+            return 0
         
         results = pipeline.process_volume(
             volume, 
