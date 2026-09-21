@@ -7,8 +7,14 @@ pydantic>=2.0.0
 # Audio processing (uses ffmpeg via subprocess)
 # ffmpeg must be installed on the system
 
-# Future: Dropbox integration
-# dropbox>=11.36.0
+# Music recognition (detect commercial break music)
+pyacrcloud>=1.0.0
 
-# Future: SMS notifications
-# twilio>=8.0.0
+# Cloud storage
+dropbox>=12.0.0
+
+# SMS notifications
+twilio>=9.0.0
+
+# File system watching (for USB detection)
+watchdog>=4.0.0

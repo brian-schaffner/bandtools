@@ -53,6 +53,7 @@ class AudioAnalyzer:
         silence_threshold_db: float = -40.0,
         min_silence_duration: float = 10.0,
         min_set_duration: float = 300.0,  # 5 minutes
+        skip_start: float = 0.0,
     ):
         """
         Initialize the analyzer.
@@ -61,10 +62,12 @@ class AudioAnalyzer:
             silence_threshold_db: Audio level (in dB) below which is considered silence
             min_silence_duration: Minimum duration (seconds) of silence to detect a break
             min_set_duration: Minimum duration (seconds) for a valid set
+            skip_start: Seconds to skip from the beginning of the recording
         """
         self.silence_threshold_db = silence_threshold_db
         self.min_silence_duration = min_silence_duration
         self.min_set_duration = min_set_duration
+        self.skip_start = skip_start
     
     def get_duration(self, audio_path: str) -> float:
         """Get the total duration of an audio file in seconds."""
@@ -131,7 +134,8 @@ class AudioAnalyzer:
     def find_set_boundaries(
         self,
         silence_regions: List[SilenceRegion],
-        total_duration: float
+        total_duration: float,
+        effective_start: float = 0.0
     ) -> List[SetBoundary]:
         """
         Find set boundaries based on detected silence regions.
@@ -156,14 +160,14 @@ class AudioAnalyzer:
         silence_regions = sorted(silence_regions, key=lambda x: x.start)
         
         # Determine the start of actual show content
-        # If there's silence at the very beginning, skip it
-        if silence_regions[0].start < 60:  # Silence starts within first minute
+        # If there's silence at the very beginning (relative to effective_start), skip it
+        if silence_regions[0].start < effective_start + 60:  # Silence starts within first minute of effective start
             # Pre-show silence - show starts after this silence ends
-            show_start = silence_regions[0].end
+            show_start = max(silence_regions[0].end, effective_start)
             break_silences = silence_regions[1:]  # Remaining silences are potential breaks
         else:
-            # No pre-show silence, show starts at beginning
-            show_start = 0
+            # No pre-show silence, show starts at effective_start
+            show_start = effective_start
             break_silences = silence_regions
         
         # Determine the end of the show
@@ -232,11 +236,34 @@ class AudioAnalyzer:
         total_duration = self.get_duration(audio_path)
         print(f"[ANALYZER] Total duration: {total_duration:.1f}s ({total_duration/60:.1f} minutes)")
         
+        if self.skip_start > 0:
+            print(f"[ANALYZER] Skipping first {self.skip_start:.1f}s ({self.skip_start/60:.1f} minutes)")
+        
         # Detect silence regions
         silence_regions = self.detect_silence(audio_path)
         
-        # Find set boundaries
-        sets = self.find_set_boundaries(silence_regions, total_duration)
+        # Filter out silence regions before skip_start and adjust times
+        if self.skip_start > 0:
+            adjusted_regions = []
+            for region in silence_regions:
+                if region.end <= self.skip_start:
+                    # Entirely before skip point, ignore
+                    continue
+                elif region.start < self.skip_start:
+                    # Partially before skip point, adjust start
+                    adjusted_regions.append(SilenceRegion(
+                        start=self.skip_start,
+                        end=region.end,
+                        duration=region.end - self.skip_start
+                    ))
+                else:
+                    # Entirely after skip point, keep as-is
+                    adjusted_regions.append(region)
+            silence_regions = adjusted_regions
+        
+        # Find set boundaries (use skip_start as the effective start)
+        effective_start = self.skip_start
+        sets = self.find_set_boundaries(silence_regions, total_duration, effective_start)
         
         print(f"[ANALYZER] Detected {len(sets)} sets:")
         for s in sets:
