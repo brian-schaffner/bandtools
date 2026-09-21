@@ -21,12 +21,92 @@ import argparse
 import os
 import sys
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, date, timedelta
 
 from usb_watcher import USBWatcher, QuSession, ProcessingHistory
 from cli import process_recording
 from dropbox_uploader import DropboxUploader
 from notifier import Notifier
+
+# Add setloader to path for gig_calendar access
+sys.path.insert(0, str(Path(__file__).parent.parent / "setloader"))
+try:
+    from gig_calendar import get_all_events, get_local_today, GigEvent
+    GIG_CALENDAR_AVAILABLE = True
+except ImportError:
+    GIG_CALENDAR_AVAILABLE = False
+    print("[WARNING] gig_calendar not available - auto show matching disabled")
+
+
+def get_most_recent_gig(days_back: int = 7) -> dict:
+    """
+    Find the most recent past gig from the band calendar.
+    
+    Args:
+        days_back: How many days back to look for a gig
+        
+    Returns:
+        Dict with 'date', 'venue', 'suggested_name' or None if not found
+    """
+    if not GIG_CALENDAR_AVAILABLE:
+        return None
+    
+    try:
+        today = get_local_today()
+        events = get_all_events()
+        
+        # Find past gigs within the last N days
+        cutoff = today - timedelta(days=days_back)
+        past_gigs = [
+            e for e in events 
+            if cutoff <= e.event_date <= today
+        ]
+        
+        if not past_gigs:
+            print(f"[GIG CALENDAR] No gigs found in the last {days_back} days")
+            return None
+        
+        # Get the most recent one
+        most_recent = max(past_gigs, key=lambda e: e.event_date)
+        
+        print(f"[GIG CALENDAR] Most recent gig: {most_recent.suggested_name} ({most_recent.event_date})")
+        
+        return {
+            "date": most_recent.event_date.isoformat(),
+            "venue": most_recent.venue,
+            "suggested_name": most_recent.suggested_name,
+            "title": most_recent.title,
+        }
+    
+    except Exception as e:
+        print(f"[GIG CALENDAR] Error fetching calendar: {e}")
+        return None
+
+
+def list_recent_gigs(days_back: int = 14) -> list:
+    """List recent gigs from the calendar."""
+    if not GIG_CALENDAR_AVAILABLE:
+        return []
+    
+    try:
+        today = get_local_today()
+        events = get_all_events()
+        
+        cutoff = today - timedelta(days=days_back)
+        recent = [e for e in events if cutoff <= e.event_date <= today]
+        recent.sort(key=lambda e: e.event_date, reverse=True)
+        
+        return [
+            {
+                "date": e.event_date.isoformat(),
+                "venue": e.venue,
+                "suggested_name": e.suggested_name,
+            }
+            for e in recent
+        ]
+    except Exception as e:
+        print(f"[GIG CALENDAR] Error: {e}")
+        return []
 
 
 class AutoRecap:
@@ -87,6 +167,7 @@ class AutoRecap:
         print(f"  Break detection: {'Enabled' if detect_breaks else 'Disabled'}")
         print(f"  Dropbox: {'Ready' if self.uploader.available else 'Not configured'}")
         print(f"  SMS: {'Ready' if self.notifier.sms_available else 'Not configured'}")
+        print(f"  Gig Calendar: {'Ready' if GIG_CALENDAR_AVAILABLE else 'Not available'}")
         print(f"{'='*60}\n")
     
     def process_session(
@@ -120,7 +201,15 @@ class AutoRecap:
             return {"success": False, "error": "Already processed", "skipped": True}
         
         # Determine show name and date
-        # Note: Qu-16 has no RTC, so we can't get date from files
+        # Try to auto-detect from band's gig calendar
+        if not show_name or not show_date:
+            gig = get_most_recent_gig(days_back=7)
+            if gig:
+                show_name = show_name or gig.get("suggested_name") or gig.get("venue")
+                show_date = show_date or gig.get("date")
+                print(f"[AUTO] Matched to gig: {show_name} ({show_date})")
+        
+        # Fallback to defaults
         show_name = show_name or self._parse_show_name(session.name)
         show_date = show_date or datetime.now().strftime("%Y-%m-%d")
         
@@ -377,8 +466,27 @@ Examples:
                        help="Show processing history and exit")
     parser.add_argument("--clear-history", action="store_true",
                        help="Clear processing history")
+    parser.add_argument("--list-gigs", action="store_true",
+                       help="List recent gigs from band calendar")
+    parser.add_argument("--gig-days", type=int, default=7,
+                       help="Days back to search for gigs (default: 7)")
     
     args = parser.parse_args()
+    
+    # Handle gig listing
+    if args.list_gigs:
+        gigs = list_recent_gigs(days_back=args.gig_days)
+        if not gigs:
+            print(f"No gigs found in the last {args.gig_days} days")
+            if not GIG_CALENDAR_AVAILABLE:
+                print("(gig_calendar module not available)")
+        else:
+            print(f"Recent gigs (last {args.gig_days} days):\n")
+            for g in gigs:
+                print(f"  {g['date']}  {g['suggested_name']}")
+                print(f"            Venue: {g['venue']}")
+                print()
+        return 0
     
     # Handle history commands first (before pipeline init)
     if args.show_history or args.clear_history:
