@@ -1,0 +1,27 @@
+name: Restart Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "restart" to confirm'
+        required: true
+        default: ''
+
+jobs:
+  restart:
+    name: Restart Production Server
+    runs-on: ubuntu-latest
+    if: github.event.inputs.confirm == 'restart'
+    
+    steps:
+      - name: Setup Fly CLI
+        uses: superfly/flyctl-actions/setup-flyctl@master
+      
+      - name: Restart bandtools
+        run: flyctl apps restart bandtools --access-token ${{ secrets.FLY_API_TOKEN }}
+      
+      - name: Verify restart
+        run: |
+          sleep 10
+          flyctl status --app bandtools --access-token ${{ secrets.FLY_API_TOKEN }}
