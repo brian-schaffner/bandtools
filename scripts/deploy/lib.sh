@@ -32,16 +32,12 @@ PY
 
 require_fly_cli() {
   resolve_fly_api_token
-  if ! command -v fly >/dev/null 2>&1; then
-    if command -v flyctl >/dev/null 2>&1; then
-      ln -sf "$(command -v flyctl)" "$(dirname "$(command -v flyctl)")/fly" 2>/dev/null || true
-    fi
-  fi
-  if ! command -v fly >/dev/null 2>&1; then
-    echo "ERROR: fly CLI not found. Install: https://fly.io/docs/hands-on/install-flyctl/" >&2
+  # Support both 'fly' and 'flyctl' - GitHub Action uses 'flyctl'
+  if ! command -v flyctl >/dev/null 2>&1 && ! command -v fly >/dev/null 2>&1; then
+    echo "ERROR: fly/flyctl CLI not found. Install: https://fly.io/docs/hands-on/install-flyctl/" >&2
     return 1
   fi
-  if ! fly auth whoami >/dev/null 2>&1; then
+  if ! flyctl auth whoami >/dev/null 2>&1; then
     echo "ERROR: fly CLI is not authenticated. Run: fly auth login or set FLY_API_TOKEN" >&2
     return 1
   fi
@@ -79,9 +75,9 @@ print_deploy_context() {
 
 ensure_fly_app() {
   local app="$1"
-  if ! fly apps list 2>/dev/null | awk '{print $1}' | grep -qx "$app"; then
+  if ! flyctl apps list 2>/dev/null | awk '{print $1}' | grep -qx "$app"; then
     echo "Creating Fly app ${app}..."
-    fly apps create "$app"
+    flyctl apps create "$app"
   fi
 }
 
@@ -89,9 +85,9 @@ ensure_fly_volume() {
   local app="$1"
   local volume="$2"
   local region="$3"
-  if ! fly volumes list -a "$app" 2>/dev/null | grep -q "$volume"; then
+  if ! flyctl volumes list -a "$app" 2>/dev/null | grep -q "$volume"; then
     echo "Creating volume ${volume} in ${region}..."
-    fly volumes create "$volume" --region "$region" --size 1 -a "$app" -y
+    flyctl volumes create "$volume" --region "$region" --size 1 -a "$app" -y
   fi
 }
 
@@ -136,7 +132,7 @@ sync_fly_secrets() {
     set_args+=("GOOGLE_API_KEY=${google_key}" "GEMINI_API_KEY=${GEMINI_API_KEY:-${google_key}}")
   fi
 
-  fly secrets set -a "$app" "${set_args[@]}"
+  flyctl secrets set -a "$app" "${set_args[@]}"
 }
 
 fly_deploy_image() {
@@ -153,7 +149,7 @@ fly_deploy_image() {
   deploy_env="${BANDTOOLS_DEPLOY_ENV:-staging}"
   label="${BANDTOOLS_BUILD_LABEL:-${build_num}-${sha_short}}"
   echo "Deploying image to ${app} (build ${label})..."
-  fly deploy -a "$app" -c "$config" --ha=false \
+  flyctl deploy -a "$app" -c "$config" --ha=false \
     --build-arg "NEXT_PUBLIC_API_SECRET=${build_secret}" \
     --build-arg "BANDTOOLS_GIT_SHA=${sha_full}" \
     --build-arg "BANDTOOLS_BUILD_NUMBER=${build_num}" \
