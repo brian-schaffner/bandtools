@@ -22,6 +22,7 @@ on:
       - cursor/flyer-agent-980b
       - cursor/setlist-key-offset-fix-c597
       - cursor/show-recap-feature-c597
+      - cursor/fix-gzip-datafile-loading-b8d2
 
 concurrency:
   group: staging-deploy
