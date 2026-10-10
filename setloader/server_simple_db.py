@@ -58,6 +58,21 @@ SECRET = os.getenv("SECRET", "change-me")
 BASE_URL = os.getenv("BASE_URL", "http://localhost:8002")
 
 # Helper functions
+def sanitize_filename(name: str) -> str:
+    """
+    Sanitize a string for use in filenames.
+    Replaces slashes, backslashes, and other problematic characters.
+    """
+    # Replace slashes with dashes
+    sanitized = name.replace('/', '-').replace('\\', '-')
+    # Replace other problematic characters
+    sanitized = re.sub(r'[<>:"|?*]', '-', sanitized)
+    # Collapse multiple dashes
+    sanitized = re.sub(r'-+', '-', sanitized)
+    # Remove leading/trailing dashes and spaces
+    sanitized = sanitized.strip('- ')
+    return sanitized or "Set"
+
 def get_user_from_request(request: Request) -> Optional[Dict]:
     """Get user from request headers."""
     session_token = request.headers.get("X-Session-ID")
@@ -759,7 +774,8 @@ async def process_setlist_streaming(
             
             from song_extraction_library import SongExtractor
             song_extractor = SongExtractor(user['id'], backup_path)
-            extraction_result = song_extractor.extract_and_save(validation_result, working_dir / f"{name}.sbp", name)
+            safe_name = sanitize_filename(name)
+            extraction_result = song_extractor.extract_and_save(validation_result, working_dir / f"{safe_name}.sbp", name)
             
             yield f"data: {json.dumps({'stage': 'song_extraction', 'message': 'Creating SBP file...', 'progress': 50})}\n\n"
             
@@ -776,17 +792,17 @@ async def process_setlist_streaming(
             
             # Create unique filename to avoid conflicts
             timestamp = int(time.time())
-            permanent_filename = f"{name}_{timestamp}.sbp"
+            permanent_filename = f"{safe_name}_{timestamp}.sbp"
             permanent_path = downloads_dir / permanent_filename
             
             # Move the file from working directory to permanent location
-            shutil.move(str(working_dir / f"{name}.sbp"), str(permanent_path))
+            shutil.move(str(working_dir / f"{safe_name}.sbp"), str(permanent_path))
             
             # Save to user's archive with permanent path
             archive_result = db.save_file_upload(
                 user_id=user['id'],
                 file_type='download',
-                original_filename=f"{name}.sbp",
+                original_filename=f"{safe_name}.sbp",
                 stored_filename=permanent_filename,
                 file_path=str(permanent_path),
                 file_size=permanent_path.stat().st_size,
@@ -885,7 +901,8 @@ async def process_setlist_simple(
         # Step 3: Song Extraction
         from song_extraction_library import SongExtractor
         song_extractor = SongExtractor(user['id'], backup_path)
-        extraction_result = song_extractor.extract_and_save(validation_result, working_dir / f"{name}.sbp", name)
+        safe_name = sanitize_filename(name)
+        extraction_result = song_extractor.extract_and_save(validation_result, working_dir / f"{safe_name}.sbp", name)
         
         if not extraction_result["success"]:
             return JSONResponse(content={"ok": False, "error": f"Song extraction failed: {extraction_result['error']}"})
@@ -896,17 +913,17 @@ async def process_setlist_simple(
         
         # Create unique filename to avoid conflicts
         timestamp = int(time.time())
-        permanent_filename = f"{name}_{timestamp}.sbp"
+        permanent_filename = f"{safe_name}_{timestamp}.sbp"
         permanent_path = downloads_dir / permanent_filename
         
         # Move the file from working directory to permanent location
-        shutil.move(str(working_dir / f"{name}.sbp"), str(permanent_path))
+        shutil.move(str(working_dir / f"{safe_name}.sbp"), str(permanent_path))
         
         # Save output file to database with permanent path
         output_file = db.save_file_upload(
             user_id=user['id'],
             file_type="download",
-            original_filename=f"{name}.sbp",
+            original_filename=f"{safe_name}.sbp",
             stored_filename=permanent_filename,
             file_path=str(permanent_path),
             file_size=permanent_path.stat().st_size,
@@ -1624,7 +1641,8 @@ async def standalone_song_extraction(
         from song_extraction_library import SongExtractor
         song_extractor = SongExtractor(user_id, backup_path)
         
-        output_filename = f"{set_name.replace(' ', '_')}.sbp"
+        safe_name = sanitize_filename(set_name).replace(' ', '_')
+        output_filename = f"{safe_name}.sbp"
         output_path = working_dir / output_filename
         
         extraction_result = song_extractor.extract_and_save(
