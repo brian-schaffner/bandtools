@@ -214,7 +214,7 @@ class SongExtractor:
             version="1.0",
             songs=used_songs_list,  # Only include songs that are actually used
             sets=[],
-            folders=self.backup_sbp.folders
+            folders=[]  # Don't carry over folders from backup - avoids duplicate set issues on import
         )
         
         # Process each set
