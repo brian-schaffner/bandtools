@@ -63,7 +63,39 @@ def slurp_after_json_start(text: str) -> str:
     raise ValueError("No JSON object/array found in data file.")
 
 def load_datafile(path: str) -> Dict[str, Any]:
-    raw = open(path, 'r', encoding='utf-8').read()
+    """
+    Load a data file containing song JSON. Handles:
+    - Plain text files (UTF-8)
+    - Gzip-compressed files
+    - ZIP archives (extracts dataFile.txt from inside)
+    """
+    import gzip
+    import zipfile
+    
+    # Read first few bytes to detect file type
+    with open(path, 'rb') as f:
+        header = f.read(4)
+    
+    # Check for ZIP archive (PK signature: 0x50 0x4B)
+    if header[:2] == b'PK':
+        # It's a ZIP file - extract dataFile.txt from it
+        try:
+            with zipfile.ZipFile(path, 'r') as zf:
+                raw = zf.read('dataFile.txt').decode('utf-8-sig')
+        except (zipfile.BadZipFile, KeyError) as e:
+            raise ValueError(f"Failed to extract dataFile.txt from ZIP archive: {e}")
+    # Check for gzip (magic bytes: 0x1f 0x8b)
+    elif header[:2] == b'\x1f\x8b':
+        # It's gzip-compressed - decompress it
+        try:
+            with gzip.open(path, 'rt', encoding='utf-8') as f:
+                raw = f.read()
+        except gzip.BadGzipFile as e:
+            raise ValueError(f"Failed to decompress gzip file: {e}")
+    else:
+        # Assume it's plain text
+        raw = open(path, 'r', encoding='utf-8').read()
+    
     raw_json = slurp_after_json_start(raw.strip())
     data = json.loads(raw_json)
     if not isinstance(data, dict):
