@@ -379,7 +379,7 @@ CREATE TABLE optimization_runs (
 
 | Component | Technology |
 |-----------|-----------|
-| Backend | Python 3.12+, FastAPI |
+| Backend | Python 3.9+, FastAPI |
 | Audio DSP | NumPy, SciPy, librosa, soundfile |
 | Optimization | scikit-optimize, Optuna |
 | Database | SQLite |

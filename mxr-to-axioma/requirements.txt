@@ -1,5 +1,5 @@
 # MXR-to-Axioma Preset Translator
-# Python 3.12+
+# Python 3.9+
 
 # Web Framework
 fastapi>=0.109.0

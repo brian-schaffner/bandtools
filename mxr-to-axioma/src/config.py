@@ -1,7 +1,7 @@
 """Application configuration."""
 
 from pathlib import Path
-from typing import Literal
+from typing import List, Literal
 
 from pydantic_settings import BaseSettings
 
@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     presets_path: Path = Path("presets")
 
     max_upload_size_mb: int = 100
-    supported_audio_formats: list[str] = [".wav", ".flac", ".aiff", ".mp3", ".ogg"]
+    supported_audio_formats: List[str] = [".wav", ".flac", ".aiff", ".mp3", ".ogg"]
 
     default_sample_rate: int = 48000
     analysis_fft_size: int = 4096

@@ -4,6 +4,8 @@ These presets are based on the factory preset descriptions from the MXR MB301 ma
 Parameter values are estimates derived from the documented sonic characteristics.
 """
 
+from __future__ import annotations
+
 from typing import Optional
 import uuid
 

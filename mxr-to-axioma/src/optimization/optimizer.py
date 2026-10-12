@@ -1,5 +1,7 @@
 """Bayesian optimization for preset parameter tuning."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Callable, Optional

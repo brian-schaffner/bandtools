@@ -1,5 +1,7 @@
 """Parameter mapping engine for MXR to Axioma translation."""
 
+from __future__ import annotations
+
 import uuid
 from dataclasses import dataclass
 from typing import Callable, Optional
