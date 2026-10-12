@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="dashboard">
+    <section class="hero">
+        <h1>MXR Bass Synth to Axioma Translator</h1>
+        <p>Translate your MXR Bass Synth presets to Darkglass Anagram Axioma configurations</p>
+        <a href="/mxr/new" class="btn btn-primary">Create New Preset</a>
+    </section>
+
+    <section class="workflow">
+        <h2>Translation Workflow</h2>
+        <div class="workflow-steps">
+            <div class="step">
+                <div class="step-number">1</div>
+                <h3>Import MXR</h3>
+                <p>Enter MXR parameters manually or select a factory preset</p>
+            </div>
+            <div class="step-arrow">→</div>
+            <div class="step">
+                <div class="step-number">2</div>
+                <h3>Analyze</h3>
+                <p>Review parameter mappings and identify gaps</p>
+            </div>
+            <div class="step-arrow">→</div>
+            <div class="step">
+                <div class="step-number">3</div>
+                <h3>Translate</h3>
+                <p>Generate equivalent Axioma configuration</p>
+            </div>
+            <div class="step-arrow">→</div>
+            <div class="step">
+                <div class="step-number">4</div>
+                <h3>Export</h3>
+                <p>Get configuration guide for Darkglass Suite</p>
+            </div>
+        </div>
+    </section>
+
+    <div class="dashboard-grid">
+        <section class="presets-section">
+            <h2>My Presets</h2>
+            {% if presets %}
+            <div class="preset-list">
+                {% for preset in presets %}
+                <div class="preset-card" data-id="{{ preset.id }}">
+                    <div class="preset-header">
+                        <span class="device-badge {{ preset.device }}">{{ preset.device | upper }}</span>
+                        <h3>{{ preset.name }}</h3>
+                    </div>
+                    <div class="preset-actions">
+                        {% if preset.device == 'mxr' %}
+                        <button class="btn btn-sm" onclick="translatePreset('{{ preset.id }}')">Translate</button>
+                        {% else %}
+                        <button class="btn btn-sm" onclick="exportGuide('{{ preset.id }}')">Export Guide</button>
+                        {% endif %}
+                        <button class="btn btn-sm btn-danger" onclick="deletePreset('{{ preset.id }}')">Delete</button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="empty-state">No presets yet. <a href="/mxr/new">Create one</a> to get started.</p>
+            {% endif %}
+        </section>
+
+        <section class="translations-section">
+            <h2>Recent Translations</h2>
+            {% if translations %}
+            <div class="translation-list">
+                {% for t in translations %}
+                <div class="translation-card">
+                    <div class="translation-flow">
+                        <span class="source">{{ t.source_name }}</span>
+                        <span class="arrow">→</span>
+                        <span class="target">{{ t.target_name }}</span>
+                    </div>
+                    <div class="confidence">
+                        <span class="label">Confidence:</span>
+                        <span class="value">{{ (t.confidence * 100) | round(1) }}%</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="empty-state">No translations yet.</p>
+            {% endif %}
+        </section>
+    </div>
+
+    <section class="factory-presets">
+        <h2>Factory Presets</h2>
+        <p>Start with one of the MXR factory presets:</p>
+        <div class="factory-grid" id="factory-grid">
+            <p>Loading...</p>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadFactoryPresets() {
+    const response = await fetch('/api/factory-presets');
+    const data = await response.json();
+    const grid = document.getElementById('factory-grid');
+    
+    grid.innerHTML = data.presets.map(p => `
+        <div class="factory-card">
+            <h4>${p.name}</h4>
+            <p>${p.description}</p>
+            <button class="btn btn-sm" onclick="useFactoryPreset('${p.name}')">Use This</button>
+        </div>
+    `).join('');
+}
+
+async function useFactoryPreset(name) {
+    const response = await fetch(`/api/presets/mxr/factory/${encodeURIComponent(name)}`, {
+        method: 'POST'
+    });
+    if (response.ok) {
+        location.reload();
+    }
+}
+
+async function translatePreset(id) {
+    const response = await fetch(`/api/translate/${id}`, {
+        method: 'POST'
+    });
+    if (response.ok) {
+        const data = await response.json();
+        location.href = `/translate/${id}`;
+    }
+}
+
+async function exportGuide(id) {
+    const response = await fetch(`/api/export/${id}/guide`);
+    if (response.ok) {
+        const data = await response.json();
+        alert(data.guide);
+    }
+}
+
+async function deletePreset(id) {
+    if (confirm('Delete this preset?')) {
+        await fetch(`/api/presets/${id}`, { method: 'DELETE' });
+        location.reload();
+    }
+}
+
+loadFactoryPresets();
+</script>
+{% endblock %}
