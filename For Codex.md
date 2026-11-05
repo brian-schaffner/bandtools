@@ -112,7 +112,7 @@
 4. **Band photo fidelity** — wild gen distorts faces; mitigated by OpenAI band replace/convert pass and Agent “My band” flow; face-perfect inpaint is **deferred** (wild-design Phase 3).
 5. **Provider split & quotas** — Gemini for creative, OpenAI for edit/convert; staging needs `GOOGLE_API_KEY` / `GEMINI_API_KEY` on Fly.
 6. **Monorepo deploy coupling** — one image ships hub + setloader + flyers; any flyers bug blocks “whole app” perception; use build stamp + `/flyers/health` to verify flyers slice.
-7. **Calendar reliability** — `gig_calendar.py` + disk cache; staging uses `GIG_FLYERS_TEST_MODE=1` with fixtures — **prod calendar behavior differs**.
+7. **Calendar reliability** — `gig_calendar.py` + disk cache; staging and prod both read the live lindseylane.com calendar (staging test mode was turned off Nov 2026).
 8. **UI/HTML agent workspace** — large inline JS in `flyer_agent/ui.py`; lightbox bug was **script running before DOM node existed** — prefer delegated events + lazy DOM lookup for new UI.
 9. **Logo pipeline drift** — overlay code called `find_band_logo(variant=…)` before `band_mark.py` implemented it (#38). Keep overlay + resolver in sync.
 10. **Stale open PRs** — several draft PRs predate three_canvas and logo folder; do not merge blindly (see §6).
@@ -125,7 +125,7 @@
 
 | Issue | Notes |
 |-------|--------|
-| **Staging test mode** | `fly.test.toml` sets `GIG_FLYERS_TEST_MODE=1` — calendar may be mock/fixture-driven; confirm before judging “real gig” behavior. |
+| **Staging calendar** | Staging uses the live band calendar, so flyer jobs on staging see real upcoming gigs. Use `GIG_FLYERS_TEST_MODE=1` (or `flyer_generator.py --test`) locally for fixture gigs. |
 | **Open PR clutter** | #30, #32, and older agent/option-C PRs may conflict with `main`; treat as archive unless rebased. |
 | **Filename typo** | Dark logo upload: `Lindset Lane Band Logo 2026...` — installer hard-codes that name. |
 | **prod-safe vs staging-wild** | Production not on wild three_canvas until profile/env explicitly changed. |
@@ -202,7 +202,7 @@ scripts/
 
 1. **Close superseded PRs** (#30, #32) and add a one-line note in PR body pointing to #31 / #34.
 2. **Golden path test:** One pytest or smoke script that runs a **dry-run** or fixture gig through `enrich_wild_poster` + `overlay_flyer_logo` (regression for `variant` and missing assets).
-3. **Confirm staging calendar policy:** Decide whether `GIG_FLYERS_TEST_MODE=1` on staging is still desired; if not, flip in `fly.test.toml` and warm cache on deploy.
+3. **Staging calendar policy:** Decided — staging uses the live calendar (`GIG_FLYERS_TEST_MODE` removed from `fly.test.toml`).
 
 ### Next product value (aligns with P0 in next-gen-requirements)
 
