@@ -17,7 +17,7 @@ DEFAULT_SOUNDCHECK_BULLETS = (
     "Check vocals and instruments",
     "Adjust monitor and house mixes",
 )
-_PAREN_DRIVE_SOURCES = {"google maps", "apple maps", "venue profile", "estimate"}
+_PAREN_DRIVE_SOURCES = {"google maps", "apple maps", "venue profile", "estimate", "entered"}
 _STATE_ABBREVIATIONS = {"kentucky": "KY", "indiana": "IN", "ohio": "OH", "tennessee": "TN"}
 
 
