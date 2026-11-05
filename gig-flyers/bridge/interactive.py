@@ -110,6 +110,11 @@ def render_home_page() -> str:
         <p>Two-pass AI poster design: pick a reference shell, generate a placeholder design, then personalize with your gig, band photo, and logo — all in the browser.</p>
         <a class="btn btn-purple btn-block" href="{shell_studio}">Open shell studio →</a>
       </article>
+      <article class="mode-card mode-card-featured">
+        <h2>Performance-day schedule</h2>
+        <p>Pick a published gig and build its departure &amp; setup schedule — pull-out, arrival, soundcheck, dead stage and teardown.</p>
+        <a class="btn btn-block" href="{html.escape(route_path("/logistics"))}">Build a day schedule →</a>
+      </article>
       <article class="mode-card">
         <h2>Review</h2>
         <p>Open a review link from iMessage, or browse gigs after generation.</p>

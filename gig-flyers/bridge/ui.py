@@ -669,9 +669,11 @@ def site_nav(*, active: str = "", back_href: Optional[str] = None, back_label: s
     pick = html.escape(pick_page_path())
     shell_studio = html.escape(route_path("/shell"))
     agent = html.escape(route_path("/agent"))
+    logistics = html.escape(route_path("/logistics"))
     logo = band_tools_logo_svg(size=36)
 
-    flyers_tool_cls = "nav-active" if active in ("home", "pick", "review", "progress", "shell", "agent") else ""
+    flyers_tool_cls = "nav-active" if active in ("home", "pick", "review", "progress", "shell", "agent", "logistics") else ""
+    logistics_cls = "nav-active" if active == "logistics" else ""
     home_cls = "nav-active" if active == "home" else ""
     pick_cls = "nav-active" if active == "pick" else ""
     review_cls = "nav-active" if active == "review" else ""
@@ -715,6 +717,7 @@ def site_nav(*, active: str = "", back_href: Optional[str] = None, back_label: s
         <span class="nav-divider" aria-hidden="true"></span>
         <a class="{home_cls}" href="{flyers_home}">Home</a>
         <a class="{pick_cls}" href="{pick}">Pick gig</a>
+        <a class="{logistics_cls}" href="{logistics}">Day schedule</a>
         <a class="{shell_cls}" href="{shell_studio}">Shell studio</a>
         <a class="{agent_cls}" href="{agent}">Flyer Agent</a>
         {review_item}

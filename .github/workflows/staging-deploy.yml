@@ -71,6 +71,7 @@ jobs:
             tests.test_assurance_profile \
             tests.test_logistics_backtest \
             tests.test_logistics_units \
+            tests.test_logistics_web \
             -v
 
       - name: Deploy to staging
