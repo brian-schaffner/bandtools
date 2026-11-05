@@ -2,25 +2,29 @@
 
 from __future__ import annotations
 
+import asyncio
 import html
 import os
+import time
 from dataclasses import replace
+from datetime import datetime, timezone
 from typing import Any, Optional
 from urllib.parse import urlencode
 
 from fastapi import Form
-from fastapi.responses import HTMLResponse, PlainTextResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 
 from bridge.review import route_path
 from bridge.routing import add_get, add_post
 from bridge.ui import page_close, page_head, picker_css, site_nav
 from gig_calendar import CalendarUnavailableError, GigEvent, find_gig_by_id, get_future_gigs, get_local_today
 from logistics.delivery import email_configured, markdown_to_html, recipient, send_schedule_email
-from logistics.drive_time import DriveEstimate
+from logistics.drive_time import DriveEstimate, home_address, maps_api_key, query_distance_matrix
 from logistics.profiles import load_config
 from logistics.render import render_markdown, render_text
 from logistics.schedule import GigInput, LogisticsSchedule, build_schedule, parse_clock
 
+DRIVE_CHECK_DESTINATION = "9702 Old Bardstown Rd, Louisville, KY 40291"
 _LIST_MAX_DAYS = int(os.getenv("GIG_LOGISTICS_LIST_DAYS", os.getenv("GIG_FLYERS_PICKER_DAYS", "60")))
 
 
@@ -264,7 +268,37 @@ def _not_found_page(gig_id: str) -> HTMLResponse:
     return HTMLResponse(body, status_code=404)
 
 
+_DRIVE_CHECK_TTL_SECONDS = 600
+_drive_check_cache: dict[str, Any] = {}
+
+
+def drive_check(now: Optional[float] = None) -> dict[str, Any]:
+    """Google Maps setup check against one fixed venue; never echoes the key or home address."""
+    now = time.time() if now is None else now
+    cached = _drive_check_cache.get("result")
+    if cached and now - _drive_check_cache.get("at", 0.0) < _DRIVE_CHECK_TTL_SECONDS:
+        return {**cached, "cached": True}
+    destination = os.getenv("LOGISTICS_DRIVE_CHECK_DESTINATION", DRIVE_CHECK_DESTINATION)
+    lookup = query_distance_matrix(home_address(), destination)
+    result = {
+        "maps_api_key_configured": bool(maps_api_key()),
+        "home_address_configured": bool(home_address()),
+        "destination": destination,
+        "status": lookup.status,
+        "error_message": lookup.error_message,
+        "minutes": lookup.minutes,
+        "checked_at": datetime.fromtimestamp(now, tz=timezone.utc).isoformat(),
+    }
+    _drive_check_cache.update(result=result, at=now)
+    return {**result, "cached": False}
+
+
 def register_logistics_routes(app: Any) -> None:
+    @add_get(app, "/logistics/drive-check")
+    async def logistics_drive_check() -> JSONResponse:
+        result = await asyncio.to_thread(drive_check)
+        return JSONResponse(result, status_code=200 if result["status"] == "OK" else 503)
+
     @add_get(app, "/logistics", response_class=HTMLResponse)
     async def logistics_list() -> HTMLResponse:
         today = get_local_today()

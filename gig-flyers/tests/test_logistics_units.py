@@ -14,7 +14,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from gig_calendar import event_from_dict, extract_address  # noqa: E402
-from logistics.drive_time import google_drive_minutes, resolve_drive, round_up_to_5  # noqa: E402
+from logistics import drive_time  # noqa: E402
+from logistics.drive_time import google_drive_minutes, query_distance_matrix, resolve_drive, round_up_to_5  # noqa: E402
 from logistics.profiles import load_config  # noqa: E402
 from logistics.render import city_state, fmt_range  # noqa: E402
 from logistics.schedule import parse_clock  # noqa: E402
@@ -94,6 +95,32 @@ class DriveTimeTests(unittest.TestCase):
             raise OSError("offline")
 
         self.assertIsNone(google_drive_minutes("Home", "Venue", api_key="k", http_get=boom))
+
+    def test_query_reports_google_status_and_error(self) -> None:
+        denied = query_distance_matrix(
+            "Home",
+            "Venue",
+            api_key="k",
+            http_get=lambda u: {"status": "REQUEST_DENIED", "error_message": "This API is not activated", "rows": []},
+        )
+        self.assertEqual((denied.minutes, denied.status, denied.error_message), (None, "REQUEST_DENIED", "This API is not activated"))
+        self.assertEqual(query_distance_matrix("Home", "Venue", api_key="").status, "NO_API_KEY")
+        self.assertEqual(query_distance_matrix("", "Venue", api_key="k").status, "NO_HOME_ADDRESS")
+        empty = query_distance_matrix("Home", "Venue", api_key="k", http_get=lambda u: {"status": "OK", "rows": []})
+        self.assertEqual(empty.status, "NO_ROUTE")
+
+    def test_successful_lookups_are_cached(self) -> None:
+        calls = []
+
+        def fake_get(url):
+            calls.append(url)
+            return {"status": "OK", "rows": [{"elements": [{"status": "OK", "duration": {"value": 1200}}]}]}
+
+        with patch.dict(drive_time._cache, clear=True):
+            departure = datetime(2030, 1, 5, 18, 10)
+            self.assertEqual(google_drive_minutes("Home", "Cached Venue", departure, api_key="k", http_get=fake_get), 20)
+            self.assertEqual(google_drive_minutes("Home", "Cached Venue", departure, api_key="k", http_get=fake_get), 20)
+        self.assertEqual(len(calls), 1)
 
     @patch.dict(os.environ, {"BAND_HOME_ADDRESS": "Home"})
     def test_resolve_order(self) -> None:
