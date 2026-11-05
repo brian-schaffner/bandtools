@@ -1,0 +1,63 @@
+{
+  "description": "Past gigs as published on lindseylane.com, paired with the schedule the band actually used.",
+  "captured": "2026-11-05",
+  "gigs": [
+    {
+      "actual": "2026-10-10_volt-lounge-caesars.md",
+      "date": "2026-10-10",
+      "time": "10:00 pm",
+      "end_time": "",
+      "title": "Volt Lounge at Caesars 11999 Casino Center Dr SE, Elizabeth, IN 47117",
+      "source": "https://www.lindseylane.com/events/volt-lounge-at-caesars-11999-casino-center-dr-se-elizabeth-in-47117-706-817-949-159-126-142-506-424/"
+    },
+    {
+      "actual": "2026-10-16_rowdys.md",
+      "date": "2026-10-16",
+      "time": "6:00 pm",
+      "end_time": "10:00 pm",
+      "title": "Rowdy’s Dance Hall & Saloon 101 Fairfield Hill Road Bloomfield, Kentucky 40004",
+      "source": "https://www.lindseylane.com/events/rowdys-dance-hall-saloon-101-fairfield-hill-road-bloomfield-kentucky-40004/"
+    },
+    {
+      "actual": "2026-10-17_the-alibi.md",
+      "date": "2026-10-17",
+      "time": "8:00 pm",
+      "end_time": "12:00 am",
+      "title": "The Alibi Bar 115 E Poplar St, Corydon, IN 47112",
+      "source": "Original listing (event post since reused); times from the issued schedule header"
+    },
+    {
+      "actual": "2026-10-17_the-alibi_revised.md",
+      "date": "2026-10-17",
+      "time": "9:00 pm",
+      "end_time": "1:00 am",
+      "title": "The Alibi Bar 115 E Poplar St, Corydon, IN 47112",
+      "revised": true,
+      "source": "Revised listing; times from the revised schedule header"
+    },
+    {
+      "actual": "2026-10-23_eagles-club.md",
+      "date": "2026-10-23",
+      "time": "7:30 pm",
+      "end_time": "11:00 pm",
+      "title": "Fraternal Order of Eagles 3501 College Drive, Jeffersontown, KY 40299",
+      "source": "https://www.lindseylane.com/events/fraternal-order-of-eagles-3501-college-drive-jeffersontown-ky-40299-164-146/"
+    },
+    {
+      "actual": "2026-10-24_summers-on-the-river.md",
+      "date": "2026-10-24",
+      "time": "8:00 pm",
+      "end_time": "11:00 pm",
+      "title": "Summers on the River 207 River Rd WCharlestown, IN 47111",
+      "source": "https://www.lindseylane.com/events/summers-on-the-river207-river-rd-wcharlestown-in-47111/"
+    },
+    {
+      "actual": "2026-10-31_boondocks.md",
+      "date": "2026-10-31",
+      "time": "7:00 pm",
+      "end_time": "11:00 pm",
+      "title": "Boondocks Bar and Grill 3850 KY-1494 Shepherdsville, KY  40165",
+      "source": "https://www.lindseylane.com/events/boondocks-bar-and-grill-3850-ky-1494-shepherdsville-ky-40165/"
+    }
+  ]
+}

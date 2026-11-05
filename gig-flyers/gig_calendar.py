@@ -125,6 +125,8 @@ def _events_from_mock() -> List[GigEvent]:
                 title=title,
                 venue=venue,
                 suggested_name=build_suggested_name(event_date, venue),
+                end_time_label=row.get("end_time", ""),
+                address=row.get("address") or extract_address(title),
             )
         )
     events.sort(key=lambda e: (e.event_date, e.time_label))
@@ -138,6 +140,8 @@ class GigEvent:
     title: str
     venue: str
     suggested_name: str
+    end_time_label: str = ""
+    address: str = ""
 
     @property
     def gig_id(self) -> str:
@@ -150,8 +154,10 @@ class GigEvent:
             "date": self.event_date.isoformat(),
             "short_date": format_short_date(self.event_date),
             "time": self.time_label,
+            "end_time": self.end_time_label,
             "title": self.title,
             "venue": self.venue,
+            "address": self.address,
             "suggested_name": self.suggested_name,
             "band": os.getenv("GIG_CALENDAR_BAND", DEFAULT_BAND),
         }
@@ -193,6 +199,24 @@ def _extract_venue(title: str) -> str:
     return title
 
 
+_STREET_NUMBER = re.compile(r"(?<![\w-])\d+\s+[A-Za-z]")
+_ZIP_TAIL = re.compile(r"^(.*\b\d{5})\b")
+
+
+def extract_address(title: str) -> str:
+    """Street address embedded in a calendar title, e.g. 'Ernie's 104 Taylorsville Rd, Bloomfield, KY 40008'."""
+    title = unescape((title or "").strip())
+    zip_match = _ZIP_TAIL.match(title)
+    if not zip_match:
+        return ""
+    head = zip_match.group(1)
+    before_comma = head.split(",", 1)[0]
+    starts = [m.start() for m in _STREET_NUMBER.finditer(before_comma)]
+    if not starts:
+        return ""
+    return re.sub(r"\s+", " ", head[starts[-1]:]).strip()
+
+
 def _dedupe_events(events: List[GigEvent]) -> List[GigEvent]:
     seen: set[tuple[date, str, str]] = set()
     result: List[GigEvent] = []
@@ -226,6 +250,7 @@ def _parse_events(html: str) -> List[GigEvent]:
         date_match = re.search(r'mec-start-date-label">([^<]+)', article)
         title_match = re.search(r'mec-event-title[^>]*>.*?<a[^>]*>([^<]+)', article, re.S)
         time_match = re.search(r'mec-start-time">([^<]+)', article)
+        end_match = re.search(r'mec-end-time">([^<]+)', article)
         if not date_match or not title_match:
             continue
 
@@ -242,6 +267,8 @@ def _parse_events(html: str) -> List[GigEvent]:
                 title=title,
                 venue=venue,
                 suggested_name=build_suggested_name(event_date, venue),
+                end_time_label=end_match.group(1).strip() if end_match else "",
+                address=extract_address(title),
             )
         )
 
@@ -284,12 +311,15 @@ def _save_disk_cache(url: str, events: List[GigEvent], fetched_at: float) -> Non
 def _event_from_cache_row(row: dict) -> GigEvent:
     event_date = date.fromisoformat(row["date"])
     venue = row.get("venue", "")
+    title = row.get("title", "")
     return GigEvent(
         event_date=event_date,
         time_label=row.get("time", ""),
-        title=row.get("title", ""),
+        title=title,
         venue=venue,
         suggested_name=row.get("suggested_name") or build_suggested_name(event_date, venue),
+        end_time_label=row.get("end_time", ""),
+        address=row.get("address") or extract_address(title),
     )
 
 
@@ -475,12 +505,15 @@ def event_from_dict(data: dict, gig_id: Optional[str] = None) -> GigEvent:
         raise ValueError("event data missing date")
     event_date = date.fromisoformat(date_str)
     venue = data.get("venue", "")
+    title = data.get("title", "")
     return GigEvent(
         event_date=event_date,
         time_label=data.get("time", ""),
-        title=data.get("title", ""),
+        title=title,
         venue=venue,
         suggested_name=data.get("suggested_name") or build_suggested_name(event_date, venue),
+        end_time_label=data.get("end_time", ""),
+        address=data.get("address") or extract_address(title),
     )
 
 

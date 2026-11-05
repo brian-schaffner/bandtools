@@ -83,6 +83,10 @@ from flyer_agent.routes import register_agent_routes  # noqa: E402
 
 register_agent_routes(app)
 
+from bridge.logistics_page import register_logistics_routes  # noqa: E402
+
+register_logistics_routes(app)
+
 POLL_SECONDS = int(os.getenv("BRIDGE_POLL_SECONDS", "30"))
 _revise_in_flight: set[str] = set()
 _generate_in_flight: set[str] = set()
