@@ -119,6 +119,39 @@ class LogisticsWebTest(unittest.TestCase):
         html_body = message.get_body(preferencelist=("html",)).get_content()
         self.assertIn("<strong>7:30 PM — DEAD STAGE</strong>", html_body)
 
+    def test_drive_check_reports_google_status_without_secrets(self) -> None:
+        from bridge import logistics_page
+        from logistics.drive_time import MapsLookup
+
+        denied = MapsLookup(None, "REQUEST_DENIED", "This API is not activated on your API project.")
+        with patch.dict(os.environ, {"GOOGLE_MAPS_API_KEY": "secret-key-123", "BAND_HOME_ADDRESS": "42 Private Ln, Louisville, KY"}), patch.dict(
+            logistics_page._drive_check_cache, clear=True
+        ), patch("bridge.logistics_page.query_distance_matrix", return_value=denied) as query:
+            res = self.client.get("/flyers/logistics/drive-check")
+            again = self.client.get("/flyers/logistics/drive-check")
+        self.assertEqual(res.status_code, 503)
+        body = res.json()
+        self.assertEqual(body["status"], "REQUEST_DENIED")
+        self.assertIn("not activated", body["error_message"])
+        self.assertTrue(body["maps_api_key_configured"])
+        self.assertTrue(body["home_address_configured"])
+        self.assertEqual(body["destination"], "9702 Old Bardstown Rd, Louisville, KY 40291")
+        self.assertNotIn("secret-key-123", res.text)
+        self.assertNotIn("Private Ln", res.text)
+        self.assertTrue(again.json()["cached"])
+        query.assert_called_once()
+
+    def test_drive_check_ok(self) -> None:
+        from bridge import logistics_page
+        from logistics.drive_time import MapsLookup
+
+        with patch.dict(logistics_page._drive_check_cache, clear=True), patch(
+            "bridge.logistics_page.query_distance_matrix", return_value=MapsLookup(25, "OK")
+        ):
+            res = self.client.get("/flyers/logistics/drive-check")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json()["minutes"], 25)
+
     def test_email_failure_is_shown(self) -> None:
         res = self.client.post(f"/flyers/logistics/{TWO_LANE}/email", data={})
         self.assertEqual(res.status_code, 502)
