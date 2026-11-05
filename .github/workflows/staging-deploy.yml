@@ -69,6 +69,8 @@ jobs:
             tests.test_wild_gemini_integration \
             tests.test_wild_color_correct \
             tests.test_assurance_profile \
+            tests.test_logistics_backtest \
+            tests.test_logistics_units \
             -v
 
       - name: Deploy to staging
