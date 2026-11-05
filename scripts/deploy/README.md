@@ -71,7 +71,7 @@ scripts/
 Copy `.env.example` → `.env` and fill values. The deploy script pushes them to Fly when `.env` exists. Without `.env`, existing Fly secrets are kept.
 
 **Day schedule (drive times + email):** set these as GitHub Actions secrets. The staging workflow stages any non-empty ones on `bandtools-test` before each deploy via `sync-logistics-secrets.sh`:
-`GOOGLE_MAPS_API_KEY` or `MAPS_API_KEY` (Distance Matrix API enabled), `BAND_HOME_ADDRESS` (or `BAND_ADDRESS`), `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_FROM`, `LOGISTICS_EMAIL_TO`.
+`GOOGLE_MAPS_API_KEY` or `MAPS_API_KEY` (Routes API enabled; check with `/flyers/logistics/drive-check`), `BAND_HOME_ADDRESS` (or `BAND_ADDRESS`), `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_FROM`, `LOGISTICS_EMAIL_TO`.
 
 **Gemini (options B/C):** add `GOOGLE_API_KEY` from [Google AI Studio](https://aistudio.google.com/apikey). Staging enables split mode (`A=openai`, `B/C=gemini`) via `fly.test.toml`.
 
