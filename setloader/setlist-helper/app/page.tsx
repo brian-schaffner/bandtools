@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { FileText, Megaphone, ArrowRight, Scissors } from "lucide-react"
+import { FileText, Megaphone, ArrowRight, Scissors, CalendarClock } from "lucide-react"
 import { BandToolsLogo } from "@/components/band-tools-logo"
 import { GoogleAuth } from "@/components/google-auth"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -36,6 +36,16 @@ const tools = [
     href: "/flyers/",
     icon: Megaphone,
     accent: "from-amber-500 to-orange-600",
+    available: true,
+  },
+  {
+    id: "day-schedule",
+    title: "Day Schedule",
+    description:
+      "Pick a published gig and build its departure & setup schedule — pull-out, arrival, soundcheck, dead stage and teardown.",
+    href: "/flyers/logistics",
+    icon: CalendarClock,
+    accent: "from-emerald-500 to-teal-600",
     available: true,
   },
   {
