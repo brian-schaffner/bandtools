@@ -1,0 +1,107 @@
+# Performance-day logistics: timing defaults and per-venue profiles.
+#
+# Any key in `defaults` can be overridden on a venue. Venues are matched by
+# case-insensitive substring against the published calendar title.
+# Optional per-venue keys:
+#   drive_minutes / drive_source  confirmed one-way drive (skips Google Maps)
+#   setup_label / setup_bullets / soundcheck_bullets / adjustments_label
+#   include_return                add depart-venue and arrive-home lines
+#   notes                         extra lines shown under the pull-out step
+#   timeline                      fixed venue-run timeline (minutes relative to first set)
+
+defaults:
+  setup_minutes: 105
+  soundcheck_minutes: 20
+  final_adjustments_minutes: 10
+  dead_stage_minutes: 30
+  travel_cushion_minutes: 15
+  teardown_minutes: 60
+  gig_length_minutes: 240
+  # Used only when the venue has no profile drive time and Google Maps is unavailable.
+  unknown_drive_minutes: 45
+
+exclude_title_patterns:
+  - '\bjam\b'
+
+venues:
+  rowdys:
+    name: "Rowdy’s"
+    match: ["rowdy"]
+    address: "101 Fairfield Hill Road, Bloomfield, KY 40004"
+    drive_minutes: 60
+    drive_source: "normal drive"
+    setup_minutes: 90
+    soundcheck_minutes: 10
+    final_adjustments_minutes: 5
+    adjustments_label: "5-MINUTE CUSHION"
+
+  the_alibi:
+    name: "The Alibi"
+    match: ["alibi"]
+    address: "115 E Poplar St, Corydon, IN 47112"
+    drive_minutes: 45
+    drive_source: "normal drive"
+
+  eagles_jeffersontown:
+    name: "Eagles Club"
+    match: ["eagles 3501", "fraternal order of eagles 3501", "eagles club"]
+    address: "3501 College Drive, Jeffersontown, KY 40299"
+    drive_minutes: 30
+    drive_source: "normal drive"
+    setup_minutes: 120
+    soundcheck_minutes: 15
+    final_adjustments_minutes: 0
+
+  summers_on_the_river:
+    name: "Summers on the River"
+    match: ["summers on the river"]
+    address: "207 River Road, Charlestown, IN 47111"
+    drive_minutes: 30
+    drive_source: "normal drive"
+    setup_minutes: 115
+    soundcheck_minutes: 20
+    final_adjustments_minutes: 0
+    include_return: true
+
+  boondocks:
+    name: "Boondocks"
+    match: ["boondocks"]
+    address: "3850 KY-1494, Shepherdsville, KY 40165"
+    drive_minutes: 45
+    drive_source: "Apple Maps"
+    setup_minutes: 120
+    soundcheck_minutes: 0
+    final_adjustments_minutes: 0
+    setup_label: "UNLOAD, SETUP & SOUND CHECK"
+    setup_bullets:
+      - "Unload equipment"
+      - "Stage and equipment setup"
+      - "Complete sound check"
+
+  volt_lounge_caesars:
+    name: "Volt Lounge"
+    match: ["volt lounge", "caesars"]
+    header: "LINDSEY LANE BAND — VOLT LOUNGE"
+    location: "Caesars Southern Indiana"
+    address: "11999 Casino Center Dr SE, Elizabeth, IN 47117"
+    drive_minutes: 30
+    drive_source: "normal drive"
+    gig_length_minutes: 210
+    include_return: true
+    notes:
+      - "All four band members together in Yukon Denali XL. No trailer. Casino provides production, including drums."
+    timeline:
+      - {at: -195, until: -180, label: "Parking, check-in and unloading preparations"}
+      - {at: -180, until: -135, label: "Load-in and setup", milestone: setup}
+      - {at: -135, until: -105, label: "Quiet stage / no sound permitted"}
+      - {at: -105, until: -75, label: "Sound check / line check", milestone: soundcheck}
+      - {at: -75, until: -60, label: "Clear stage"}
+      - {at: -60, until: 0, label: "DJ / band break"}
+      - {at: -30, label: "DEAD STAGE", emoji: "🔇", milestone: dead_stage}
+      - {at: 0, until: 50, label: "BAND SET #1", emoji: "🎶", milestone: performance}
+      - {at: 50, until: 80, label: "DJ"}
+      - {at: 80, until: 130, label: "BAND SET #2", emoji: "🎶", milestone: performance}
+      - {at: 130, until: 160, label: "DJ"}
+      - {at: 160, until: 210, label: "BAND SET #3", emoji: "🎶", milestone: performance}
+      - {at: 210, until: 240, label: "DJ / teardown if permitted", milestone: teardown}
+      - {at: 240, until: 270, label: "Finish teardown and load Yukon", milestone: teardown}
