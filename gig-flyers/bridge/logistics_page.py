@@ -19,7 +19,7 @@ from bridge.routing import add_get, add_post
 from bridge.ui import page_close, page_head, picker_css, site_nav
 from gig_calendar import CalendarUnavailableError, GigEvent, find_gig_by_id, get_future_gigs, get_local_today
 from logistics.delivery import email_configured, markdown_to_html, recipient, send_schedule_email
-from logistics.drive_time import DriveEstimate, home_address, maps_api_key, query_distance_matrix
+from logistics.drive_time import DriveEstimate, home_address, maps_api_key, query_routes
 from logistics.profiles import load_config
 from logistics.render import render_markdown, render_text
 from logistics.schedule import GigInput, LogisticsSchedule, build_schedule, parse_clock
@@ -279,7 +279,7 @@ def drive_check(now: Optional[float] = None) -> dict[str, Any]:
     if cached and now - _drive_check_cache.get("at", 0.0) < _DRIVE_CHECK_TTL_SECONDS:
         return {**cached, "cached": True}
     destination = os.getenv("LOGISTICS_DRIVE_CHECK_DESTINATION", DRIVE_CHECK_DESTINATION)
-    lookup = query_distance_matrix(home_address(), destination)
+    lookup = query_routes(home_address(), destination)
     result = {
         "maps_api_key_configured": bool(maps_api_key()),
         "home_address_configured": bool(home_address()),

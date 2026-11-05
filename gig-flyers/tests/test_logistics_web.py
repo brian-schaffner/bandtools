@@ -126,7 +126,7 @@ class LogisticsWebTest(unittest.TestCase):
         denied = MapsLookup(None, "REQUEST_DENIED", "This API is not activated on your API project.")
         with patch.dict(os.environ, {"GOOGLE_MAPS_API_KEY": "secret-key-123", "BAND_HOME_ADDRESS": "42 Private Ln, Louisville, KY"}), patch.dict(
             logistics_page._drive_check_cache, clear=True
-        ), patch("bridge.logistics_page.query_distance_matrix", return_value=denied) as query:
+        ), patch("bridge.logistics_page.query_routes", return_value=denied) as query:
             res = self.client.get("/flyers/logistics/drive-check")
             again = self.client.get("/flyers/logistics/drive-check")
         self.assertEqual(res.status_code, 503)
@@ -146,7 +146,7 @@ class LogisticsWebTest(unittest.TestCase):
         from logistics.drive_time import MapsLookup
 
         with patch.dict(logistics_page._drive_check_cache, clear=True), patch(
-            "bridge.logistics_page.query_distance_matrix", return_value=MapsLookup(25, "OK")
+            "bridge.logistics_page.query_routes", return_value=MapsLookup(25, "OK")
         ):
             res = self.client.get("/flyers/logistics/drive-check")
         self.assertEqual(res.status_code, 200)
