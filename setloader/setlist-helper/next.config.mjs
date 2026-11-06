@@ -11,6 +11,11 @@ const nextConfig = {
     '*.fly.dev',
   ],
   async rewrites() {
+    // In production Fly deploys, nginx routes /flyers/* to the bridge directly.
+    // Next.js rewrites here break client-side <Link> navigation (redirect to :8090).
+    if (process.env.NODE_ENV === 'production') {
+      return []
+    }
     return [
       {
         source: '/flyers',
