@@ -188,7 +188,6 @@ function useFacebookSync(onChanged: () => void) {
   const status = useFetch<{ configured: boolean }>("/api/events/facebook");
   const [busy, setBusy] = useState(false);
   const [lastSynced, setLastSynced] = useState<Date | null>(null);
-  const started = useRef(false);
 
   const sync = useCallback(
     async (quiet: boolean) => {
@@ -217,10 +216,11 @@ function useFacebookSync(onChanged: () => void) {
 
   const configured = status.data?.configured === true;
   useEffect(() => {
-    if (!configured || started.current) return;
-    started.current = true;
+    if (!configured) return;
     const last = Number(localStorage.getItem(FACEBOOK_SYNCED_KEY) ?? 0);
-    if (Date.now() - last > FACEBOOK_AUTO_SYNC_MS) void sync(true);
+    if (Date.now() - last <= FACEBOOK_AUTO_SYNC_MS) return;
+    const timer = setTimeout(() => void sync(true), 0);
+    return () => clearTimeout(timer);
   }, [configured, sync]);
 
   return { configured, busy, lastSynced, sync };
