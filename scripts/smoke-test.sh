@@ -32,6 +32,7 @@ check /flyers/ 302
 check /flyers/pick 302
 check /flyers/logistics 200
 check /forge/signin 200
+check /forge 307
 check /forge/calendar 307
 check /forge/api/events 401
 PROVIDER=$(curl -sS "${BASE}/forge/api/auth/provider" | python3 -c "import sys,json; print(json.load(sys.stdin).get('provider',''))" 2>/dev/null || echo "")

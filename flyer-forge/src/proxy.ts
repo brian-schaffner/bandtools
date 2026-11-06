@@ -27,5 +27,6 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // "/" is listed on its own because under a basePath the catch-all no longer matches the bare root.
+  matcher: ["/", "/((?!_next/static|_next/image|favicon.ico).*)"],
 };
