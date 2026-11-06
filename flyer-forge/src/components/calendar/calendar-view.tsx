@@ -1,10 +1,10 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { CalendarPlus, ChevronLeft, ChevronRight, Download, FileText, ListMusic, Upload } from "lucide-react";
+import { CalendarPlus, ChevronLeft, ChevronRight, Download, FileText, ListMusic, RefreshCw, Upload } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -53,6 +53,7 @@ export function CalendarView() {
   const [cursor, setCursor] = useState({ y: now.getFullYear(), m: now.getMonth() });
   const [newDate, setNewDate] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
+  const facebook = useFacebookSync(events.reload);
 
   const byDate = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>();
@@ -75,6 +76,11 @@ export function CalendarView() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {facebook.configured && (
+            <Button variant="outline" onClick={() => void facebook.sync(false)} disabled={facebook.busy} title={facebook.lastSynced ? `Last synced ${facebook.lastSynced.toLocaleString()}` : undefined}>
+              <RefreshCw className={cn(facebook.busy && "animate-spin")} /> {facebook.busy ? "Syncing…" : "Sync from Facebook"}
+            </Button>
+          )}
           <Button variant="outline" onClick={() => setImportOpen(true)}>
             <Upload /> Import .ics
           </Button>
@@ -170,6 +176,54 @@ export function CalendarView() {
       <ImportDialog open={importOpen} onOpenChange={setImportOpen} onDone={events.reload} />
     </div>
   );
+}
+
+const FACEBOOK_SYNCED_KEY = "gfs:facebook-synced-at";
+const FACEBOOK_AUTO_SYNC_MS = 6 * 60 * 60 * 1000;
+
+type SyncResult = { found: number; created: number; updated: number; unchanged: number };
+
+/** Offers a Facebook sync when the server is connected, and runs one quietly when the last was over 6 hours ago. */
+function useFacebookSync(onChanged: () => void) {
+  const status = useFetch<{ configured: boolean }>("/api/events/facebook");
+  const [busy, setBusy] = useState(false);
+  const [lastSynced, setLastSynced] = useState<Date | null>(null);
+  const started = useRef(false);
+
+  const sync = useCallback(
+    async (quiet: boolean) => {
+      setBusy(true);
+      try {
+        const r = await api<SyncResult>("/api/events/facebook", { method: "POST" });
+        const now = new Date();
+        localStorage.setItem(FACEBOOK_SYNCED_KEY, String(now.getTime()));
+        setLastSynced(now);
+        if (r.created || r.updated) onChanged();
+        if (!quiet || r.created || r.updated) {
+          toast.success(
+            r.created || r.updated
+              ? `Facebook: ${r.created} new gig${r.created === 1 ? "" : "s"}${r.updated ? `, ${r.updated} updated` : ""}.`
+              : `Facebook: all ${r.found} upcoming gigs are up to date.`,
+          );
+        }
+      } catch (e) {
+        if (!quiet) toast.error(e instanceof Error ? e.message : "Facebook sync failed");
+      } finally {
+        setBusy(false);
+      }
+    },
+    [onChanged],
+  );
+
+  const configured = status.data?.configured === true;
+  useEffect(() => {
+    if (!configured || started.current) return;
+    started.current = true;
+    const last = Number(localStorage.getItem(FACEBOOK_SYNCED_KEY) ?? 0);
+    if (Date.now() - last > FACEBOOK_AUTO_SYNC_MS) void sync(true);
+  }, [configured, sync]);
+
+  return { configured, busy, lastSynced, sync };
 }
 
 function EventList({ title, events, loading, error, onRetry, empty }: { title: string; events: CalendarEvent[]; loading: boolean; error: string | null; onRetry?: () => void; empty: string }) {
