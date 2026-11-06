@@ -14,10 +14,20 @@ from datetime import date, datetime, timezone
 from html import unescape
 from pathlib import Path
 from typing import List, Optional
+from urllib.error import HTTPError
+from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
 
 DEFAULT_CALENDAR_URL = "https://www.lindseylane.com/dates/"
+FACEBOOK_GRAPH_URL = "https://graph.facebook.com/v21.0"
+FACEBOOK_SOURCE_PREFIX = "facebook:"
+FACEBOOK_EVENT_FIELDS = (
+    "id,name,start_time,end_time,is_canceled,"
+    "place{name,location{street,city,state,zip}},"
+    "event_times{start_time,end_time}"
+)
+FACEBOOK_MAX_PAGES = 10
 DEFAULT_TIMEZONE = "America/Kentucky/Louisville"
 DEFAULT_BAND = "Lindsey Lane Band"
 MEMORY_CACHE_TTL_SECONDS = 300
@@ -361,7 +371,160 @@ def _schedule_background_refresh(url: str) -> None:
     threading.Thread(target=_worker, name="calendar-refresh", daemon=True).start()
 
 
+def calendar_source() -> str:
+    """``website`` (default) or ``facebook`` via GIG_CALENDAR_SOURCE."""
+    return os.getenv("GIG_CALENDAR_SOURCE", "website").strip().lower() or "website"
+
+
+def _facebook_credentials() -> Optional[tuple[str, str]]:
+    page_id = os.getenv("FACEBOOK_PAGE_ID", "").strip()
+    token = os.getenv("FACEBOOK_PAGE_ACCESS_TOKEN", "").strip()
+    if page_id and token:
+        return page_id, token
+    return None
+
+
+def _default_calendar_url() -> str:
+    if calendar_source() == "facebook":
+        creds = _facebook_credentials()
+        if creds:
+            return f"{FACEBOOK_SOURCE_PREFIX}{creds[0]}"
+        logger.warning(
+            "GIG_CALENDAR_SOURCE=facebook but FACEBOOK_PAGE_ID / FACEBOOK_PAGE_ACCESS_TOKEN "
+            "are not set; using the website calendar"
+        )
+    return os.getenv("GIG_CALENDAR_URL", DEFAULT_CALENDAR_URL)
+
+
+def _fetch_graph_json(url: str) -> dict:
+    # Graph URLs carry the access token, so errors are re-raised without the URL or chained HTTPError.
+    request = Request(url, headers={"User-Agent": "GigFlyers/1.0"})
+    try:
+        with urlopen(request, timeout=fetch_timeout_seconds()) as response:
+            body = response.read().decode("utf-8", errors="replace")
+    except HTTPError as exc:
+        detail = ""
+        try:
+            detail = json.loads(exc.read().decode("utf-8", errors="replace"))["error"]["message"]
+        except Exception:
+            pass
+        raise OSError(f"Facebook Graph API HTTP {exc.code}: {detail or exc.reason}") from None
+    try:
+        return json.loads(body)
+    except json.JSONDecodeError:
+        raise OSError("Facebook Graph API returned invalid JSON") from None
+
+
+def _fetch_facebook_rows(page_id: str, token: str) -> List[dict]:
+    query = urlencode(
+        {
+            "fields": FACEBOOK_EVENT_FIELDS,
+            "time_filter": "upcoming",
+            "limit": 100,
+            "access_token": token,
+        }
+    )
+    url: Optional[str] = f"{FACEBOOK_GRAPH_URL}/{page_id}/events?{query}"
+    rows: List[dict] = []
+    for _ in range(FACEBOOK_MAX_PAGES):
+        if not url:
+            break
+        payload = _fetch_graph_json(url)
+        rows.extend(payload.get("data") or [])
+        url = (payload.get("paging") or {}).get("next")
+    return rows
+
+
+def _parse_facebook_time(value: str, tz: ZoneInfo) -> Optional[tuple[date, str]]:
+    value = (value or "").strip()
+    if not value:
+        return None
+    try:
+        moment = datetime.strptime(value, "%Y-%m-%dT%H:%M:%S%z").astimezone(tz)
+    except ValueError:
+        try:
+            return date.fromisoformat(value[:10]), ""
+        except ValueError:
+            return None
+    label = f"{moment.hour % 12 or 12}:{moment.minute:02d} {'am' if moment.hour < 12 else 'pm'}"
+    return moment.date(), label
+
+
+def _format_facebook_location(location: dict) -> str:
+    state_zip = " ".join(p for p in (location.get("state"), location.get("zip")) if p)
+    parts = [location.get("street"), location.get("city"), state_zip]
+    return ", ".join(p.strip() for p in parts if p and p.strip())
+
+
+def _facebook_title_venue(title: str) -> str:
+    match = re.match(r"^(.+?)\s+presents\b", title, re.I)
+    if match:
+        return match.group(1).strip()
+    return _extract_venue(title)
+
+
+def _facebook_venue_and_address(title: str, place: dict) -> tuple[str, str]:
+    name = (place.get("name") or "").strip()
+    address = _format_facebook_location(place.get("location") or {})
+    # Ad-hoc places are often just a typed street address with no venue page behind them.
+    if name and not address and _STREET_NUMBER.match(name):
+        address, name = name, ""
+    return name or _facebook_title_venue(title), address
+
+
+def _facebook_tz() -> ZoneInfo:
+    try:
+        return ZoneInfo(os.getenv("GIG_CALENDAR_TIMEZONE", DEFAULT_TIMEZONE))
+    except Exception:
+        return ZoneInfo(DEFAULT_TIMEZONE)
+
+
+def _parse_facebook_events(rows: List[dict]) -> List[GigEvent]:
+    tz = _facebook_tz()
+    events: List[GigEvent] = []
+    for row in rows:
+        if row.get("is_canceled"):
+            continue
+        title = re.sub(r"\s+", " ", unescape(row.get("name") or "")).strip()
+        if not title:
+            continue
+        venue, address = _facebook_venue_and_address(title, row.get("place") or {})
+        occurrences = row.get("event_times") or []
+        if isinstance(occurrences, dict):
+            occurrences = occurrences.get("data") or []
+        if not occurrences:
+            occurrences = [row]
+        for occurrence in occurrences:
+            start = _parse_facebook_time(occurrence.get("start_time", ""), tz)
+            if not start:
+                continue
+            end = _parse_facebook_time(occurrence.get("end_time", ""), tz)
+            event_date, time_label = start
+            events.append(
+                GigEvent(
+                    event_date=event_date,
+                    time_label=time_label,
+                    title=title,
+                    venue=venue,
+                    suggested_name=build_suggested_name(event_date, venue),
+                    end_time_label=end[1] if end else "",
+                    address=address,
+                )
+            )
+    events.sort(key=lambda e: (e.event_date, e.time_label))
+    return _dedupe_events(events)
+
+
+def _fetch_facebook_events() -> List[GigEvent]:
+    creds = _facebook_credentials()
+    if not creds:
+        raise OSError("FACEBOOK_PAGE_ID / FACEBOOK_PAGE_ACCESS_TOKEN are not set")
+    return _parse_facebook_events(_fetch_facebook_rows(*creds))
+
+
 def _fetch_live_events(url: str) -> List[GigEvent]:
+    if url.startswith(FACEBOOK_SOURCE_PREFIX):
+        return _fetch_facebook_events()
     html = _fetch_calendar_html(url)
     return _parse_events(html)
 
@@ -382,7 +545,7 @@ def get_all_events(
         events = _events_from_mock()
         return _apply_memory_cache(cache_key, events, now, "mock", False)
 
-    url = calendar_url or os.getenv("GIG_CALENDAR_URL", DEFAULT_CALENDAR_URL)
+    url = calendar_url or _default_calendar_url()
     now = time.time()
     ttl = cache_ttl_seconds()
 
