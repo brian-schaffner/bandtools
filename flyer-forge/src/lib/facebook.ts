@@ -1,7 +1,7 @@
 import "server-only";
 import type { FacebookEvent } from "./facebook-map";
 
-const GRAPH = "https://graph.facebook.com/v21.0";
+const GRAPH = (process.env.FACEBOOK_GRAPH_URL?.trim() || "https://graph.facebook.com/v21.0").replace(/\/+$/, "");
 const FIELDS = "id,name,description,start_time,end_time,is_canceled,ticket_uri,place{name,location{street,city,state,zip}},event_times{id,start_time,end_time}";
 const MAX_PAGES = 10;
 

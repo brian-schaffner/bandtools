@@ -21,8 +21,9 @@ function statusUrl() {
   return `${(process.env.SETLOADER_INTERNAL_URL ?? "http://127.0.0.1:8002").replace(/\/+$/, "")}/user/status`;
 }
 
+/** Must equal the Setlist Loader's SECRET (NEXT_PUBLIC_* names would be frozen at build time). */
 function apiSecret() {
-  return process.env.NEXT_PUBLIC_API_SECRET || process.env.SECRET || process.env.BRIDGE_SECRET || "";
+  return process.env.SETLOADER_SECRET || process.env.SECRET || "";
 }
 
 /** Empty means every signed-in Band Tools user may use the app. */
