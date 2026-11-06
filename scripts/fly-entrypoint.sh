@@ -6,7 +6,7 @@ DATA="${DATA_DIR:-/data}"
 SETLOADER="/app/setloader"
 FLYERS="/app/gig-flyers"
 
-mkdir -p "$DATA"/{user_data,oauth_credentials,downloads,work,forensic,cache,flyers-output}
+mkdir -p "$DATA"/{user_data,oauth_credentials,downloads,work,forensic,cache,flyers-output,flyer-forge}
 mkdir -p "$FLYERS/logs"
 
 for d in user_data oauth_credentials downloads work forensic; do

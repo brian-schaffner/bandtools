@@ -1,4 +1,4 @@
-# Band Tools — multi-component monorepo (Setlist Loader + Gig Flyers + hub UI)
+# Band Tools — multi-component monorepo (Setlist Loader + Flyer Forge + day schedule + hub UI)
 ARG BANDTOOLS_GIT_SHA=unknown
 ARG BANDTOOLS_BUILD_NUMBER=dev
 ARG BANDTOOLS_BUILD_TIME=
@@ -23,6 +23,16 @@ ENV NEXT_PUBLIC_BANDTOOLS_BUILT_AT=${BANDTOOLS_BUILD_TIME}
 ENV NEXT_PUBLIC_BANDTOOLS_DEPLOY_ENV=${BANDTOOLS_DEPLOY_ENV}
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
+
+# Flyer Forge (Next.js) served at /forge — replaces the Gig Flyers / Flyer Agent pages
+FROM node:22-bookworm-slim AS forge-build
+WORKDIR /app/flyer-forge
+COPY flyer-forge/package.json flyer-forge/package-lock.json ./
+RUN npm ci
+COPY flyer-forge/ ./
+ENV FLYER_FORGE_BASE_PATH=/forge
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN npx next build
 
 FROM python:3.12-bookworm
 
@@ -76,6 +86,14 @@ COPY --from=frontend-build /app/setloader/setlist-helper/.next/standalone ./setl
 COPY --from=frontend-build /app/setloader/setlist-helper/.next/static ./setlist-helper/.next/standalone/.next/static/
 COPY --from=frontend-build /app/setloader/setlist-helper/public ./setlist-helper/.next/standalone/public/
 
+COPY --from=forge-build /app/flyer-forge/.next/standalone ./flyer-forge/
+COPY --from=forge-build /app/flyer-forge/.next/static ./flyer-forge/.next/static/
+COPY --from=forge-build /app/flyer-forge/public ./flyer-forge/public/
+COPY --from=forge-build /app/flyer-forge/migrations ./flyer-forge/migrations/
+# PGlite loads its WASM and data files from disk at runtime, which file tracing can miss.
+COPY --from=forge-build /app/flyer-forge/node_modules/@electric-sql/pglite ./flyer-forge/node_modules/@electric-sql/pglite/
+COPY --from=forge-build /app/flyer-forge/node_modules/pg ./flyer-forge/node_modules/pg/
+
 COPY nginx.conf /app/nginx.conf
 COPY supervisord/bandtools.conf /etc/supervisor/conf.d/bandtools.conf
 COPY scripts/fly-entrypoint.sh /app/scripts/fly-entrypoint.sh
@@ -93,6 +111,8 @@ ENV PORT=8090
 ENV BACKEND_PORT=8002
 ENV FRONTEND_PORT=3000
 ENV FLYERS_PORT=8080
+ENV FLYER_FORGE_PORT=3100
+ENV FLYER_FORGE_URL=/forge/
 ENV DATA_DIR=/data
 ENV NODE_ENV=production
 ENV PYTHONUNBUFFERED=1

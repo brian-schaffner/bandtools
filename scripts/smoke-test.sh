@@ -27,9 +27,19 @@ if [[ "$GEMINI_STATUS" == "True" ]]; then
 elif [[ "$GEMINI_STATUS" == "False" ]]; then
   echo "WARN Gemini API key not configured (options B/C will fall back to OpenAI if set)"
 fi
-check /flyers 301
-check /flyers/ 200
-check /flyers/pick 200
+check /flyers 302
+check /flyers/ 302
+check /flyers/pick 302
+check /flyers/logistics 200
+check /forge/signin 200
+check /forge/calendar 307
+check /forge/api/events 401
+PROVIDER=$(curl -sS "${BASE}/forge/api/auth/provider" | python3 -c "import sys,json; print(json.load(sys.stdin).get('provider',''))" 2>/dev/null || echo "")
+if [[ "$PROVIDER" != "bandtools" ]]; then
+  echo "FAIL /forge/api/auth/provider expected bandtools got '${PROVIDER}'"
+  exit 1
+fi
+echo "OK   Flyer Forge signs in with Band Tools sessions"
 check / 200
 check /setlist-loader 200
 
@@ -41,7 +51,7 @@ else
   echo "WARN: no CSS link found in homepage HTML"
 fi
 
-if command -v python3 >/dev/null 2>&1; then
+if [[ -z "${SMOKE_SKIP_UNIT_TESTS:-}" ]] && command -v python3 >/dev/null 2>&1; then
   echo "Running gig-flyers unit tests..."
   (cd "$(dirname "$0")/../gig-flyers" && python3 -m pytest tests/ -q --tb=no -x 2>/dev/null) || echo "WARN: gig-flyers tests skipped or failed locally"
 fi
