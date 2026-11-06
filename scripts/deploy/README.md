@@ -73,6 +73,8 @@ Copy `.env.example` → `.env` and fill values. The deploy script pushes them to
 **Day schedule (drive times + email):** set these as GitHub Actions secrets. The staging workflow stages any non-empty ones on `bandtools-test` before each deploy via `sync-logistics-secrets.sh`:
 `GOOGLE_MAPS_API_KEY` or `MAPS_API_KEY` (Routes API enabled; check with `/flyers/logistics/drive-check`), `BAND_HOME_ADDRESS` (or `BAND_ADDRESS`), `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_FROM`, `LOGISTICS_EMAIL_TO`.
 
+**Facebook calendar:** GitHub Actions secrets `FACEBOOK_PAGE_ID` and `FACEBOOK_PAGE_ACCESS_TOKEN` are staged on `bandtools-test` (staging workflow) and `bandtools` (production workflow) before each deploy via `stage-ci-secrets.sh`. Only staging reads them today (`GIG_CALENDAR_SOURCE=facebook` in `fly.test.toml`).
+
 **Gemini (options B/C):** add `GOOGLE_API_KEY` from [Google AI Studio](https://aistudio.google.com/apikey). Staging enables split mode (`A=openai`, `B/C=gemini`) via `fly.test.toml`.
 
 Verify locally:

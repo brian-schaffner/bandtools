@@ -131,6 +131,9 @@ sync_fly_secrets() {
   if [[ -n "$google_key" ]]; then
     set_args+=("GOOGLE_API_KEY=${google_key}" "GEMINI_API_KEY=${GEMINI_API_KEY:-${google_key}}")
   fi
+  if [[ -n "${FACEBOOK_PAGE_ID:-}" && -n "${FACEBOOK_PAGE_ACCESS_TOKEN:-}" ]]; then
+    set_args+=("FACEBOOK_PAGE_ID=${FACEBOOK_PAGE_ID}" "FACEBOOK_PAGE_ACCESS_TOKEN=${FACEBOOK_PAGE_ACCESS_TOKEN}")
+  fi
 
   flyctl secrets set -a "$app" "${set_args[@]}"
 }
