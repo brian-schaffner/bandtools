@@ -20,6 +20,7 @@ import { buildSpec, RECIPE_MAP, RECIPES } from "@/lib/recipes";
 import { BriefSchema } from "@/lib/spec";
 import type { Asset, StyleRef } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { withBase } from "@/lib/base-path";
 
 const SAMPLE_BRIEF = BriefSchema.parse({
   date: "2026-12-12",
@@ -125,7 +126,7 @@ function RefCard({ r, onEdit, onArchive }: { r: StyleRef; onEdit: () => void; on
         <div className="w-24 shrink-0">
           {r.imageAssetId ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={`/api/assets/${r.imageAssetId}/preview`} alt="" className="aspect-[4/5] w-full rounded-sm object-cover" />
+            <img src={withBase(`/api/assets/${r.imageAssetId}/preview`)} alt="" className="aspect-[4/5] w-full rounded-sm object-cover" />
           ) : recipe ? (
             <div className="overflow-hidden rounded-sm">
               <RecipeSwatch recipeId={recipe.id} />
@@ -174,7 +175,7 @@ function RefCard({ r, onEdit, onArchive }: { r: StyleRef; onEdit: () => void; on
 }
 
 async function previewDataUrl(assetId: string) {
-  const blob = await fetch(`/api/assets/${assetId}/preview`).then((r) => r.blob());
+  const blob = await fetch(withBase(`/api/assets/${assetId}/preview`)).then((r) => r.blob());
   const img = await blobToImage(blob);
   const s = Math.min(1, 1024 / Math.max(img.naturalWidth, img.naturalHeight));
   const c = document.createElement("canvas");
@@ -267,7 +268,7 @@ function RefDialog({ value, aiEnabled, onClose, onSaved }: { value: Partial<Styl
             <label className="relative grid aspect-[4/5] cursor-pointer place-items-center overflow-hidden rounded-md border border-dashed border-border text-center text-xs text-muted-foreground hover:border-foreground/40">
               {draft.imageAssetId ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={`/api/assets/${draft.imageAssetId}/preview`} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                <img src={withBase(`/api/assets/${draft.imageAssetId}/preview`)} alt="" className="absolute inset-0 h-full w-full object-cover" />
               ) : (
                 <span className="flex flex-col items-center gap-1 p-3">
                   <Upload className="size-4" />

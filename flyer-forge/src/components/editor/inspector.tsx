@@ -12,6 +12,7 @@ import { setFonts } from "@/lib/design";
 import { TEXT_ROLES, type FlyerSpec, type Layer, type LogoLayer, type PhotoLayer, type ShapeLayer, type TextLayer, type Texture } from "@/lib/spec";
 import type { Asset } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { withBase } from "@/lib/base-path";
 
 const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
 const pct = (v: number) => `${Math.round(v * 100)}%`;
@@ -173,7 +174,7 @@ function AssetStrip({ assets, value, onPick, contain }: { assets: Asset[]; value
           className={cn("relative size-14 shrink-0 overflow-hidden rounded-md border", value === a.id ? "border-primary ring-2 ring-primary/50" : "border-border hover:border-foreground/40", contain && "checker")}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={`/api/assets/${a.id}/preview`} alt={a.name} className={cn("h-full w-full", contain ? "object-contain p-1" : "object-cover")} />
+          <img src={withBase(`/api/assets/${a.id}/preview`)} alt={a.name} className={cn("h-full w-full", contain ? "object-contain p-1" : "object-cover")} />
         </button>
       ))}
     </div>

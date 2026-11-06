@@ -1,6 +1,7 @@
 "use client";
 
 import type { Asset } from "./types";
+import { withBase } from "@/lib/base-path";
 
 export const CHUNK_SIZE = 3 * 1024 * 1024;
 
@@ -27,7 +28,7 @@ export function loadAsset(asset: Pick<Asset, "id" | "mime" | "chunkCount" | "sha
 async function fetchAsset(asset: Pick<Asset, "id" | "mime" | "chunkCount" | "sha256">): Promise<LoadedAsset> {
   const parts = await Promise.all(
     Array.from({ length: asset.chunkCount }, async (_, i) => {
-      const res = await fetch(`/api/assets/${asset.id}/chunks/${i}`);
+      const res = await fetch(withBase(`/api/assets/${asset.id}/chunks/${i}`));
       if (!res.ok) throw new Error(`Could not load part ${i + 1} of the original`);
       return res.arrayBuffer();
     }),
@@ -116,16 +117,16 @@ export async function uploadAsset(
     JSON.stringify({ ...meta, mime: file.type || "application/octet-stream", width, height, byteSize: bytes.byteLength, sha256, chunkCount }),
   );
   form.set("preview", preview);
-  const created = await fetch("/api/assets", { method: "POST", body: form });
+  const created = await fetch(withBase("/api/assets"), { method: "POST", body: form });
   if (!created.ok) throw new Error((await created.json().catch(() => null))?.error ?? "Upload failed");
   const asset: Asset = await created.json();
   for (let i = 0; i < chunkCount; i++) {
     const part = bytes.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
-    const res = await fetch(`/api/assets/${asset.id}/chunks/${i}`, { method: "PUT", body: part });
+    const res = await fetch(withBase(`/api/assets/${asset.id}/chunks/${i}`), { method: "PUT", body: part });
     if (!res.ok) throw new Error(`Upload failed on part ${i + 1} of ${chunkCount}`);
     onProgress?.((i + 1) / chunkCount);
   }
-  const done = await fetch(`/api/assets/${asset.id}/complete`, { method: "POST" });
+  const done = await fetch(withBase(`/api/assets/${asset.id}/complete`), { method: "POST" });
   if (!done.ok) throw new Error((await done.json().catch(() => null))?.error ?? "Could not finalise upload");
   return done.json();
 }

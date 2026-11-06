@@ -3,13 +3,16 @@
  * nothing is stored server-side. Runs in route handlers and in proxy.ts, so only WebCrypto is used.
  */
 
+import { BASE_PATH } from "./base-path";
+
 export const SESSION_COOKIE = "gfs_session";
 export const STATE_COOKIE = "gfs_oauth_state";
 export const SESSION_DAYS = 30;
 
-export type AuthProvider = "cursor" | "google";
+export type AuthProvider = "cursor" | "google" | "bandtools";
 
 export function authProvider(): AuthProvider {
+  if (process.env.AUTH_PROVIDER === "bandtools") return "bandtools";
   if (process.env.AUTH_PROVIDER === "google" || process.env.FLY_APP_NAME) return "google";
   return "cursor";
 }
@@ -107,3 +110,10 @@ export function publicOrigin(req: Request) {
   const proto = req.headers.get("x-forwarded-proto") ?? url.protocol.replace(":", "");
   return `${proto}://${host}`;
 }
+
+/** Public URL of the app root, including the base path it is mounted under. */
+export function appOrigin(req: Request) {
+  return `${publicOrigin(req)}${BASE_PATH}`;
+}
+
+export const AUTH_COOKIE_PATH = `${BASE_PATH}/api/auth`;

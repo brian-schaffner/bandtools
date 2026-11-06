@@ -7,6 +7,7 @@ import { Choice, Field } from "@/components/fields";
 import { FORMAT_IDS, FORMATS, type Brief } from "@/lib/spec";
 import type { Asset } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { withBase } from "@/lib/base-path";
 
 const MOODS = ["Gritty garage", "Late-night jazz club", "Warm Americana", "Loud & fast punk", "Dreamy indie", "Psychedelic", "Clean & modern"];
 
@@ -93,7 +94,7 @@ export function BriefForm({
               <div className="flex gap-2 overflow-x-auto pb-1">
                 <PickTile active={!brief.photoId} onClick={() => set("photoId", null)} label="Auto" />
                 {photos.map((p) => (
-                  <PickTile key={p.id} active={brief.photoId === p.id} onClick={() => set("photoId", p.id)} src={`/api/assets/${p.id}/preview`} label={p.name} />
+                  <PickTile key={p.id} active={brief.photoId === p.id} onClick={() => set("photoId", p.id)} src={withBase(`/api/assets/${p.id}/preview`)} label={p.name} />
                 ))}
               </div>
             )}
@@ -103,7 +104,7 @@ export function BriefForm({
               <PickTile active={!brief.logoId} onClick={() => set("logoId", null)} label="Auto" />
               <PickTile active={brief.logoId === "none"} onClick={() => set("logoId", "none")} label="Typeset name" />
               {logos.map((l) => (
-                <PickTile key={l.id} active={brief.logoId === l.id} onClick={() => set("logoId", l.id)} src={`/api/assets/${l.id}/preview`} label={l.name} contain />
+                <PickTile key={l.id} active={brief.logoId === l.id} onClick={() => set("logoId", l.id)} src={withBase(`/api/assets/${l.id}/preview`)} label={l.name} contain />
               ))}
             </div>
           </Field>

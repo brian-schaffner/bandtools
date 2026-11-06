@@ -16,6 +16,7 @@ import { useAssets, useBand } from "@/hooks/use-fetch";
 import { api } from "@/lib/api";
 import type { Asset, Band, Member, PhotoKind } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { withBase } from "@/lib/base-path";
 
 export function KitView() {
   const band = useBand();
@@ -278,7 +279,7 @@ function AssetSection({
               <button key={a.id} onClick={() => setOpenId(a.id)} className="group overflow-hidden rounded-lg border border-border/60 text-left transition-colors hover:border-foreground/40">
                 <div className={cn("relative aspect-square", isLogo ? "checker" : "bg-muted")}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={`/api/assets/${a.id}/preview`} alt={a.name} className={cn("absolute inset-0 h-full w-full", isLogo ? "object-contain p-4" : "object-cover")} loading="lazy" />
+                  <img src={withBase(`/api/assets/${a.id}/preview`)} alt={a.name} className={cn("absolute inset-0 h-full w-full", isLogo ? "object-contain p-4" : "object-cover")} loading="lazy" />
                   {a.isPrimary && (
                     <span className="absolute left-2 top-2 rounded-full bg-black/70 p-1">
                       <Star className="size-3 fill-amber-400 text-amber-400" />

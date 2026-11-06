@@ -1,15 +1,25 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { BANDTOOLS_SESSION_COOKIE, bandtoolsConfigured, readBandtoolsSession } from "@/lib/bandtools-auth";
 import { authProvider, googleConfig, readSession, SESSION_COOKIE } from "@/lib/session";
 
-/** On Fly.io every page and API call needs a Google session; API routes also re-check it themselves. */
+/** On Fly.io every page and API call needs a session; API routes also re-check it themselves. */
 export async function proxy(request: NextRequest) {
-  if (authProvider() !== "google") return NextResponse.next();
+  const provider = authProvider();
+  if (provider === "cursor") return NextResponse.next();
   const { pathname, search } = request.nextUrl;
   if (pathname === "/signin" || pathname.startsWith("/api/auth/")) return NextResponse.next();
-  const cfg = googleConfig();
-  const session = cfg ? await readSession(request.cookies.get(SESSION_COOKIE)?.value, cfg) : null;
-  if (session) return NextResponse.next();
-  if (pathname.startsWith("/api/")) return NextResponse.json({ error: cfg ? "Sign in to use this app" : "Sign-in is not configured on this server" }, { status: cfg ? 401 : 503 });
+  let configured: boolean;
+  let signedIn: boolean;
+  if (provider === "bandtools") {
+    configured = bandtoolsConfigured();
+    signedIn = configured && !!(await readBandtoolsSession(request.cookies.get(BANDTOOLS_SESSION_COOKIE)?.value));
+  } else {
+    const cfg = googleConfig();
+    configured = !!cfg;
+    signedIn = !!cfg && !!(await readSession(request.cookies.get(SESSION_COOKIE)?.value, cfg));
+  }
+  if (signedIn) return NextResponse.next();
+  if (pathname.startsWith("/api/")) return NextResponse.json({ error: configured ? "Sign in to use this app" : "Sign-in is not configured on this server" }, { status: configured ? 401 : 503 });
   const url = request.nextUrl.clone();
   url.pathname = "/signin";
   url.search = `?next=${encodeURIComponent(pathname + search)}`;

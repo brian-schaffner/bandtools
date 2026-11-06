@@ -12,6 +12,7 @@ import { formatDate } from "@/lib/recipes";
 import { FORMATS, type FormatId } from "@/lib/spec";
 import type { Flyer } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { withBase } from "@/lib/base-path";
 
 export function FlyersHome() {
   const flyers = useFetch<Flyer[]>("/api/flyers");
@@ -102,7 +103,7 @@ export function FlyersHome() {
                   <div className="overflow-hidden rounded-md border border-border/60 bg-muted transition-colors group-hover:border-foreground/40" style={{ aspectRatio: `${fmt.w} / ${fmt.h}` }}>
                     {f.currentVersionId && (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={`/api/flyers/${f.id}/versions/${f.currentVersionId}/thumb`} alt={f.title} className="h-full w-full object-cover" loading="lazy" />
+                      <img src={withBase(`/api/flyers/${f.id}/versions/${f.currentVersionId}/thumb`)} alt={f.title} className="h-full w-full object-cover" loading="lazy" />
                     )}
                   </div>
                   <div className="mt-2 truncate text-sm font-medium">{f.title}</div>

@@ -22,6 +22,7 @@ import { api } from "@/lib/api";
 import { loadAsset } from "@/lib/assets-client";
 import type { Asset, Member, PhotoKind } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { withBase } from "@/lib/base-path";
 
 export function formatBytes(n: number) {
   if (n > 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)} MB`;
@@ -99,7 +100,7 @@ export function AssetDialog({
         a.download = asset.name || asset.id;
         a.click();
       } else {
-        const parts = await Promise.all(Array.from({ length: asset.chunkCount }, (_, i) => fetch(`/api/assets/${asset.id}/chunks/${i}`).then((r) => r.arrayBuffer())));
+        const parts = await Promise.all(Array.from({ length: asset.chunkCount }, (_, i) => fetch(withBase(`/api/assets/${asset.id}/chunks/${i}`)).then((r) => r.arrayBuffer())));
         const url = URL.createObjectURL(new Blob(parts, { type: asset.mime }));
         a.href = url;
         a.download = `${asset.name || asset.id}.svg`;
@@ -256,7 +257,7 @@ function FocalPicker({ asset, focal, onChange }: { asset: Asset; focal: { x: num
       }}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={`/api/assets/${asset.id}/preview`} alt={asset.name} className="absolute inset-0 h-full w-full object-contain" />
+      <img src={withBase(`/api/assets/${asset.id}/preview`)} alt={asset.name} className="absolute inset-0 h-full w-full object-contain" />
       {onChange && (
         <div
           className="pointer-events-none absolute size-6 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-[0_0_0_2px_rgba(0,0,0,0.6)]"

@@ -1,11 +1,12 @@
-import { b64urlDecode, cookieFrom, googleConfig, publicOrigin, safeNext, SESSION_COOKIE, SESSION_DAYS, signSession, STATE_COOKIE } from "@/lib/session";
+import { BASE_PATH } from "@/lib/base-path";
+import { appOrigin, AUTH_COOKIE_PATH, b64urlDecode, cookieFrom, googleConfig, safeNext, SESSION_COOKIE, SESSION_DAYS, signSession, STATE_COOKIE } from "@/lib/session";
 
-const clearState = `${STATE_COOKIE}=; Path=/api/auth; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
+const clearState = `${STATE_COOKIE}=; Path=${AUTH_COOKIE_PATH}; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
 
 function fail(req: Request, code: string) {
   return new Response(null, {
     status: 303,
-    headers: { location: `${publicOrigin(req)}/signin?error=${code}`, "set-cookie": clearState, "cache-control": "no-store" },
+    headers: { location: `${appOrigin(req)}/signin?error=${code}`, "set-cookie": clearState, "cache-control": "no-store" },
   });
 }
 
@@ -24,7 +25,7 @@ export async function GET(req: Request) {
       code,
       client_id: cfg.clientId,
       client_secret: cfg.clientSecret,
-      redirect_uri: `${publicOrigin(req)}/api/auth/callback`,
+      redirect_uri: `${appOrigin(req)}/api/auth/callback`,
       grant_type: "authorization_code",
     }),
   });
@@ -51,8 +52,8 @@ export async function GET(req: Request) {
   if (!cfg.allowed.includes(email)) return fail(req, "not-allowed");
 
   const session = await signSession({ sub: claims.sub, email, name: claims.name ?? email, exp: Math.floor(Date.now() / 1000) + SESSION_DAYS * 86400 }, cfg.secret);
-  const headers = new Headers({ location: `${publicOrigin(req)}${safeNext(next)}`, "cache-control": "no-store" });
-  headers.append("set-cookie", `${SESSION_COOKIE}=${encodeURIComponent(session)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${SESSION_DAYS * 86400}`);
+  const headers = new Headers({ location: `${appOrigin(req)}${safeNext(next)}`, "cache-control": "no-store" });
+  headers.append("set-cookie", `${SESSION_COOKIE}=${encodeURIComponent(session)}; Path=${BASE_PATH || "/"}; HttpOnly; Secure; SameSite=Lax; Max-Age=${SESSION_DAYS * 86400}`);
   headers.append("set-cookie", clearState);
   return new Response(null, { status: 303, headers });
 }

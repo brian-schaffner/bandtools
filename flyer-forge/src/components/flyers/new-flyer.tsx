@@ -23,6 +23,7 @@ import { thumbnailBlob } from "@/lib/render/export";
 import type { RenderReport, SourceImage } from "@/lib/render/render";
 import type { Asset, Band, ConceptDirection, Flyer, FlyerVersion } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { withBase } from "@/lib/base-path";
 
 const STEPS = ["Gig details", "Design concept", "Layer in photo & logo"];
 
@@ -293,7 +294,7 @@ function LayerControls({ concept, onChange, photos, logos }: { concept: ConceptD
             {photos.map((p) => (
               <button key={p.id} className={tile(concept.photoId === p.id)} onClick={() => onChange({ ...concept, photoId: p.id })} title={p.name}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={`/api/assets/${p.id}/preview`} alt={p.name} className="h-full w-full object-cover" />
+                <img src={withBase(`/api/assets/${p.id}/preview`)} alt={p.name} className="h-full w-full object-cover" />
               </button>
             ))}
           </div>
@@ -309,7 +310,7 @@ function LayerControls({ concept, onChange, photos, logos }: { concept: ConceptD
           {logos.map((l) => (
             <button key={l.id} className={cn(tile(concept.logoId === l.id), "checker")} onClick={() => onChange({ ...concept, logoId: l.id })} title={l.name}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={`/api/assets/${l.id}/preview`} alt={l.name} className="h-full w-full object-contain p-1.5" />
+              <img src={withBase(`/api/assets/${l.id}/preview`)} alt={l.name} className="h-full w-full object-contain p-1.5" />
             </button>
           ))}
         </div>
@@ -369,7 +370,7 @@ export async function saveVersion(
   } catch {
     // A missing thumbnail only affects the dashboard grid.
   }
-  const res = await fetch(`/api/flyers/${flyerId}/versions`, { method: "POST", body: form });
+  const res = await fetch(withBase(`/api/flyers/${flyerId}/versions`), { method: "POST", body: form });
   if (!res.ok) throw new Error((await res.json().catch(() => null))?.error ?? "Could not save version");
   return res.json();
 }

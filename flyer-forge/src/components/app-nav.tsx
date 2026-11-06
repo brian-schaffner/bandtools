@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogOut } from "lucide-react";
+import { LayoutGrid, LogOut } from "lucide-react";
 import { useFetch } from "@/hooks/use-fetch";
 import { cn } from "@/lib/utils";
+import { BAND_TOOLS_HOME, withBase } from "@/lib/base-path";
 
 const LINKS = [
   { href: "/calendar", label: "Calendar", match: (p: string) => p.startsWith("/calendar") || p.startsWith("/events") },
@@ -17,7 +18,7 @@ const LINKS = [
 export function AppNav() {
   const pathname = usePathname() ?? "/";
   const signin = pathname === "/signin";
-  const me = useFetch<{ name: string; email: string; provider: "cursor" | "google" }>(signin ? null : "/api/auth/me");
+  const me = useFetch<{ name: string; email: string; provider: "cursor" | "google" | "bandtools" }>(signin ? null : "/api/auth/me");
   return (
     <header className="sticky top-0 z-40 border-b print:hidden border-border/60 bg-background/85 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-[1500px] items-center gap-6 px-4 sm:px-6">
@@ -40,12 +41,20 @@ export function AppNav() {
           ))}
         </nav>}
         {me.data?.provider === "google" && (
-          <form action="/api/auth/logout" method="post" className="ml-auto flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+          <form action={withBase("/api/auth/logout")} method="post" className="ml-auto flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
             <span className="hidden max-w-40 truncate md:inline">{me.data.name}</span>
             <button type="submit" className="flex items-center gap-1 rounded-md px-2 py-1.5 hover:bg-muted hover:text-foreground" aria-label="Sign out">
               <LogOut className="size-3.5" /> <span className="hidden sm:inline">Sign out</span>
             </button>
           </form>
+        )}
+        {me.data?.provider === "bandtools" && (
+          <div className="ml-auto flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+            <span className="hidden max-w-40 truncate md:inline">{me.data.email}</span>
+            <a href={BAND_TOOLS_HOME} className="flex items-center gap-1 rounded-md px-2 py-1.5 hover:bg-muted hover:text-foreground">
+              <LayoutGrid className="size-3.5" /> <span className="hidden sm:inline">Band Tools</span>
+            </a>
+          </div>
         )}
       </div>
     </header>

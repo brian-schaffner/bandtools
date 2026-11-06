@@ -11,6 +11,7 @@ import type { FlyerSpec, Layer } from "@/lib/spec";
 import type { RenderReport, SourceImage } from "@/lib/render/render";
 import type { Asset, Critique, CritiqueIssue, FlyerVersion } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { withBase } from "@/lib/base-path";
 
 export function LayerIcon({ type, className }: { type: Layer["type"]; className?: string }) {
   const I = type === "text" ? Type : type === "photo" ? ImageIcon : type === "logo" ? Stamp : Shapes;
@@ -84,7 +85,7 @@ export function VersionsPanel({ flyerId, versions, currentId, onOpen }: { flyerI
             <div className="w-11 shrink-0 overflow-hidden rounded-sm bg-muted">
               {v.hasThumb && (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={`/api/flyers/${flyerId}/versions/${v.id}/thumb`} alt="" className="w-full" loading="lazy" />
+                <img src={withBase(`/api/flyers/${flyerId}/versions/${v.id}/thumb`)} alt="" className="w-full" loading="lazy" />
               )}
             </div>
             <div className="min-w-0 text-xs">

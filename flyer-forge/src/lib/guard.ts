@@ -1,6 +1,7 @@
 import "server-only";
 import { requireIdentity } from "../../cursor/identity";
 import { sql } from "./db";
+import { BANDTOOLS_SESSION_COOKIE, bandtoolsConfigured, readBandtoolsSession } from "./bandtools-auth";
 import { authProvider, cookieFrom, googleConfig, readSession, SESSION_COOKIE } from "./session";
 
 export interface Viewer {
@@ -21,6 +22,12 @@ export async function requireViewer(req: Request): Promise<Viewer | Response> {
     if (req.headers.get("sec-fetch-site") === "cross-site") {
       return Response.json({ error: "Cross-site requests are not allowed" }, { status: 403 });
     }
+  }
+  if (authProvider() === "bandtools") {
+    if (!bandtoolsConfigured()) return Response.json({ error: "Sign-in is not configured on this server" }, { status: 503 });
+    const user = await readBandtoolsSession(cookieFrom(req.headers.get("cookie"), BANDTOOLS_SESSION_COOKIE));
+    if (!user) return Response.json({ error: "Sign in to Band Tools to use this app" }, { status: 401 });
+    return user;
   }
   if (authProvider() === "google") {
     const cfg = googleConfig();

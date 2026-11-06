@@ -15,6 +15,7 @@ import { useFetch } from "@/hooks/use-fetch";
 import { api } from "@/lib/api";
 import { eventLabel, isPast, statusLabel, todayIso, type CalendarEvent, type EventStatus } from "@/lib/events";
 import { cn } from "@/lib/utils";
+import { withBase } from "@/lib/base-path";
 
 const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -77,7 +78,7 @@ export function CalendarView() {
           <Button variant="outline" onClick={() => setImportOpen(true)}>
             <Upload /> Import .ics
           </Button>
-          <a href="/api/events/ics" className={buttonVariants({ variant: "outline" })} download>
+          <a href={withBase("/api/events/ics")} className={buttonVariants({ variant: "outline" })} download>
             <Download /> Export .ics
           </a>
           <Button size="lg" onClick={() => setNewDate(today)}>
@@ -213,7 +214,7 @@ function EventList({ title, events, loading, error, onRetry, empty }: { title: s
                 </div>
                 {e.coverFlyer && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={`/api/flyers/${e.coverFlyer.id}/versions/${e.coverFlyer.versionId}/thumb`} alt="" className="h-14 w-10 shrink-0 rounded-sm object-cover" loading="lazy" />
+                  <img src={withBase(`/api/flyers/${e.coverFlyer.id}/versions/${e.coverFlyer.versionId}/thumb`)} alt="" className="h-14 w-10 shrink-0 rounded-sm object-cover" loading="lazy" />
                 )}
               </Link>
             </li>
