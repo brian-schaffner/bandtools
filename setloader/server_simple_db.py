@@ -107,6 +107,32 @@ async def health_check():
         "build": build_info_for_api(),
     }
 
+
+@app.get("/band-calendar")
+async def band_calendar(
+    secret: Optional[str] = Header(None, alias="X-Secret"),
+):
+    """Upcoming gigs from the shared Lindsey Lane calendar (gig-flyers/gig_calendar.py).
+
+    Used by Gig Flyer Studio (Flyer Forge) to seed its calendar without duplicating scrape logic.
+    """
+    if secret != SECRET:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    import sys
+
+    root = Path(__file__).resolve().parent.parent
+    gig_flyers = root / "gig-flyers"
+    sp = str(gig_flyers)
+    if sp not in sys.path:
+        sys.path.insert(0, sp)
+
+    from gig_calendar import get_future_gigs
+
+    events = get_future_gigs(min_days=0, max_days=365, background_refresh=True)
+    return [e.to_dict() for e in events]
+
+
 @app.get("/gig/suggestions")
 async def gig_suggestions(
     date: Optional[str] = Query(None, description="Target date YYYY-MM-DD"),

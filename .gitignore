@@ -39,3 +39,6 @@ pack/
 # Large test assets
 *.pdf
 *.sbpbackup
+
+# Local zip extract (source lives under setloader/flyer-forge)
+flyer-forge-extract/

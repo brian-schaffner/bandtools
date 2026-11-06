@@ -33,7 +33,7 @@ if [[ -z "${GOOGLE_REDIRECT_URI:-}" && -n "${APP_URL:-}" ]]; then
   export GOOGLE_REDIRECT_URI="${APP_URL}/auth/google/callback"
 fi
 if [[ -z "${BRIDGE_PUBLIC_URL:-}" && -n "${APP_URL:-}" ]]; then
-  export BRIDGE_PUBLIC_URL="${APP_URL}/flyers"
+  export BRIDGE_PUBLIC_URL="${APP_URL}/flyer-forge"
 fi
 if [[ -z "${BAND_TOOLS_URL:-}" && -n "${APP_URL:-}" ]]; then
   export BAND_TOOLS_URL="${APP_URL}"

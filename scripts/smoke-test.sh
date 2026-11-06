@@ -20,16 +20,10 @@ check() {
 echo "Smoke testing ${BASE}"
 check /health 200
 check /api/health 200
-check /flyers/health 200
-GEMINI_STATUS=$(curl -sS "${BASE}/flyers/health" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('providers',{}).get('gemini_configured',''))" 2>/dev/null || echo "")
-if [[ "$GEMINI_STATUS" == "True" ]]; then
-  echo "OK   Gemini API key configured"
-elif [[ "$GEMINI_STATUS" == "False" ]]; then
-  echo "WARN Gemini API key not configured (options B/C will fall back to OpenAI if set)"
-fi
+check /band-calendar 403
+check /flyer-forge/ 200
 check /flyers 301
-check /flyers/ 200
-check /flyers/pick 200
+check /flyers/ 301
 check / 200
 check /setlist-loader 200
 
@@ -39,11 +33,6 @@ if [[ -n "$CSS_PATH" ]]; then
   check "$CSS_PATH" 200
 else
   echo "WARN: no CSS link found in homepage HTML"
-fi
-
-if command -v python3 >/dev/null 2>&1; then
-  echo "Running gig-flyers unit tests..."
-  (cd "$(dirname "$0")/../gig-flyers" && python3 -m pytest tests/ -q --tb=no -x 2>/dev/null) || echo "WARN: gig-flyers tests skipped or failed locally"
 fi
 
 echo "All smoke checks passed for ${BASE}"

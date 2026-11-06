@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { FileText, Megaphone, ArrowRight, Scissors, CalendarClock } from "lucide-react"
+import { FileText, Megaphone, ArrowRight, Scissors } from "lucide-react"
 import { BandToolsLogo } from "@/components/band-tools-logo"
 import { GoogleAuth } from "@/components/google-auth"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -19,33 +19,13 @@ const tools = [
     available: true,
   },
   {
-    id: "flyer-agent",
-    title: "Flyer Agent",
+    id: "gig-flyer-studio",
+    title: "Gig Flyer Studio",
     description:
-      "Sign in with Google, pick an upcoming gig, and generate or revise concert posters with an expert design agent.",
-    href: "/flyers/agent",
-    icon: Megaphone,
-    accent: "from-violet-600 to-purple-700",
-    available: true,
-  },
-  {
-    id: "gig-flyers",
-    title: "Gig Flyers",
-    description:
-      "Generate promoter-style flyer options from your gig calendar, review on the web, and approve via iMessage.",
-    href: "/flyers/",
+      "Calendar, flyers, set lists, and band kit — sign in with Google, sync gigs from the band calendar, and design posters.",
+    href: "/flyer-forge/",
     icon: Megaphone,
     accent: "from-amber-500 to-orange-600",
-    available: true,
-  },
-  {
-    id: "day-schedule",
-    title: "Day Schedule",
-    description:
-      "Pick a published gig and build its departure & setup schedule — pull-out, arrival, soundcheck, dead stage and teardown.",
-    href: "/flyers/logistics",
-    icon: CalendarClock,
-    accent: "from-emerald-500 to-teal-600",
     available: true,
   },
   {
