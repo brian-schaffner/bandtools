@@ -341,6 +341,133 @@ def compact_day(date: str) -> str:
     return date[:12].upper()
 
 
+def draw_bubbly_stacked_text(
+    canvas: Image.Image,
+    origin: tuple[int, int],
+    lines: list[str],
+    *,
+    font_size: int = 52,
+    fill: tuple[int, int, int, int],
+    stroke: tuple[int, int, int, int] = (17, 17, 17, 255),
+    stroke_width: int = 5,
+    line_gap: int = 8,
+    anchor: str = "rm",
+) -> None:
+    """Thick stroked display lines — festival poster hook typography."""
+    font = load_font(font_size, "display")
+    x, y = origin
+    for line in lines:
+        draw_stroked_text_layer(
+            canvas, (x, y), line.upper(), font, fill,
+            stroke=stroke, stroke_width=stroke_width, anchor=anchor,
+        )
+        y += font_size + line_gap
+
+
+def draw_psychedelic_swirls(
+    canvas: Image.Image,
+    bbox: tuple[int, int, int, int],
+    *,
+    colors: tuple[tuple[int, int, int], tuple[int, int, int]],
+    seed: int = 0,
+) -> None:
+    """Floral/teardrop swirls behind festival hero art."""
+    rng = random.Random(seed)
+    layer = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(layer)
+    x1, y1, x2, y2 = bbox
+    cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
+    for _ in range(14):
+        color = colors[rng.randint(0, 1)]
+        rx = rng.randint(40, max(41, (x2 - x1) // 2))
+        ry = rng.randint(30, max(31, (y2 - y1) // 2))
+        ox = rng.randint(x1 + 20, max(x1 + 21, x2 - 20))
+        oy = rng.randint(y1 + 20, max(y1 + 21, y2 - 20))
+        draw.ellipse([ox - rx, oy - ry, ox + rx, oy + ry], outline=(*color, 220), width=rng.randint(3, 6))
+        draw.pieslice([ox - rx, oy - ry, ox + rx, oy + ry], start=rng.randint(0, 180), end=rng.randint(181, 360), fill=(*color, 90))
+    for _ in range(8):
+        color = colors[rng.randint(0, 1)]
+        px, py = rng.randint(x1, x2), rng.randint(y1, y2)
+        r = rng.randint(8, 18)
+        draw.ellipse([px - r, py - r, px + r, py + r], fill=(*color, 200))
+    layer.putalpha(layer.split()[3].point(lambda a: int(a * 0.85)))
+    canvas.alpha_composite(layer)
+
+
+def draw_festival_bird_guitar(
+    canvas: Image.Image,
+    bbox: tuple[int, int, int, int],
+    *,
+    cream: tuple[int, int, int] = (255, 248, 235),
+    blue: tuple[int, int, int] = (21, 101, 192),
+    yellow: tuple[int, int, int] = (245, 196, 0),
+    seed: int = 0,
+) -> None:
+    """Original symbolic hero — bird on guitar neck (Woodstock-inspired, not a copy)."""
+    rng = random.Random(seed)
+    layer = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(layer)
+    x1, y1, x2, y2 = bbox
+    gx = x1 + int((x2 - x1) * 0.08)
+    gy = y1 + int((y2 - y1) * 0.42)
+    neck_w = int((x2 - x1) * 0.72)
+    neck_h = max(18, int((y2 - y1) * 0.07))
+    draw.rounded_rectangle([gx, gy, gx + neck_w, gy + neck_h], radius=neck_h // 2, fill=(*blue, 255))
+
+    bx = gx + int(neck_w * 0.18)
+    by = gy - int((y2 - y1) * 0.22)
+    bw, bh = int((x2 - x1) * 0.28), int((y2 - y1) * 0.18)
+    draw.ellipse([bx, by, bx + bw, by + bh], fill=(*cream, 255))
+    draw.polygon(
+        [(bx + bw, by + bh // 2), (bx + bw + bw // 4, by + bh // 2 - 6), (bx + bw + bw // 4, by + bh // 2 + 6)],
+        fill=(*cream, 255),
+    )
+    draw.ellipse([bx + bw // 6, by + bh // 4, bx + bw // 6 + 10, by + bh // 4 + 10], fill=(211, 47, 47, 255))
+    draw.line([(bx + bw // 3, by + bh), (bx + bw // 3, gy - 4)], fill=(*yellow, 255), width=3)
+
+    hx = gx + int(neck_w * 0.04)
+    hy = gy + neck_h + 8
+    for i in range(4):
+        fw = int(neck_w * 0.14)
+        fh = int((y2 - y1) * 0.11)
+        fx = hx + i * int(fw * 0.72) + rng.randint(-4, 4)
+        draw.rounded_rectangle([fx, hy, fx + fw, hy + fh], radius=12, fill=(*yellow, 255))
+
+    head_x = gx + neck_w + 8
+    head_y = gy - neck_h
+    draw.rounded_rectangle(
+        [head_x, head_y, head_x + int(neck_w * 0.22), gy + neck_h * 2],
+        radius=10,
+        fill=(46, 125, 50, 255),
+    )
+    for i in range(3):
+        px = head_x + 12 + i * 14
+        draw.ellipse([px, head_y + 8, px + 8, head_y + 24], fill=(*blue, 255))
+    canvas.alpha_composite(layer)
+
+
+def draw_three_column_footer(
+    canvas: Image.Image,
+    *,
+    y_top: int,
+    columns: tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]],
+    colors: tuple[tuple[int, int, int, int], tuple[int, int, int, int], tuple[int, int, int, int]],
+    fonts: tuple[int, int, int] = (20, 24, 28),
+) -> None:
+    """Festival bill footer — lineup | logistics | headliner hints."""
+    w = canvas.width
+    col_w = (w - 96) // 3
+    xs = (48, 48 + col_w + 12, 48 + 2 * (col_w + 12))
+    for col_idx, (lines, color, size) in enumerate(zip(columns, colors, fonts)):
+        font = load_font(size, "display" if col_idx == 2 else "body")
+        y = y_top
+        for line in lines:
+            if not line:
+                continue
+            draw_stroked_text_layer(canvas, (xs[col_idx], y), line.upper(), font, color)
+            y += size + 10
+
+
 def save_rgb(img: Image.Image, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     img.convert("RGB").save(path)

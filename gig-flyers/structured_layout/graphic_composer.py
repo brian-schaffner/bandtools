@@ -19,11 +19,15 @@ from structured_layout.graphic_primitives import (
     CANVAS,
     compact_day,
     concentric_rings,
+    draw_bubbly_stacked_text,
     draw_corner_strip,
     draw_diagonal_band,
     draw_double_rule,
+    draw_festival_bird_guitar,
+    draw_psychedelic_swirls,
     draw_starburst,
     draw_stroked_text_layer,
+    draw_three_column_footer,
     draw_tape_strip,
     draw_ticket_stub,
     duotone_photo,
@@ -46,6 +50,7 @@ ARCHETYPES = (
     "xerox_punk",
     "duotone_modern",
     "psychedelic",
+    "woodstock_festival",
     "boutique",
     "neon_bar",
     "pasteup_zine",
@@ -79,6 +84,18 @@ PALETTES: dict[str, list[tuple[str, Palette]]] = {
     "psychedelic": [
         ("magenta", Palette((255, 250, 240), (10, 10, 10), (199, 21, 133), (10, 10, 10), (255, 250, 240))),
         ("orange_teal", Palette((255, 245, 230), (0, 80, 90), (230, 90, 30), (0, 60, 70), (255, 240, 210))),
+    ],
+    "woodstock_festival": [
+        (
+            "festival_red",
+            Palette(
+                (211, 47, 47),
+                (17, 17, 17),
+                (245, 196, 0),
+                (211, 47, 47),
+                (255, 248, 235),
+            ),
+        ),
     ],
     "boutique": [
         ("navy_brick", Palette((250, 245, 235), (25, 42, 86), (168, 58, 42), (25, 42, 86), (250, 245, 235))),
@@ -142,6 +159,18 @@ def build_recipe(
     accent = weighted_choice(rng, list(ACCENTS), prefs.get("accent", {}))
     if accent == "stamp" and arch not in ("xerox_punk", "pasteup_zine", "broadside"):
         accent = "starburst"
+    if arch == "woodstock_festival":
+        accent = "none"
+        layers = ("rings", "double_rule")
+        return GraphicRecipe(
+            archetype=arch,
+            palette_id=palette_id,
+            palette=palette,
+            accent=accent,
+            layers=layers,
+            mirror=False,
+            seed=rng.randint(1, 2**31 - 1),
+        )
     layer_pool = [layer for layer in LAYER_ELEMENTS if not (layer == "tape_corner" and accent == "tape")]
     rng.shuffle(layer_pool)
     layer_count = rng.randint(2, min(3, len(layer_pool)))
@@ -409,6 +438,81 @@ def _render_psychedelic(facts: dict, photo: Path, recipe: GraphicRecipe) -> Imag
     return _finish_creative(img, recipe, date=facts["date"], time=facts["time"], band=facts["band"], grain_strength=0.07)
 
 
+def _festival_hook(facts: dict) -> list[str]:
+    venue = facts.get("venue", "").upper()
+    if "FESTIVAL" in venue:
+        return ["ONE NIGHT", "OF BLUES", "& ROCK"]
+    return ["LIVE MUSIC", "ALL NIGHT", "LONG"]
+
+
+def _render_woodstock_festival(facts: dict, photo: Path, recipe: GraphicRecipe) -> Image.Image:
+    """Festival poster — symbolic hero art, slogan-first hierarchy, 3-column footer."""
+    pal = recipe.palette
+    cream = (255, 248, 235)
+    blue = (21, 101, 192)
+    img = Image.new("RGBA", CANVAS, (*pal.paper, 255))
+    draw = ImageDraw.Draw(img)
+
+    hero_box = (32, 100, 720, 720)
+    draw_psychedelic_swirls(
+        img, hero_box, colors=(blue, pal.accent), seed=recipe.seed,
+    )
+    draw_festival_bird_guitar(
+        img, hero_box, cream=cream, blue=blue, yellow=pal.accent, seed=recipe.seed + 17,
+    )
+
+    draw_bubbly_stacked_text(
+        img, (992, 120), _festival_hook(facts),
+        font_size=58, fill=(*pal.accent, 255), stroke=(*pal.ink, 255), stroke_width=6,
+    )
+
+    footer_y = 960
+    draw.rectangle([0, footer_y - 8, CANVAS[0], CANVAS[1]], fill=(*pal.paper, 255))
+    draw.line([(48, footer_y), (976, footer_y)], fill=(*cream, 200), width=3)
+
+    photo_box = (48, 1010, 340, 1280)
+    ph = load_photo(photo, photo_box)
+    ph = duotone_photo(ph, (17, 17, 17), pal.accent)
+    img.paste(ph, (photo_box[0], photo_box[1]), ph)
+
+    venue_short = facts["venue"].upper()
+    if len(venue_short) > 28:
+        venue_lines = [venue_short[:28], venue_short[28:56]]
+    else:
+        venue_lines = [venue_short]
+    date_parts = facts["date"].replace(",", "").split()
+    date_line = " ".join(date_parts[:4]) if len(date_parts) >= 4 else facts["date"].upper()
+
+    draw_three_column_footer(
+        img,
+        y_top=footer_y + 36,
+        columns=(
+            ("FEATURING", "LOCAL ACTS", "SPECIAL GUESTS"),
+            (*venue_lines, date_line, facts["time"].upper()),
+            (facts["band"].upper()[:22],),
+        ),
+        colors=(
+            (*cream, 255),
+            (*pal.accent, 255),
+            (*cream, 255),
+        ),
+        fonts=(18, 22, 34),
+    )
+
+    if not _draw_band_or_logo(img, facts, recipe):
+        draw_stroked_text_layer(
+            img, (720, 1240), facts["band"].upper(), load_font(40, "display"),
+            (*cream, 255), stroke=(*pal.ink, 255), stroke_width=3, anchor="mm",
+        )
+
+    draw_stroked_text_layer(
+        img, (48, CANVAS[1] - 56), facts["address"], load_font(20, "body"), (*cream, 220),
+    )
+    return _finish_creative(
+        img, recipe, date=facts["date"], time=facts["time"], band=facts["band"], grain_strength=0.09,
+    )
+
+
 def _render_boutique(facts: dict, photo: Path, recipe: GraphicRecipe) -> Image.Image:
     pal = recipe.palette
     img = Image.new("RGBA", CANVAS, (*pal.paper, 255))
@@ -576,6 +680,7 @@ _RENDERERS: dict[str, Callable[..., Image.Image]] = {
     "xerox_punk": _render_xerox_punk,
     "duotone_modern": _render_duotone,
     "psychedelic": _render_psychedelic,
+    "woodstock_festival": _render_woodstock_festival,
     "boutique": _render_boutique,
     "neon_bar": _render_neon_bar,
     "pasteup_zine": _render_pasteup_zine,
