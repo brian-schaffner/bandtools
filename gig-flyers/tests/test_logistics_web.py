@@ -61,6 +61,15 @@ class LogisticsWebTest(unittest.TestCase):
         self.assertIn("Skipped in weekly run", res.text)
         self.assertIn("Day schedule", res.text)
 
+    def test_nav_points_to_flyer_forge_when_deployed(self) -> None:
+        self.assertIn("Shell studio", self.client.get("/flyers/logistics").text)
+        with patch.dict(os.environ, {"FLYER_FORGE_URL": "/forge/"}):
+            text = self.client.get("/flyers/logistics").text
+        self.assertIn('<a href="/forge/">Flyer Forge</a>', text)
+        self.assertIn('href="/flyers/logistics">Day schedule</a>', text)
+        for retired in ("Shell studio", "Flyer Agent", "Pick gig"):
+            self.assertNotIn(retired, text)
+
     def test_gig_page_builds_schedule(self) -> None:
         res = self.client.get(f"/flyers/logistics/{TWO_LANE}")
         self.assertEqual(res.status_code, 200)
