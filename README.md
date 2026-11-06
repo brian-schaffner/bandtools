@@ -1,6 +1,6 @@
 # Band Tools
 
-Multi-component app for Lindsey Lane Band: **Setlist Loader** + **Gig Flyers**, served from a single Fly.io deployment.
+Multi-component app for Lindsey Lane Band: **Setlist Loader**, **Gig Flyer Studio** (Flyer Forge), and related tools, served from a single Fly.io deployment.
 
 ## Architecture
 
@@ -10,7 +10,7 @@ https://bandtools.fly.dev
     ├── /                 → Next.js hub (setlist-helper)
     ├── /setlist-loader   → Setlist Loader UI
     ├── /api/*            → FastAPI (server_simple_db)
-    └── /flyers/*         → Gig Flyers bridge (in-process)
+    └── /flyer-forge/*    → Gig Flyer Studio (Flyer Forge, Next.js)
 ```
 
 All three services run in one container via **supervisord** + **nginx** on port `8090`.
