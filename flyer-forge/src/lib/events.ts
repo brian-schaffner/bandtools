@@ -37,7 +37,7 @@ export type EventFields = z.infer<typeof EventFieldsSchema>;
 export const SCHEDULE_LABELS: Record<ScheduleKind, string> = {
   travel: "Travel",
   arrive: "Arrive",
-  "load-in": "Load-in / setup",
+  "load-in": "Setup",
   soundcheck: "Soundcheck",
   "dead-stage": "Dead stage",
   doors: "Doors",
