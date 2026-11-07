@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { deleteAssets } from "@/lib/chunk-store";
 import { sql } from "@/lib/db";
 import { getAsset, jsonError, listAssets, newId } from "@/lib/repo";
 import { requireViewer, sniffRaster, STORAGE, tooMany } from "@/lib/guard";
@@ -39,7 +40,7 @@ export async function POST(req: Request) {
   const m = parsed.data;
   if (!MIME.includes(m.mime)) return jsonError("Use PNG, JPEG, WebP or SVG files");
   if (m.chunkCount !== Math.ceil(m.byteSize / CHUNK_SIZE)) return jsonError("Upload parts don't match the file size");
-  await sql("delete from assets where not complete and created_at < now() - interval '1 day'");
+  await deleteAssets("not complete and created_at < now() - interval '1 day'");
   const usage = await sql<{ n: string; bytes: string | null }>("select count(*) as n, sum(byte_size) as bytes from assets");
   if (Number(usage[0]?.n ?? 0) >= STORAGE.assetsTotal || Number(usage[0]?.bytes ?? 0) + m.byteSize > STORAGE.assetBytesTotal) return tooMany("photos, logos or references");
   const preview = form.get("preview");
