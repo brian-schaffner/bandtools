@@ -267,12 +267,12 @@ export function FlyerEditor() {
       let concepts: ConceptDirection[] | null = null;
       if (ai?.enabled) {
         try {
-          concepts = (await api<{ concepts: ConceptDirection[] }>("/api/ai/concepts", { method: "POST", json: { brief, count: 4, exclude: [] } })).concepts;
+          concepts = (await api<{ concepts: ConceptDirection[] }>("/api/ai/concepts", { method: "POST", json: { brief, count: 4, exclude: [spec.recipeId] } })).concepts;
         } catch (e) {
           if (!(e instanceof ApiError && e.status === 503)) toast.error(`Claude concepts failed; using built-in (${e instanceof Error ? e.message : ""})`);
         }
       }
-      concepts ??= mockConcepts(brief, bandInfo, photos, logos, [], 4);
+      concepts ??= mockConcepts(brief, bandInfo, photos, logos, [spec.recipeId], 4);
       setVariations(
         concepts.map((c, i) => ({
           spec: directionToSpec(c, brief, bandInfo, photos, logos, Date.now() + i),

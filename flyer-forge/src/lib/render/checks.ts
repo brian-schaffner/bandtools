@@ -52,7 +52,7 @@ export async function runChecks(
   else issues.push({ severity: "pass", area: "Colour", note: `${inks.size} flat inks, no gradients or glows.` });
 
   const texts = spec.layers.filter((l) => l.type === "text" && !l.hidden);
-  if (texts.length > 2 && texts.every((l) => l.type === "text" && l.align === "center") && !["letterpress", "psych"].includes(spec.recipeId)) {
+  if (texts.length > 2 && texts.every((l) => l.type === "text" && l.align === "center") && !["letterpress", "psych", "tour", "ticket"].includes(spec.recipeId)) {
     issues.push({ severity: "info", area: "Composition", note: "Everything is centred. Symmetry by default is a common AI-flyer tell.", fix: "Set the info block flush left and let the photo bleed off one edge" });
   }
   if (spec.layers.length > 16) issues.push({ severity: "warn", area: "Composition", note: `${spec.layers.length} layers; risk of edge-to-edge clutter.`, fix: "Remove decorative shapes so one element dominates" });

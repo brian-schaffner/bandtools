@@ -139,6 +139,7 @@ export const SpecSchema = z.object({
   version: z.literal(1).default(1),
   format: z.enum(FORMAT_IDS as [FormatId, ...FormatId[]]),
   recipeId: z.string(),
+  variant: z.string().optional(),
   seed: z.number().int(),
   palette: PaletteSchema,
   fonts: z.object({ display: z.string(), text: z.string() }),

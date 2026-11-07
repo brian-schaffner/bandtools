@@ -92,6 +92,7 @@ export interface Flyer {
 
 export interface ConceptDirection {
   recipeId: string;
+  variant?: string;
   title: string;
   rationale: string;
   paletteIndex?: number;
