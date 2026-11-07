@@ -205,12 +205,15 @@ function DetailsCard({ event, onSaved }: { event: CalendarEvent; onSaved: (e: Ca
         <Field label="Address" className="sm:col-span-2">
           <Input value={draft.address} onChange={(e) => set("address", e.target.value)} placeholder="1621 W Broad St, Richmond, VA" />
         </Field>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           <Field label="Doors">
             <Input value={draft.doors} onChange={(e) => set("doors", e.target.value)} placeholder="8pm" />
           </Field>
           <Field label="Show">
             <Input value={draft.showTime} onChange={(e) => set("showTime", e.target.value)} placeholder="9pm" />
+          </Field>
+          <Field label="Ends">
+            <Input value={draft.endTime} onChange={(e) => set("endTime", e.target.value)} placeholder="12am" />
           </Field>
         </div>
         <div className="grid grid-cols-2 gap-3">
@@ -251,8 +254,8 @@ function DetailsCard({ event, onSaved }: { event: CalendarEvent; onSaved: (e: Ca
 }
 
 function pick(e: CalendarEvent): EventFields {
-  const { title, date, status, venue, city, address, doors, showTime, price, ages, support, tickets, contactName, contactPhone, contactEmail, deal, notes } = e;
-  return { title, date, status, venue, city, address, doors, showTime, price, ages, support, tickets, contactName, contactPhone, contactEmail, deal, notes };
+  const { title, date, status, venue, city, address, doors, showTime, endTime, price, ages, support, tickets, contactName, contactPhone, contactEmail, deal, notes } = e;
+  return { title, date, status, venue, city, address, doors, showTime, endTime, price, ages, support, tickets, contactName, contactPhone, contactEmail, deal, notes };
 }
 
 type Row = Omit<ScheduleItem, "id"> & { key: string };

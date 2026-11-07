@@ -346,7 +346,7 @@ export function FlyerEditor() {
       layer = { ...common, type, name: "photo", assetId: p?.id ?? null, fit: "cover", zoom: 1, focusX: p?.focalX ?? 0.5, focusY: p?.focalY ?? 0.4, mask: "rect", treatment: { mode: "original", dark: "$ink", light: "$paper", contrast: 0, brightness: 0, threshold: 0.5 }, misregister: null, x: 0.2, y: 0.3, w: 0.6, h: 0.3 };
     } else {
       const lg = logos.find((x) => !x.archived) ?? null;
-      layer = { ...common, type, name: "logo", assetId: lg?.id ?? null, recolor: null, recolorMode: "tone", align: "center", x: 0.2, y: 0.05, w: 0.6, h: 0.12 };
+      layer = { ...common, type, name: "logo", assetId: lg?.id ?? null, recolor: null, recolorMode: "tone", align: "center", backdrop: "auto", x: 0.2, y: 0.05, w: 0.6, h: 0.12 };
     }
     commit({ ...spec, layers: [...spec.layers, layer] });
     setSelectedId(lid);
@@ -369,10 +369,10 @@ export function FlyerEditor() {
       const updated = await api<Flyer>(`/api/flyers/${flyer.id}`, { method: "PATCH", json: { brief } });
       setFlyer(updated);
       if (linkedEvent && briefMismatches(linkedEvent, brief).length) {
-        const { date, venue, city, doors, showTime, price, ages, support, tickets } = brief;
+        const { date, venue, city, address, doors, showTime, endTime, price, ages, support, tickets } = brief;
         const event = await api<CalendarEvent>(`/api/events/${linkedEvent.id}`, {
           method: "PATCH",
-          json: { date, venue, city, doors, showTime, price, ages, support: support.map((x) => x.trim()).filter(Boolean), tickets, ...(brief.headline ? { title: brief.headline } : {}) },
+          json: { date, venue, city, address, doors, showTime, endTime, price, ages, support: support.map((x) => x.trim()).filter(Boolean), tickets, ...(brief.headline ? { title: brief.headline } : {}) },
         });
         eventQ.setData({ event });
       }

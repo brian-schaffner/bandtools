@@ -31,12 +31,15 @@ export function BriefForm({
         <Field label="Date">
           <Input type="date" value={brief.date} onChange={(e) => set("date", e.target.value)} />
         </Field>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           <Field label="Doors">
             <Input value={brief.doors} onChange={(e) => set("doors", e.target.value)} placeholder="8pm" />
           </Field>
           <Field label="Show">
             <Input value={brief.showTime} onChange={(e) => set("showTime", e.target.value)} placeholder="9pm" />
+          </Field>
+          <Field label="Ends">
+            <Input value={brief.endTime} onChange={(e) => set("endTime", e.target.value)} placeholder="12am" />
           </Field>
         </div>
         <Field label="Venue">
@@ -44,6 +47,9 @@ export function BriefForm({
         </Field>
         <Field label="City">
           <Input value={brief.city} onChange={(e) => set("city", e.target.value)} placeholder="Richmond, VA" />
+        </Field>
+        <Field label="Address" className="sm:col-span-2">
+          <Input value={brief.address} onChange={(e) => set("address", e.target.value)} placeholder="1621 W Broad St, Richmond, VA" />
         </Field>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Price">

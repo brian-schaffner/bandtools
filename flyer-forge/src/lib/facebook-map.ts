@@ -26,6 +26,7 @@ export interface FacebookGig {
   city: string;
   address: string;
   showTime: string;
+  endTime: string;
   tickets: string;
   notes: string;
 }
@@ -86,7 +87,7 @@ export function mapFacebookEvents(rows: FacebookEvent[], timeZone: string): Face
     const { venue, address, city } = placeDetails(title, row.place);
     const raw = row.event_times;
     const occurrences = (Array.isArray(raw) ? raw : raw?.data) ?? [];
-    const times = occurrences.length ? occurrences.map((o) => ({ uid: `facebook:${row.id}:${o.id ?? o.start_time}`, start: o.start_time })) : [{ uid: `facebook:${row.id}`, start: row.start_time }];
+    const times = occurrences.length ? occurrences.map((o) => ({ uid: `facebook:${row.id}:${o.id ?? o.start_time}`, start: o.start_time, end: o.end_time })) : [{ uid: `facebook:${row.id}`, start: row.start_time, end: row.end_time }];
     for (const t of times) {
       const when = localDateTime(t.start, timeZone);
       if (!when) continue;
@@ -99,6 +100,7 @@ export function mapFacebookEvents(rows: FacebookEvent[], timeZone: string): Face
         city,
         address,
         showTime: when.time,
+        endTime: localDateTime(t.end, timeZone)?.time ?? "",
         tickets: clean(row.ticket_uri),
         notes: (row.description ?? "").trim(),
       });

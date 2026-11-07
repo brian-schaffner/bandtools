@@ -1,4 +1,4 @@
-import { EventFieldsSchema } from "@/lib/events";
+import { EventFieldsSchema, type EventFields } from "@/lib/events";
 import { getEvent, listSchedule, mapSetlist, SETLIST_SELECT, updateEvent } from "@/lib/events-repo";
 import { sql } from "@/lib/db";
 import { jsonError, mapFlyer } from "@/lib/repo";
@@ -32,9 +32,13 @@ export async function PATCH(req: Request, ctx: RouteContext<"/api/events/[id]">)
   const viewer = await requireViewer(req);
   if (viewer instanceof Response) return viewer;
   const { id } = await ctx.params;
-  const parsed = EventFieldsSchema.partial().safeParse(await req.json().catch(() => null));
+  const body = await req.json().catch(() => null);
+  const parsed = EventFieldsSchema.partial().safeParse(body);
   if (!parsed.success) return jsonError(parsed.error.issues[0]?.message ?? "Invalid update");
-  const event = await updateEvent(id, parsed.data);
+  // Zod 4 still fills .default("") for keys missing from a .partial() object, which would blank every omitted field.
+  const sent = new Set(Object.keys(body as object));
+  const fields = Object.fromEntries(Object.entries(parsed.data).filter(([k]) => sent.has(k))) as Partial<EventFields>;
+  const event = await updateEvent(id, fields);
   if (!event) return jsonError("Event not found", 404);
   return Response.json(event);
 }

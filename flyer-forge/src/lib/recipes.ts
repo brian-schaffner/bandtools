@@ -71,14 +71,15 @@ export function formatDate(raw: string): string {
 }
 
 function copy(brief: Brief) {
-  const time = [brief.doors && `Doors ${brief.doors}`, brief.showTime && `Show ${brief.showTime}`]
-    .filter(Boolean)
-    .join(" · ");
+  const show = brief.showTime && brief.endTime ? `Show ${brief.showTime} – ${brief.endTime}` : brief.showTime ? `Show ${brief.showTime}` : brief.endTime ? `Until ${brief.endTime}` : "";
+  const time = [brief.doors && `Doors ${brief.doors}`, show].filter(Boolean).join(" · ");
   return {
     date: formatDate(brief.date),
     time,
     venue: brief.venue,
     city: brief.city,
+    // A street address usually ends with the city, so it replaces the city wherever a venue line is set.
+    where: brief.address || brief.city,
     price: [brief.price, brief.ages].filter(Boolean).join(" · "),
     support: brief.support.filter(Boolean).length ? `with ${brief.support.filter(Boolean).join(" · ")}` : "",
     tickets: brief.tickets,
@@ -180,6 +181,7 @@ function bandMark(ctx: Ctx, x: number, y: number, w: number, h: number, textExtr
       recolor: null,
       recolorMode: "tone",
       align,
+      backdrop: "auto",
       rotation: textExtra.rotation ?? 0,
       opacity: 1,
       blend: "normal",
@@ -252,7 +254,7 @@ const swiss: Recipe = {
         bandMark(ctx, m, bandY, 1 - 2 * m, bandH, { tracking: -0.02, font: ctx.fonts.display, weight: 800 }),
         rect(ctx, m, ruleY, 1 - 2 * m, 0.003, "$ink", { name: "rule" }),
         textLayer(ctx, { role: "date", text: c.date, x: m, y: infoY, w: col, h: 0.08, size: 0.06, font: ctx.fonts.display, weight: 800, leading: 1, fill: true }),
-        textLayer(ctx, { role: "venue", text: [c.venue, c.city].filter(Boolean).join("\n"), x: m + col + 0.02, y: infoY, w: col, h: 0.08, size: small * 1.2, weight: 600 }),
+        textLayer(ctx, { role: "venue", text: [c.venue, c.where].filter(Boolean).join("\n"), x: m + col + 0.02, y: infoY, w: col, h: 0.08, size: small * 1.2, weight: 600 }),
         textLayer(ctx, { role: "time", text: [c.time, c.price].filter(Boolean).join("\n"), x: m + 2 * (col + 0.02), y: infoY, w: col, h: 0.08, size: small, weight: 400 }),
         c.support && textLayer(ctx, { role: "support", text: c.support, x: m, y: infoY + 0.095, w: 2 * col, h: 0.05, size: small * 1.1, weight: 600 }),
         c.tickets && textLayer(ctx, { role: "tickets", text: c.tickets, x: m + 2 * (col + 0.02), y: infoY + 0.095, w: col, h: 0.05, size: small * 0.85, color: "$accent", weight: 600 }),
@@ -282,29 +284,47 @@ const punk: Recipe = {
   build(ctx) {
     const c = copy(ctx.brief);
     const r = (n: number) => (ctx.rng() - 0.5) * n;
-    const pY = 0.21;
-    const pH = ctx.ar < 1.1 ? 0.42 : 0.47;
-    const boxY = pY + pH + 0.045;
-    const boxH = Math.min(0.95 - boxY, 0.24);
+    const square = ctx.ar < 1.1;
+    const markH = square ? 0.14 : 0.13;
+    const pX = 0.07;
+    const pW = 0.86;
+    const pY = 0.03 + markH + 0.035;
+    const aspect = ctx.photo && ctx.photo.height > 0 ? ctx.photo.width / ctx.photo.height : 1.5;
+    const pH = Math.min(square ? 0.4 : 0.45, pW / (aspect * ctx.ar));
+    const tilt = -1.5 + r(1);
+    const after = pY + pH + 0.04;
+    const room = 0.965 - after;
+    const dateH = room * 0.38;
+    const stripY = after + dateH + room * 0.05;
+    const stripH = room * 0.3;
+    const timeY = stripY + stripH + room * 0.05;
+    const sticker = square ? 0.2 : 0.22;
     return {
       background: {
         color: "$paper",
         textures: [
           { kind: "speckle", color: "$ink", opacity: 0.35, scale: 1 },
+          { kind: "halftone", color: "$ink", opacity: 0.06, scale: 1.2 },
           { kind: "grain", color: "$ink", opacity: 0.12, scale: 1.4 },
         ],
       },
       layers: compact<Layer>([
-        bandMark(ctx, 0.06, 0.035, 0.88, 0.15, { rotation: -2.5 + r(1), font: ctx.fonts.display, weight: 400, transform: "upper" }),
-        photoLayer(ctx, 0.08, pY, 0.84, pH, { rotation: 1.5 + r(1.5), treatment: treatmentFor(ctx.treatment) }),
-        rect(ctx, 0.03, pY - 0.01, 0.2, 0.035, "$accent", { rotation: -32, opacity: 0.85, name: "tape" }),
-        rect(ctx, 0.78, pY + pH - 0.03, 0.2, 0.035, "$accent", { rotation: -28, opacity: 0.85, name: "tape" }),
-        rect(ctx, 0.05, boxY, 0.9, boxH, "$ink", { rotation: -1 + r(0.8), name: "info box" }),
-        textLayer(ctx, { role: "date", text: c.date, x: 0.09, y: boxY + 0.02, w: 0.82, h: boxH * 0.42, size: 0.12, font: ctx.fonts.display, color: "$paper", transform: "upper", fill: true, rotation: -1 }),
-        textLayer(ctx, { role: "venue", text: [c.venue, c.city].filter(Boolean).join(" — "), x: 0.09, y: boxY + boxH * 0.5, w: 0.82, h: boxH * 0.2, size: 0.04, color: "$paper", transform: "upper", rotation: -1 }),
-        textLayer(ctx, { role: "time", text: [c.time, c.price].filter(Boolean).join("  /  "), x: 0.09, y: boxY + boxH * 0.72, w: 0.82, h: boxH * 0.2, size: 0.03, color: "$accent", rotation: -1 }),
-        c.support && textLayer(ctx, { role: "support", text: c.support, x: 0.08, y: 0.185 - 0.005, w: 0.84, h: 0.03, size: 0.026, transform: "upper", align: "right" }),
-        c.tickets && textLayer(ctx, { role: "tickets", text: c.tickets, x: 0.06, y: 0.955, w: 0.88, h: 0.03, size: 0.022, align: "right" }),
+        rect(ctx, -0.15, pY + pH * 0.18, 1.3, pH * 0.64, "$accent2", { rotation: -8 + r(2), name: "slash" }),
+        ctx.photo && rect(ctx, pX + 0.016, pY + 0.016 / ctx.ar, pW, pH, "$ink", { rotation: tilt, name: "shadow" }),
+        photoLayer(ctx, pX, pY, pW, pH, { rotation: tilt, treatment: treatmentFor(ctx.treatment) }),
+        rect(ctx, 0.02, pY - 0.015, 0.2, 0.035, "$accent", { rotation: -32, opacity: 0.85, name: "tape" }),
+        rect(ctx, 0.78, pY + pH - 0.025, 0.2, 0.035, "$accent", { rotation: -28, opacity: 0.85, name: "tape" }),
+        bandMark(ctx, 0.06, 0.03, 0.88, markH, { rotation: -2.5 + r(1), font: ctx.fonts.display, weight: 400, transform: "upper" }, "left"),
+        shape(ctx, "ellipse", 0.74, pY - sticker * 0.42 / ctx.ar, sticker, sticker / ctx.ar, "$accent", { rotation: 12, name: "sticker" }),
+        textLayer(ctx, { role: "kicker", text: "Live!", x: 0.765, y: pY - sticker * 0.42 / ctx.ar + (sticker * 0.3) / ctx.ar, w: sticker * 0.8, h: (sticker * 0.4) / ctx.ar, size: 0.06, font: ctx.fonts.display, align: "center", valign: "middle", transform: "upper", fill: true, rotation: 12 }),
+        rect(ctx, 0.04, after, 0.92, dateH, "$ink", { rotation: -2 + r(0.8), name: "date block" }),
+        textLayer(ctx, { role: "date", text: c.date, x: 0.08, y: after + dateH * 0.1, w: 0.84, h: dateH * 0.8, size: 0.14, font: ctx.fonts.display, color: "$paper", align: "center", valign: "middle", transform: "upper", fill: true, rotation: -2 }),
+        rect(ctx, 0.1, stripY, 0.84, stripH, "$accent", { rotation: 1.5 + r(0.8), name: "venue strip" }),
+        textLayer(ctx, { role: "venue", text: c.venue, x: 0.14, y: stripY + stripH * 0.08, w: 0.76, h: stripH * 0.5, size: 0.06, font: ctx.fonts.display, align: "center", valign: "middle", transform: "upper", fill: true, rotation: 1.5 }),
+        c.where && textLayer(ctx, { role: "city", text: c.where, x: 0.14, y: stripY + stripH * 0.6, w: 0.76, h: stripH * 0.3, size: 0.03, align: "center", valign: "middle", rotation: 1.5 }),
+        textLayer(ctx, { role: "time", text: [c.time, c.price].filter(Boolean).join("  /  "), x: 0.06, y: timeY, w: 0.88, h: Math.max(0.03, 0.965 - timeY - (c.tickets ? 0.035 : 0)), size: 0.034, align: "center", valign: "middle", rotation: -1 }),
+        c.support && textLayer(ctx, { role: "support", text: c.support, x: 0.08, y: pY + pH + 0.005, w: 0.84, h: 0.03, size: 0.024, transform: "upper", align: "left" }),
+        c.tickets && textLayer(ctx, { role: "tickets", text: c.tickets, x: 0.06, y: 0.955, w: 0.88, h: 0.03, size: 0.022, align: "center" }),
       ]),
     };
   },
@@ -351,7 +371,7 @@ const screenprint: Recipe = {
         bandMark(ctx, 0.08, bandY, 0.84, 0.14, { font: ctx.fonts.display, weight: 400, transform: "upper" }),
         rect(ctx, 0.08, bandY + 0.155, 0.84, 0.006, "$accent", { name: "rule" }),
         textLayer(ctx, { role: "date", text: c.date, x: 0.08, y: bandY + 0.175, w: 0.44, h: 0.075, size: 0.2, font: ctx.fonts.display, color: "$accent", transform: "upper", leading: 0.95, fill: true }),
-        textLayer(ctx, { role: "venue", text: [c.venue, c.city].filter(Boolean).join("\n"), x: 0.55, y: bandY + 0.175, w: 0.37, h: 0.07, size: 0.034, weight: 600, align: "right", transform: "upper" }),
+        textLayer(ctx, { role: "venue", text: [c.venue, c.where].filter(Boolean).join("\n"), x: 0.55, y: bandY + 0.175, w: 0.37, h: 0.07, size: 0.034, weight: 600, align: "right", transform: "upper" }),
         textLayer(ctx, { role: "time", text: [c.time, c.price].filter(Boolean).join(" · "), x: 0.55, y: bandY + 0.245, w: 0.37, h: 0.04, size: 0.024, align: "right" }),
         c.support && textLayer(ctx, { role: "support", text: c.support, x: 0.08, y: 0.045, w: 0.6, h: 0.04, size: 0.03, weight: 600, transform: "upper" }),
         c.tickets && textLayer(ctx, { role: "tickets", text: c.tickets, x: 0.08, y: 0.955, w: 0.84, h: 0.03, size: 0.02, color: "$ink" }),
@@ -430,7 +450,7 @@ const letterpress: Recipe = {
     layers.push(
       textLayer(ctx, {
         role: "time",
-        text: [c.city, c.time, c.price].filter(Boolean).join("  ·  "),
+        text: [c.where, c.time, c.price].filter(Boolean).join("  ·  "),
         x: m,
         y,
         w: 1 - 2 * m,
@@ -491,7 +511,7 @@ const bluenote: Recipe = {
         rect(ctx, 0.06, infoY, 0.07, 0.07 / ctx.ar, "$accent2", { name: "accent square" }),
         textLayer(ctx, { role: "support", text: c.support, x: 0.06, y: infoY + 0.07 / ctx.ar + 0.02, w: 0.42, h: 0.08, size: small, weight: 600 }),
         textLayer(ctx, { role: "date", text: c.date, x: 0.52, y: infoY, w: 0.42, h: 0.06, size: 0.055, font: ctx.fonts.display, weight: 800, align: "right", color: "$accent" }),
-        textLayer(ctx, { role: "venue", text: [c.venue, c.city].filter(Boolean).join("\n"), x: 0.52, y: infoY + 0.065, w: 0.42, h: 0.07, size: small, weight: 600, align: "right" }),
+        textLayer(ctx, { role: "venue", text: [c.venue, c.where].filter(Boolean).join("\n"), x: 0.52, y: infoY + 0.065, w: 0.42, h: 0.07, size: small, weight: 600, align: "right" }),
         textLayer(ctx, { role: "time", text: [c.time, c.price].filter(Boolean).join("\n"), x: 0.52, y: infoY + 0.14, w: 0.42, h: 0.06, size: small * 0.9, align: "right" }),
         c.tickets && textLayer(ctx, { role: "tickets", text: c.tickets, x: 0.06, y: 0.95, w: 0.88, h: 0.03, size: 0.02, align: "left" }),
       ]),
@@ -535,7 +555,7 @@ const riso: Recipe = {
         photoLayer(ctx, 0.12, 0.12, 0.76, pH, { mask: "arch", blend: "multiply", treatment: treatmentFor(ctx.treatment, "$ink", "#FFFFFF") }),
         bandMark(ctx, 0.06, bandY, 0.88, 0.13, { font: ctx.fonts.display, weight: 700, tracking: -0.02, misregister: { dx: 0.004, dy: 0.003, color: "$accent" } }),
         textLayer(ctx, { role: "date", text: c.date, x: 0.06, y: bandY + 0.15, w: 0.5, h: 0.06, size: 0.05, font: ctx.fonts.text, weight: 700, transform: "upper" }),
-        textLayer(ctx, { role: "venue", text: [c.venue, c.city].filter(Boolean).join("\n"), x: 0.06, y: bandY + 0.215, w: 0.5, h: 0.07, size: 0.03, font: ctx.fonts.text }),
+        textLayer(ctx, { role: "venue", text: [c.venue, c.where].filter(Boolean).join("\n"), x: 0.06, y: bandY + 0.215, w: 0.5, h: 0.07, size: 0.03, font: ctx.fonts.text }),
         textLayer(ctx, { role: "time", text: [c.time, c.price, c.tickets].filter(Boolean).join("\n"), x: 0.58, y: bandY + 0.155, w: 0.36, h: 0.12, size: 0.024, font: ctx.fonts.text, align: "right", color: "$accent", blend: "multiply" }),
         c.support && textLayer(ctx, { role: "support", text: c.support, x: 0.06, y: 0.04, w: 0.5, h: 0.05, size: 0.028, font: ctx.fonts.text, weight: 700 }),
       ]),
@@ -600,7 +620,7 @@ const psych: Recipe = {
         bandMark(ctx, 0.07, bandY, 0.86, 0.14, { font: ctx.fonts.display, weight: 400, align: "center", valign: "middle" }, "center"),
         rect(ctx, 0, bandY + 0.155, 1, 0.075, "$ink", { name: "date band" }),
         textLayer(ctx, { role: "date", text: c.date, x: 0.08, y: bandY + 0.165, w: 0.84, h: 0.055, size: 0.06, font: ctx.fonts.display, color: "$paper", align: "center", valign: "middle", transform: "upper" }),
-        textLayer(ctx, { role: "venue", text: [c.venue, c.city].filter(Boolean).join(" · "), x: 0.08, y: bandY + 0.245, w: 0.84, h: 0.045, size: 0.04, font: ctx.fonts.text, weight: 600, align: "center", transform: "upper" }),
+        textLayer(ctx, { role: "venue", text: [c.venue, c.where].filter(Boolean).join(" · "), x: 0.08, y: bandY + 0.245, w: 0.84, h: 0.045, size: 0.04, font: ctx.fonts.text, weight: 600, align: "center", transform: "upper" }),
         textLayer(ctx, { role: "time", text: [c.time, c.price].filter(Boolean).join(" · "), x: 0.08, y: bandY + 0.29, w: 0.84, h: 0.035, size: 0.026, font: ctx.fonts.text, align: "center", transform: "upper" }),
         c.support && textLayer(ctx, { role: "support", text: c.support, x: 0.08, y: bandY + 0.325, w: 0.84, h: 0.035, size: 0.026, font: ctx.fonts.text, weight: 600, align: "center", transform: "upper" }),
       ]),
