@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { AlertTriangle, ArrowLeft, ArrowRight, Clock, FileText, ListMusic, MoreHorizontal, Plus, Trash2, Wand2 } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, Car, Clock, Copy, FileText, ListMusic, MessageSquareText, MoreHorizontal, Plus, Trash2, Wand2 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,7 +14,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Choice, Field } from "@/components/fields";
 import { SetlistLoader } from "@/components/setlists/setlist-loader";
 import { DateBlock, statusTone } from "./calendar-view";
-import { useFetch } from "@/hooks/use-fetch";
+import { useBand, useFetch } from "@/hooks/use-fetch";
 import { api } from "@/lib/api";
 import {
   briefMismatches,
@@ -29,8 +29,9 @@ import {
   type ScheduleItem,
   type Setlist,
 } from "@/lib/events";
+import { DEFAULT_NO_TRAILER_VENUES, planGig, scheduleText, usesTrailer, type TrailerSetting } from "@/lib/gig-schedule";
 import { FORMATS, type FormatId } from "@/lib/spec";
-import type { Flyer } from "@/lib/types";
+import type { Band, Flyer } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { withBase } from "@/lib/base-path";
 
@@ -40,6 +41,7 @@ export function EventView() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const q = useFetch<EventDetail>(`/api/events/${id}`);
+  const bandQ = useBand();
   const [loaderOpen, setLoaderOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -103,9 +105,16 @@ export function EventView() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <DetailsCard key={event.updatedAt} event={event} onSaved={(e) => patch({ event: e })} />
+        <DetailsCard key={event.updatedAt} event={event} band={bandQ.data?.band} onSaved={(e) => patch({ event: e })} />
         <div className="space-y-6">
-          <ScheduleCard key={schedule.map((s) => s.id).join()} eventId={event.id} schedule={schedule} onSaved={(s) => patch({ schedule: s })} />
+          <ScheduleCard
+            key={schedule.map((s) => s.id).join()}
+            event={event}
+            band={bandQ.data?.band}
+            schedule={schedule}
+            onSaved={(s) => patch({ schedule: s })}
+            onEvent={(e) => patch({ event: e })}
+          />
           <FlyersCard event={event} flyers={flyers} />
           <SetlistsCard setlists={setlists} onLoad={() => setLoaderOpen(true)} />
         </div>
@@ -149,7 +158,16 @@ function Card({ title, icon, action, children, className }: { title: string; ico
   );
 }
 
-function DetailsCard({ event, onSaved }: { event: CalendarEvent; onSaved: (e: CalendarEvent) => void }) {
+type DriveResult = { event: CalendarEvent; estimate: { minutes: number; miles: number; to: string; approximate: boolean } | null };
+
+function driveToast(e: DriveResult["estimate"]) {
+  if (!e) return;
+  const msg = `${e.minutes} min drive (${e.miles} mi) to ${e.to.split(",").slice(0, 3).join(",")}`;
+  if (e.approximate) toast.warning(`${msg}. Only the city was found; add the venue's street address for an exact time.`);
+  else toast.success(msg);
+}
+
+function DetailsCard({ event, band, onSaved }: { event: CalendarEvent; band?: Band; onSaved: (e: CalendarEvent) => void }) {
   const [draft, setDraft] = useState<EventFields>(() => pick(event));
   const [supportText, setSupportText] = useState(event.support.join(", "));
   const [saving, setSaving] = useState(false);
@@ -167,6 +185,19 @@ function DetailsCard({ event, onSaved }: { event: CalendarEvent; onSaved: (e: Ca
       setSaving(false);
     }
   };
+  const [estimating, setEstimating] = useState(false);
+  const estimate = async () => {
+    setEstimating(true);
+    try {
+      const r = await api<DriveResult>(`/api/events/${event.id}/drive-time`, { method: "POST" });
+      driveToast(r.estimate);
+      onSaved(r.event);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not estimate the drive");
+      setEstimating(false);
+    }
+  };
+  const autoTrailer = usesTrailer({ venue: draft.venue, trailer: "auto" }, band?.noTrailerVenues ?? DEFAULT_NO_TRAILER_VENUES);
 
   return (
     <Card
@@ -233,6 +264,40 @@ function DetailsCard({ event, onSaved }: { event: CalendarEvent; onSaved: (e: Ca
       </div>
       <h3 className="mb-3 mt-6 text-xs font-medium uppercase tracking-wide text-muted-foreground">Logistics</h3>
       <div className="grid gap-4 sm:grid-cols-3">
+        <Field label="Drive from home" hint={band?.homeAddress ? "Minutes, before the trailer allowance and cushion" : "Set the band’s home address in Band kit to estimate"}>
+          <div className="flex gap-2">
+            <Input
+              type="number"
+              min={0}
+              inputMode="numeric"
+              value={draft.driveMinutes ?? ""}
+              onChange={(e) => set("driveMinutes", e.target.value === "" ? null : Math.max(0, Math.round(Number(e.target.value))))}
+              placeholder="min"
+              aria-label="Drive minutes"
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 shrink-0"
+              onClick={estimate}
+              disabled={estimating || dirty || !band?.homeAddress}
+              title={dirty ? "Save details first" : "Estimate from the band's home address"}
+            >
+              <Car /> {estimating ? "…" : "Estimate"}
+            </Button>
+          </div>
+        </Field>
+        <Field label="Equipment trailer" className="sm:col-span-2">
+          <Choice
+            value={draft.trailer}
+            onChange={(v) => set("trailer", v as TrailerSetting)}
+            options={[
+              { value: "auto", label: autoTrailer ? "Taking it (the default)" : "Not taking it (no-trailer venue)" },
+              { value: "yes", label: "Taking the trailer" },
+              { value: "no", label: "No trailer (e.g. casino gig)" },
+            ]}
+          />
+        </Field>
         <Field label="Venue contact">
           <Input value={draft.contactName} onChange={(e) => set("contactName", e.target.value)} placeholder="Name" />
         </Field>
@@ -254,33 +319,76 @@ function DetailsCard({ event, onSaved }: { event: CalendarEvent; onSaved: (e: Ca
 }
 
 function pick(e: CalendarEvent): EventFields {
-  const { title, date, status, venue, city, address, doors, showTime, endTime, price, ages, support, tickets, contactName, contactPhone, contactEmail, deal, notes } = e;
-  return { title, date, status, venue, city, address, doors, showTime, endTime, price, ages, support, tickets, contactName, contactPhone, contactEmail, deal, notes };
+  const { title, date, status, venue, city, address, doors, showTime, endTime, price, ages, support, tickets, contactName, contactPhone, contactEmail, deal, notes, driveMinutes, trailer } = e;
+  return { title, date, status, venue, city, address, doors, showTime, endTime, price, ages, support, tickets, contactName, contactPhone, contactEmail, deal, notes, driveMinutes, trailer };
 }
 
 type Row = Omit<ScheduleItem, "id"> & { key: string };
 let rowSeq = 0;
 const rowKey = () => `r${++rowSeq}`;
 
-function ScheduleCard({ eventId, schedule, onSaved }: { eventId: string; schedule: ScheduleItem[]; onSaved: (s: ScheduleItem[]) => void }) {
+function ScheduleCard({
+  event,
+  band,
+  schedule,
+  onSaved,
+  onEvent,
+}: {
+  event: CalendarEvent;
+  band?: Band;
+  schedule: ScheduleItem[];
+  onSaved: (s: ScheduleItem[]) => void;
+  onEvent: (e: CalendarEvent) => void;
+}) {
+  const eventId = event.id;
   const initial = schedule.map((s) => ({ ...s, key: s.id }));
   const [rows, setRows] = useState<Row[]>(initial);
   const [saving, setSaving] = useState(false);
-  const strip = (r: Row[]) => JSON.stringify(r.map(({ time, label, kind, notes }) => ({ time, label, kind, notes })));
-  const dirty = strip(rows) !== strip(initial);
+  const clean = (r: Row[]) => r.map(({ time, endTime, label, kind, notes }) => ({ time, endTime, label, kind, notes }));
+  const dirty = JSON.stringify(clean(rows)) !== JSON.stringify(clean(initial));
   const valid = rows.every((r) => r.label.trim());
+  const noTrailer = band?.noTrailerVenues ?? DEFAULT_NO_TRAILER_VENUES;
+  const plan = planGig(event, noTrailer);
+  const text = scheduleText({ bandName: band?.name ?? "", venue: event.venue || event.title, date: event.date }, clean(rows).filter((r) => r.label.trim()));
 
-  const put = async (body: object) => {
+  const save = async () => {
     setSaving(true);
     try {
-      onSaved(await api<ScheduleItem[]>(`/api/events/${eventId}/schedule`, { method: "PUT", json: body }));
+      onSaved(await api<ScheduleItem[]>(`/api/events/${eventId}/schedule`, { method: "PUT", json: { items: clean(rows) } }));
       toast.success("Schedule saved");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not save schedule");
       setSaving(false);
     }
   };
+  const build = async () => {
+    setSaving(true);
+    try {
+      const r = await api<{ event: CalendarEvent; items: ScheduleItem[]; problems: string[]; estimate: DriveResult["estimate"] }>(`/api/events/${eventId}/schedule`, {
+        method: "PUT",
+        json: { template: "rules" },
+      });
+      driveToast(r.estimate);
+      for (const p of r.problems) toast.warning(p);
+      onEvent(r.event);
+      onSaved(r.items);
+      setSaving(false);
+      if (r.items.length) toast.success("Schedule built from the band’s rules");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not build the schedule");
+      setSaving(false);
+    }
+  };
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Copied. Paste it into the group text.");
+    } catch {
+      toast.error("Couldn't reach the clipboard. Select the text and copy it.");
+    }
+  };
   const update = (key: string, p: Partial<Row>) => setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...p } : r)));
+  const blank = (): Row => ({ key: rowKey(), time: "", endTime: "", label: "", kind: "other", notes: "" });
 
   return (
     <Card
@@ -288,20 +396,28 @@ function ScheduleCard({ eventId, schedule, onSaved }: { eventId: string; schedul
       icon={<Clock className="size-4" />}
       action={
         rows.length > 0 && (
-          <Button size="sm" onClick={() => put({ items: rows.map(({ time, label, kind, notes }) => ({ time, label, kind, notes })) })} disabled={!dirty || saving || !valid}>
-            {saving ? "Saving…" : dirty ? "Save schedule" : "Saved"}
-          </Button>
+          <>
+            <Button size="sm" variant="ghost" onClick={build} disabled={saving} title="Replace these slots with a schedule worked out from the band's rules">
+              <Wand2 /> Rebuild
+            </Button>
+            <Button size="sm" onClick={save} disabled={!dirty || saving || !valid}>
+              {saving ? "Saving…" : dirty ? "Save schedule" : "Saved"}
+            </Button>
+          </>
         )
       }
     >
       {rows.length === 0 ? (
         <div className="rounded-md border border-dashed border-border p-5 text-center">
           <p className="text-sm text-muted-foreground">No schedule yet.</p>
+          <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">
+            The band’s rules work back from the show: 30 min dead stage, 2 h to unload, set up and sound check, then the drive plus a 15 min cushion.
+          </p>
           <div className="mt-3 flex justify-center gap-2">
-            <Button size="sm" variant="outline" onClick={() => put({ template: "default" })} disabled={saving}>
-              <Wand2 /> Typical club night
+            <Button size="sm" variant="outline" onClick={build} disabled={saving}>
+              <Wand2 /> Build from band rules
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => setRows([{ key: rowKey(), time: "", label: "", kind: "other", notes: "" }])}>
+            <Button size="sm" variant="ghost" onClick={() => setRows([blank()])}>
               <Plus /> Add a slot
             </Button>
           </div>
@@ -309,8 +425,9 @@ function ScheduleCard({ eventId, schedule, onSaved }: { eventId: string; schedul
       ) : (
         <div className="space-y-2">
           {rows.map((r) => (
-            <div key={r.key} className="grid grid-cols-[72px_120px_minmax(0,1fr)_32px] items-center gap-2 max-sm:grid-cols-[64px_minmax(0,1fr)_32px]">
+            <div key={r.key} className="grid grid-cols-[68px_68px_130px_minmax(0,1fr)_32px] items-center gap-2 max-sm:grid-cols-[60px_60px_minmax(0,1fr)_32px]">
               <Input value={r.time} onChange={(e) => update(r.key, { time: e.target.value })} placeholder="18:30" className="font-mono text-xs tabular-nums" aria-label="Time" />
+              <Input value={r.endTime} onChange={(e) => update(r.key, { endTime: e.target.value })} placeholder="until" className="font-mono text-xs tabular-nums" aria-label="Until" />
               <div className="max-sm:hidden">
                 <Choice
                   value={r.kind}
@@ -324,10 +441,25 @@ function ScheduleCard({ eventId, schedule, onSaved }: { eventId: string; schedul
               </Button>
             </div>
           ))}
-          <Button size="sm" variant="ghost" onClick={() => setRows((rs) => [...rs, { key: rowKey(), time: "", label: "", kind: "other", notes: "" }])}>
+          <Button size="sm" variant="ghost" onClick={() => setRows((rs) => [...rs, blank()])}>
             <Plus /> Add a slot
           </Button>
           <p className="text-xs text-muted-foreground">Slots are sorted by time when saved. Times after midnight stay at the end of the night.</p>
+          {plan.steps.length > 0 && <p className="text-xs text-muted-foreground">Rules: {plan.steps.join(" · ")}</p>}
+
+          <div className="mt-4 rounded-md border border-border/60 bg-background/60">
+            <div className="flex items-center gap-2 border-b border-border/60 px-3 py-2">
+              <MessageSquareText className="size-4 text-muted-foreground" />
+              <span className="text-sm font-medium">Group text</span>
+              {dirty && <span className="text-xs text-muted-foreground">(unsaved edits included)</span>}
+              <Button size="sm" variant="outline" className="ml-auto" onClick={copy}>
+                <Copy /> Copy for group text
+              </Button>
+            </div>
+            <pre className="whitespace-pre-wrap break-words px-3 py-3 font-sans text-sm leading-snug" data-testid="schedule-text">
+              {text}
+            </pre>
+          </div>
         </div>
       )}
     </Card>

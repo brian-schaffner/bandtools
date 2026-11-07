@@ -1,7 +1,8 @@
 import { connection } from "next/server";
 import { z } from "zod";
-import { EventFieldsSchema, defaultSchedule } from "@/lib/events";
-import { insertEvent, listEvents, replaceSchedule } from "@/lib/events-repo";
+import { EventFieldsSchema } from "@/lib/events";
+import { getEvent, insertEvent, listEvents } from "@/lib/events-repo";
+import { buildScheduleFromRules } from "@/lib/gig-plan";
 import { jsonError } from "@/lib/repo";
 import { countRows, requireViewer, STORAGE, tooMany } from "@/lib/guard";
 
@@ -22,6 +23,6 @@ export async function POST(req: Request) {
   if ((await countRows("events")) >= STORAGE.eventsTotal) return tooMany("gigs");
   const { withSchedule, ...fields } = parsed.data;
   const event = await insertEvent(fields);
-  if (withSchedule) await replaceSchedule(event.id, defaultSchedule(fields));
-  return Response.json(event);
+  if (withSchedule) await buildScheduleFromRules(event.id);
+  return Response.json((await getEvent(event.id)) ?? event);
 }

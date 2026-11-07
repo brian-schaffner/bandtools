@@ -36,6 +36,10 @@ export interface Band {
   name: string;
   genre: string;
   hometown: string;
+  /** Where the band leaves from; drive times to gigs are estimated from here. */
+  homeAddress?: string;
+  /** Venues where the equipment trailer stays home. */
+  noTrailerVenues?: string[];
 }
 
 export interface StyleRef {

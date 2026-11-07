@@ -1,5 +1,8 @@
 import { z } from "zod";
 import { BriefSchema, type Brief } from "./spec";
+import { parseClock, SCHEDULE_KINDS, type ScheduleKind } from "./gig-schedule";
+
+export { fmtClock, parseClock, SCHEDULE_KINDS, type ScheduleKind } from "./gig-schedule";
 
 export const EVENT_STATUSES = ["tentative", "confirmed", "cancelled"] as const;
 export type EventStatus = (typeof EVENT_STATUSES)[number];
@@ -25,15 +28,18 @@ export const EventFieldsSchema = z.object({
   contactEmail: text(160),
   deal: text(300),
   notes: text(4000),
+  /** Minutes of driving from the band's home to the venue; null until estimated or typed in. */
+  driveMinutes: z.number().int().min(0).max(24 * 60).nullable().default(null),
+  trailer: z.enum(["auto", "yes", "no"]).default("auto"),
 });
 export type EventFields = z.infer<typeof EventFieldsSchema>;
 
-export const SCHEDULE_KINDS = ["travel", "load-in", "soundcheck", "doors", "support", "set", "curfew", "load-out", "other"] as const;
-export type ScheduleKind = (typeof SCHEDULE_KINDS)[number];
 export const SCHEDULE_LABELS: Record<ScheduleKind, string> = {
   travel: "Travel",
-  "load-in": "Load-in",
+  arrive: "Arrive",
+  "load-in": "Setup",
   soundcheck: "Soundcheck",
+  "dead-stage": "Dead stage",
   doors: "Doors",
   support: "Support set",
   set: "Our set",
@@ -45,6 +51,7 @@ export const SCHEDULE_LABELS: Record<ScheduleKind, string> = {
 export const ScheduleItemSchema = z.object({
   id: z.string().optional(),
   time: z.string().trim().max(20).default(""),
+  endTime: z.string().trim().max(20).default(""),
   label: z.string().trim().min(1).max(160),
   kind: z.enum(SCHEDULE_KINDS).default("other"),
   notes: z.string().trim().max(1000).default(""),
@@ -171,49 +178,10 @@ export function briefMismatches(e: EventFields, b: Brief): { label: string; flye
 
 /* ---------- Logistics ---------- */
 
-function parseClock(t: string): number | null {
-  const m = t.trim().toLowerCase().match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm|a|p)?$/);
-  if (!m) return null;
-  let h = Number(m[1]);
-  const min = Number(m[2] ?? 0);
-  const ap = m[3];
-  if (ap?.startsWith("p") && h < 12) h += 12;
-  if (ap?.startsWith("a") && h === 12) h = 0;
-  if (!ap && h < 12 && h >= 1 && h <= 11) h += 12;
-  return h * 60 + min;
-}
-
-function fmtClock(mins: number) {
-  const m = ((mins % 1440) + 1440) % 1440;
-  const h = Math.floor(m / 60);
-  return `${String(h).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
-}
-
 export function sortTime(t: string) {
   const v = parseClock(t);
   if (v == null) return 9999;
   return v < 6 * 60 ? v + 1440 : v;
-}
-
-/** A typical club night worked back from doors and show time. */
-export function defaultSchedule(e: Pick<EventFields, "doors" | "showTime" | "support">): Omit<ScheduleItem, "id">[] {
-  const doors = parseClock(e.doors) ?? 20 * 60;
-  const show = parseClock(e.showTime) ?? doors + 60;
-  const supports = e.support.filter(Boolean);
-  const items: Omit<ScheduleItem, "id">[] = [
-    { time: fmtClock(doors - 210), label: "Leave for venue", kind: "travel", notes: "" },
-    { time: fmtClock(doors - 150), label: "Load-in", kind: "load-in", notes: "" },
-    { time: fmtClock(doors - 90), label: "Soundcheck", kind: "soundcheck", notes: "" },
-    { time: fmtClock(doors), label: "Doors", kind: "doors", notes: "" },
-  ];
-  let t = show;
-  for (const s of [...supports].reverse()) {
-    items.push({ time: fmtClock(t), label: s, kind: "support", notes: "" });
-    t += 45;
-  }
-  items.push({ time: fmtClock(t), label: "Our set", kind: "set", notes: "" });
-  items.push({ time: fmtClock(t + 75), label: "Load-out", kind: "load-out", notes: "" });
-  return items;
 }
 
 /* ---------- Set lists ---------- */
@@ -378,7 +346,7 @@ export function buildIcs(events: (CalendarEvent & { schedule?: ScheduleItem[] })
     const desc = [
       e.support.length ? `With ${e.support.join(", ")}` : "",
       [e.doors && `Doors ${e.doors}`, e.showTime && `Show ${e.showTime}`, e.price, e.ages].filter(Boolean).join(" · "),
-      ...(e.schedule ?? []).map((s) => `${s.time} ${s.label}${s.notes ? ` (${s.notes})` : ""}`),
+      ...(e.schedule ?? []).map((s) => `${s.time}${s.endTime ? `–${s.endTime}` : ""} ${s.label}${s.notes ? ` (${s.notes})` : ""}`),
       e.contactName || e.contactPhone ? `Contact: ${[e.contactName, e.contactPhone, e.contactEmail].filter(Boolean).join(" ")}` : "",
       e.deal ? `Deal: ${e.deal}` : "",
       e.tickets ? `Tickets: ${e.tickets}` : "",

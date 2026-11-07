@@ -1,5 +1,6 @@
 import "server-only";
 import { sql } from "./db";
+import { DEFAULT_NO_TRAILER_VENUES } from "./gig-schedule";
 import type { Asset, Band, Flyer, FlyerVersion, Member, StyleRef } from "./types";
 
 type Row = Record<string, unknown>;
@@ -57,8 +58,19 @@ export async function listAssets(kind?: string): Promise<Asset[]> {
 }
 
 export async function getBand(): Promise<Band> {
-  const rows = await sql<{ name: string; genre: string; hometown: string }>("select name, genre, hometown from band where id = 1");
-  return rows[0] ?? { name: "", genre: "", hometown: "" };
+  const rows = await sql<{ name: string; genre: string; hometown: string; home_address: string; no_trailer_venues: unknown }>(
+    "select name, genre, hometown, home_address, no_trailer_venues from band where id = 1",
+  );
+  const r = rows[0];
+  if (!r) return { name: "", genre: "", hometown: "", homeAddress: "", noTrailerVenues: [...DEFAULT_NO_TRAILER_VENUES] };
+  const venues = json<unknown>(r.no_trailer_venues, null);
+  return {
+    name: r.name,
+    genre: r.genre,
+    hometown: r.hometown,
+    homeAddress: r.home_address ?? "",
+    noTrailerVenues: Array.isArray(venues) ? venues.map(String) : [...DEFAULT_NO_TRAILER_VENUES],
+  };
 }
 
 export async function listMembers(): Promise<Member[]> {
