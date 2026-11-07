@@ -1,6 +1,11 @@
 name: Deploy Production
 
+# Promote by pushing to the production branch (git push origin main:production),
+# or run manually and type DEPLOY.
 on:
+  push:
+    branches:
+      - production
   workflow_dispatch:
     inputs:
       branch:
@@ -29,6 +34,10 @@ jobs:
     steps:
       - name: Confirm production deployment
         run: |
+          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/production" ]]; then
+            echo "✅ Production deployment confirmed by push to the production branch"
+            exit 0
+          fi
           if [[ "${{ inputs.confirm_production }}" != "DEPLOY" ]]; then
             echo "ERROR: You must type 'DEPLOY' to confirm production deployment" >&2
             exit 1
@@ -104,6 +113,22 @@ jobs:
             tests.test_calendar_cache \
             tests.test_facebook_calendar \
             -v
+
+      - name: Sync logistics secrets to production
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN || secrets.FLY_IO_TOKEN }}
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY || secrets.MAPS_API_KEY }}
+          BAND_HOME_ADDRESS: ${{ secrets.BAND_HOME_ADDRESS || secrets.BAND_ADDRESS }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          LOGISTICS_EMAIL_TO: ${{ secrets.LOGISTICS_EMAIL_TO }}
+        run: |
+          source scripts/deploy/lib.sh
+          resolve_fly_api_token
+          ./scripts/deploy/sync-logistics-secrets.sh bandtools
 
       - name: Sync Flyer Forge secrets (Facebook, Claude) to production
         env:
