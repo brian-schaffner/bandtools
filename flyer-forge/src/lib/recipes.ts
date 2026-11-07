@@ -1,5 +1,5 @@
-import type { Brief, FlyerSpec, FormatId, Layer, Palette, PhotoLayer, TextLayer, Treatment } from "./spec";
-import { FORMATS } from "./spec";
+import type { Brief, FlyerSpec, FormatId, Layer, Palette, PhotoLayer, TextLayer, Treatment } from "./spec.ts";
+import { FORMATS } from "./spec.ts";
 
 export interface AssetRef {
   id: string;
@@ -570,12 +570,33 @@ const psych: Recipe = {
     const cx = 0.5;
     const cy = pY + pHy / 2;
     const bandY = pY + pHy + 0.02;
+    const treatment = treatmentFor(ctx.treatment, "$ink", "$paper");
+    // A circle crops a landscape line-up to its middle, so wide photos sit across the sun as a framed print instead.
+    const aspect = ctx.photo && ctx.photo.height > 0 ? ctx.photo.width / ctx.photo.height : 1;
+    let framed: (Layer | null)[];
+    if (aspect > 1.05) {
+      let w = 0.86;
+      let h = w / (aspect * ctx.ar);
+      if (h > pHy) {
+        h = pHy;
+        w = h * aspect * ctx.ar;
+      }
+      const x = (1 - w) / 2;
+      const y = cy - h / 2;
+      const edge = 0.012;
+      framed = [
+        rect(ctx, x - edge, y - edge / ctx.ar, w + 2 * edge, h + (2 * edge) / ctx.ar, "$ink", { name: "frame" }),
+        photoLayer(ctx, x, y, w, h, { treatment }),
+      ];
+    } else {
+      framed = [photoLayer(ctx, pX, pY, d, pHy, { mask: "ellipse", treatment })];
+    }
     return {
       background: { color: "$paper", textures: [{ kind: "grain", color: "$ink", opacity: 0.1, scale: 1 }] },
       layers: compact<Layer>([
         shape(ctx, "sunburst", cx - 1, cy - 1, 2, 2, "$accent2", { rays: 28, opacity: 0.9 }),
         shape(ctx, "ellipse", pX - 0.03, pY - 0.03 / ctx.ar, d + 0.06, pHy + 0.06 / ctx.ar, "$accent"),
-        photoLayer(ctx, pX, pY, d, pHy, { mask: "ellipse", treatment: treatmentFor(ctx.treatment, "$ink", "$paper") }),
+        ...framed,
         bandMark(ctx, 0.07, bandY, 0.86, 0.14, { font: ctx.fonts.display, weight: 400, align: "center", valign: "middle" }, "center"),
         rect(ctx, 0, bandY + 0.155, 1, 0.075, "$ink", { name: "date band" }),
         textLayer(ctx, { role: "date", text: c.date, x: 0.08, y: bandY + 0.165, w: 0.84, h: 0.055, size: 0.06, font: ctx.fonts.display, color: "$paper", align: "center", valign: "middle", transform: "upper" }),
@@ -603,6 +624,24 @@ export function mirrorLayers(layers: Layer[]): Layer[] {
   });
 }
 
+/**
+ * Band photos are line-ups: people stand across the full width, heads near the top. A frame narrower than the
+ * photo (or a zoom, or a curved top) would crop the outer members, so such frames are reshaped to the photo's
+ * own proportions. The bottom edge stays put because recipes hang names and accents off it.
+ */
+export function keepWholeLineup(layers: Layer[], photo: AssetRef | null, ar: number): Layer[] {
+  if (!photo || photo.width <= 0 || photo.height <= 0) return layers;
+  const aspect = photo.width / photo.height;
+  return layers.map((l) => {
+    if (l.type !== "photo" || l.assetId !== photo.id) return l;
+    const cropsSides = aspect > (l.w / (l.h * ar)) * 1.01 || l.zoom > 1;
+    const curvedTop = (l.mask === "arch" || l.mask === "ellipse") && aspect > 1.05;
+    if (!cropsSides && !curvedTop) return l;
+    const h = Math.min(l.h, l.w / (aspect * ar));
+    return { ...l, y: l.y + (l.h - h), h, zoom: 1, mask: curvedTop ? "rect" : l.mask };
+  });
+}
+
 export function buildSpec(recipeId: string, input: BuildInput): FlyerSpec {
   const recipe = RECIPE_MAP[recipeId] ?? swiss;
   const seed = input.seed ?? Math.floor(Math.random() * 1e9);
@@ -625,7 +664,8 @@ export function buildSpec(recipeId: string, input: BuildInput): FlyerSpec {
     id: (p) => `${p}-${++n}`,
   };
   const built = recipe.build(ctx);
-  const layers = input.mirror && recipe.mirrorable ? mirrorLayers(built.layers) : built.layers;
+  const fitted = keepWholeLineup(built.layers, input.photo, ctx.ar);
+  const layers = input.mirror && recipe.mirrorable ? mirrorLayers(fitted) : fitted;
   return {
     version: 1,
     format: input.format,
