@@ -6,6 +6,7 @@ import { Pencil, Plus, Star, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -50,16 +51,21 @@ export function KitView() {
 function BandCard({ band, loading, onSaved }: { band?: Band; loading: boolean; onSaved: (b: Band) => void }) {
   const [draft, setDraft] = useState<Band>({ name: "", genre: "", hometown: "" });
   const [saving, setSaving] = useState(false);
+  const [venuesText, setVenuesText] = useState("");
   const [prevBand, setPrevBand] = useState<Band | undefined>(undefined);
   if (band !== prevBand) {
     setPrevBand(band);
-    if (band) setDraft(band);
+    if (band) {
+      setDraft(band);
+      setVenuesText((band.noTrailerVenues ?? []).join("\n"));
+    }
   }
-  const dirty = band && JSON.stringify(band) !== JSON.stringify(draft);
+  const venues = venuesText.split("\n").map((v) => v.trim()).filter(Boolean);
+  const dirty = band && JSON.stringify({ ...band, noTrailerVenues: band.noTrailerVenues ?? [] }) !== JSON.stringify({ ...draft, noTrailerVenues: venues });
   const save = async () => {
     setSaving(true);
     try {
-      onSaved(await api<Band>("/api/band", { method: "PUT", json: draft }));
+      onSaved(await api<Band>("/api/band", { method: "PUT", json: { ...draft, noTrailerVenues: venues } }));
       toast.success("Band details saved");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not save");
@@ -71,7 +77,7 @@ function BandCard({ band, loading, onSaved }: { band?: Band; loading: boolean; o
     <Card>
       <CardHeader>
         <CardTitle>The band</CardTitle>
-        <CardDescription>Used when there&apos;s no logo, and to steer concepts.</CardDescription>
+        <CardDescription>Used when there&apos;s no logo, to steer concepts, and to plan gig schedules.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         {loading ? (
@@ -86,6 +92,12 @@ function BandCard({ band, loading, onSaved }: { band?: Band; loading: boolean; o
             </Field>
             <Field label="Hometown">
               <Input value={draft.hometown} onChange={(e) => setDraft({ ...draft, hometown: e.target.value })} placeholder="Richmond, VA" />
+            </Field>
+            <Field label="Home address" hint="Where the band leaves from. Gig drive times are estimated from here.">
+              <Input value={draft.homeAddress ?? ""} onChange={(e) => setDraft({ ...draft, homeAddress: e.target.value })} placeholder="123 Main St, Louisville, KY" />
+            </Field>
+            <Field label="Venues without the trailer" hint="One per line. Everywhere else the schedule assumes the equipment trailer.">
+              <Textarea value={venuesText} onChange={(e) => setVenuesText(e.target.value)} placeholder="Stevie Ray's" className="min-h-16" />
             </Field>
             <Button onClick={save} disabled={!dirty || saving || !draft.name.trim()} className="w-full">
               Save

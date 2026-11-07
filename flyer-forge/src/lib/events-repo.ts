@@ -39,6 +39,8 @@ export function mapEvent(r: Row): CalendarEvent {
     contactEmail: String(r.contact_email ?? ""),
     deal: String(r.deal ?? ""),
     notes: String(r.notes ?? ""),
+    driveMinutes: r.drive_minutes == null ? null : Number(r.drive_minutes),
+    trailer: (r.trailer as CalendarEvent["trailer"]) ?? "auto",
     externalUid: (r.external_uid as string) ?? null,
     createdAt: iso(r.created_at),
     updatedAt: iso(r.updated_at),
@@ -52,6 +54,7 @@ export function mapSchedule(r: Row): ScheduleItem {
   return {
     id: String(r.id),
     time: String(r.time ?? ""),
+    endTime: String(r.end_time ?? ""),
     label: String(r.label),
     kind: r.kind as ScheduleItem["kind"],
     notes: String(r.notes ?? ""),
@@ -91,6 +94,8 @@ const FIELD_COLS: [keyof EventFields, string][] = [
   ["contactEmail", "contact_email"],
   ["deal", "deal"],
   ["notes", "notes"],
+  ["driveMinutes", "drive_minutes"],
+  ["trailer", "trailer"],
 ];
 
 const colValue = (k: keyof EventFields, v: unknown) => (k === "support" ? JSON.stringify(v ?? []) : v);
@@ -145,14 +150,15 @@ export async function listSchedule(eventId: string): Promise<ScheduleItem[]> {
   return rows.map(mapSchedule);
 }
 
-export async function replaceSchedule(eventId: string, items: Omit<ScheduleItem, "id">[]): Promise<ScheduleItem[]> {
+export async function replaceSchedule(eventId: string, items: (Omit<ScheduleItem, "id" | "endTime"> & { endTime?: string })[]): Promise<ScheduleItem[]> {
   const sorted = items.map((it, i) => ({ ...it, i })).sort((a, b) => sortTime(a.time) - sortTime(b.time) || a.i - b.i);
   await sql("delete from event_schedule where event_id = $1", [eventId]);
   for (const [sort, it] of sorted.entries()) {
-    await sql("insert into event_schedule (id, event_id, time, label, kind, notes, sort) values ($1, $2, $3, $4, $5, $6, $7)", [
+    await sql("insert into event_schedule (id, event_id, time, end_time, label, kind, notes, sort) values ($1, $2, $3, $4, $5, $6, $7, $8)", [
       newId("slot"),
       eventId,
       it.time,
+      it.endTime ?? "",
       it.label,
       it.kind,
       it.notes,

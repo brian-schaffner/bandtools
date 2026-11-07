@@ -344,7 +344,7 @@ function NewEventDialog({ date, onClose }: { date: string | null; onClose: () =>
             <Input value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="Record release show" />
           </Field>
           <label className="flex items-center gap-2 text-sm sm:col-span-2">
-            <Switch checked={form.withSchedule} onCheckedChange={(v) => set("withSchedule", v)} /> Start with a typical run of show (load-in, soundcheck, doors, sets)
+            <Switch checked={form.withSchedule} onCheckedChange={(v) => set("withSchedule", v)} /> Build the run of show from the band’s scheduling rules
           </label>
         </div>
         <DialogFooter>
