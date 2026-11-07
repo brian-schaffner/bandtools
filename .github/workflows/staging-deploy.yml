@@ -125,6 +125,20 @@ jobs:
           sleep 15
           SMOKE_SKIP_UNIT_TESTS=1 ./scripts/smoke-test.sh https://bandtools-test.fly.dev
 
+      - name: Recent Flyer Forge logs
+        if: always()
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          FLY_IO_TOKEN: ${{ secrets.FLY_IO_TOKEN }}
+        run: |
+          source scripts/deploy/lib.sh
+          resolve_fly_api_token
+          curl -sS https://bandtools-test.fly.dev/forge/api/health || true
+          echo
+          flyctl logs -a bandtools-test --no-tail 2>&1 \
+            | grep -iE 'flyer-forge|pglite|out of memory|oom|killed|exited:|RuntimeError|Aborted|FATAL|ENOSPC|/forge/api' \
+            | tail -n 200 || true
+
   wild-d-band-experiment:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_wild_d_experiment }}
     runs-on: ubuntu-latest
