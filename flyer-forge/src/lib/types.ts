@@ -104,4 +104,8 @@ export interface ConceptDirection {
   photoId?: string | null;
   logoId?: string | null;
   avoids?: string[];
+  /** Layout randomness, so the preview and the flyer it opens are the same design. */
+  seed?: number;
+  /** A line stack for bill recipes (see bill.ts). */
+  bill?: unknown;
 }

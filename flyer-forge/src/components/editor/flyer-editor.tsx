@@ -339,11 +339,11 @@ export function FlyerEditor() {
     const common = { id: lid, rotation: 0, opacity: 1, blend: "normal" as const, hidden: false };
     let layer: Layer;
     if (type === "text")
-      layer = { ...common, type, name: "text", role: "custom", text: "New text", font: spec.fonts.text, weight: 400, size: 0.04, color: "$ink", align: "left", valign: "top", transform: "none", tracking: 0, leading: 1.1, fill: false, misregister: null, x: 0.1, y: 0.45, w: 0.8, h: 0.08 };
+      layer = { ...common, type, name: "text", role: "custom", text: "New text", font: spec.fonts.text, weight: 400, size: 0.04, color: "$ink", align: "left", valign: "top", transform: "none", tracking: 0, leading: 1.1, fill: false, misregister: null, outline: null, inline: null, shadow: null, arc: 0, x: 0.1, y: 0.45, w: 0.8, h: 0.08 };
     else if (type === "shape") layer = { ...common, type, name: "block", shape: "rect", fill: "$accent", rays: 24, x: 0.1, y: 0.4, w: 0.3, h: 0.1 };
     else if (type === "photo") {
       const p = photos.find((x) => !x.archived) ?? null;
-      layer = { ...common, type, name: "photo", assetId: p?.id ?? null, fit: "cover", zoom: 1, focusX: p?.focalX ?? 0.5, focusY: p?.focalY ?? 0.4, mask: "rect", treatment: { mode: "original", dark: "$ink", light: "$paper", contrast: 0, brightness: 0, threshold: 0.5 }, misregister: null, x: 0.2, y: 0.3, w: 0.6, h: 0.3 };
+      layer = { ...common, type, name: "photo", assetId: p?.id ?? null, fit: "cover", zoom: 1, focusX: p?.focalX ?? 0.5, focusY: p?.focalY ?? 0.4, mask: "rect", treatment: { mode: "original", dark: "$ink", light: "$paper", mid: "$accent", contrast: 0, brightness: 0, threshold: 0.5 }, cutout: false, sticker: null, misregister: null, x: 0.2, y: 0.3, w: 0.6, h: 0.3 };
     } else {
       const lg = logos.find((x) => !x.archived) ?? null;
       layer = { ...common, type, name: "logo", assetId: lg?.id ?? null, recolor: null, recolorMode: "tone", align: "center", backdrop: "auto", x: 0.2, y: 0.05, w: 0.6, h: 0.12 };

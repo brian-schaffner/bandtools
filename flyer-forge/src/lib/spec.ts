@@ -21,7 +21,7 @@ export const PaletteSchema = z.object({
 export type Palette = z.infer<typeof PaletteSchema>;
 
 export const TextureSchema = z.object({
-  kind: z.enum(["grain", "halftone", "paper", "speckle", "lines"]),
+  kind: z.enum(["grain", "halftone", "paper", "speckle", "lines", "distress"]),
   color,
   opacity: z.number().min(0).max(1),
   scale: z.number().min(0.2).max(6).default(1),
@@ -44,15 +44,17 @@ const base = {
 export const ShapeLayerSchema = z.object({
   ...base,
   type: z.literal("shape"),
-  shape: z.enum(["rect", "ellipse", "sunburst", "stripes", "ring"]),
+  shape: z.enum(["rect", "ellipse", "sunburst", "stripes", "ring", "star", "burst", "ribbon", "frame"]),
   fill: color,
   rays: z.number().int().min(4).max(64).default(24),
 });
 
 export const TreatmentSchema = z.object({
-  mode: z.enum(["original", "mono", "duotone", "tint", "threshold"]),
+  mode: z.enum(["original", "mono", "duotone", "tint", "threshold", "posterize", "halftone"]),
   dark: color.default("$ink"),
   light: color.default("$paper"),
+  /** Middle tone for posterize. */
+  mid: color.default("$accent"),
   contrast: z.number().min(-1).max(1).default(0),
   brightness: z.number().min(-1).max(1).default(0),
   threshold: z.number().min(0.05).max(0.95).default(0.5),
@@ -68,6 +70,10 @@ export const PhotoLayerSchema = z.object({
   focusX: z.number().min(0).max(1).default(0.5),
   focusY: z.number().min(0).max(1).default(0.4),
   mask: z.enum(["rect", "ellipse", "arch", "slant"]).default("rect"),
+  /** Hide a plain studio background so the people stand on the design. Pixels are untouched; only alpha changes. */
+  cutout: z.boolean().default(false),
+  /** Outline colour drawn around a cut-out, like a sticker. */
+  sticker: color.nullable().default(null),
   treatment: TreatmentSchema,
   misregister: z
     .object({ dx: z.number(), dy: z.number(), color })
@@ -121,6 +127,12 @@ export const TextLayerSchema = z.object({
     .object({ dx: z.number(), dy: z.number(), color })
     .nullable()
     .default(null),
+  /** Flat print effects; widths and offsets are fractions of the font size. */
+  outline: z.object({ color, width: z.number().min(0).max(0.3) }).nullable().default(null),
+  inline: z.object({ color, width: z.number().min(0).max(0.3) }).nullable().default(null),
+  shadow: z.object({ color, dx: z.number().min(-0.3).max(0.3), dy: z.number().min(-0.3).max(0.3) }).nullable().default(null),
+  /** Curve a single line: positive arches up, negative sags. 1 ≈ a 140° arc. */
+  arc: z.number().min(-1).max(1).default(0),
 });
 
 export const LayerSchema = z.discriminatedUnion("type", [
@@ -140,6 +152,8 @@ export const SpecSchema = z.object({
   format: z.enum(FORMAT_IDS as [FormatId, ...FormatId[]]),
   recipeId: z.string(),
   variant: z.string().optional(),
+  /** The line stack a bill-style layout was built from, kept so it can be re-laid out for another format. */
+  bill: z.unknown().optional(),
   seed: z.number().int(),
   palette: PaletteSchema,
   fonts: z.object({ display: z.string(), text: z.string() }),
@@ -150,6 +164,14 @@ export type FlyerSpec = z.infer<typeof SpecSchema>;
 
 export const BriefSchema = z.object({
   headline: z.string().default(""),
+  /** "Ernie's Tavern presents" */
+  presenter: z.string().default(""),
+  /** A short line in the band's voice: "A night of honky-tonk and soul". */
+  tagline: z.string().default(""),
+  /** A shout line: "In person!", "One night only". */
+  banner: z.string().default(""),
+  /** Song titles to bill, e.g. from the gig's set list. */
+  songs: z.array(z.string()).default([]),
   date: z.string().default(""),
   doors: z.string().default(""),
   showTime: z.string().default(""),
