@@ -44,14 +44,13 @@ This runs, in order:
 
 ## Production
 
-After staging smoke tests pass:
+Production (`bandtools`, `fly.toml`) deploys through the **Deploy Production** workflow. It runs when `main` is pushed to the `production` branch after staging looks good:
 
 ```bash
-FLY_CONFIG=fly.toml ./scripts/fly-deploy.sh
-./scripts/smoke-test.sh https://bandtools.fly.dev
+git push origin main:production
 ```
 
-Production deploy will get the same `scripts/deploy/production.sh` wrapper in a follow-up; use `fly-deploy.sh` for now.
+You can also run the workflow by hand from GitHub Actions and type `DEPLOY`. Either way it snapshots the production volume, runs the tests, syncs the CI secrets and deploys. It then checks both `/health` and `/forge/api/health`.
 
 ## Layout
 
@@ -70,10 +69,10 @@ scripts/
 
 Copy `.env.example` → `.env` and fill values. The deploy script pushes them to Fly when `.env` exists. Without `.env`, existing Fly secrets are kept.
 
-**Day schedule (drive times + email):** set these as GitHub Actions secrets. The staging workflow stages any non-empty ones on `bandtools-test` before each deploy via `sync-logistics-secrets.sh`:
+**Day schedule (drive times + email):** set these as GitHub Actions secrets. The staging and production workflows stage any non-empty ones on `bandtools-test` / `bandtools` before each deploy via `sync-logistics-secrets.sh`:
 `GOOGLE_MAPS_API_KEY` or `MAPS_API_KEY` (Routes API enabled; check with `/flyers/logistics/drive-check`), `BAND_HOME_ADDRESS` (or `BAND_ADDRESS`), `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_FROM`, `LOGISTICS_EMAIL_TO`.
 
-**Facebook calendar:** GitHub Actions secrets `FACEBOOK_PAGE_ID` and `FACEBOOK_PAGE_ACCESS_TOKEN` are staged on `bandtools-test` (staging workflow) and `bandtools` (production workflow) before each deploy via `stage-ci-secrets.sh`. Only staging reads them today (`GIG_CALENDAR_SOURCE=facebook` in `fly.test.toml`).
+**Facebook calendar:** GitHub Actions secrets `FACEBOOK_PAGE_ID` and `FACEBOOK_PAGE_ACCESS_TOKEN` are staged on `bandtools-test` (staging workflow) and `bandtools` (production workflow) before each deploy via `stage-ci-secrets.sh`. Both apps read them (`GIG_CALENDAR_SOURCE=facebook` in `fly.toml` and `fly.test.toml`).
 
 **Gemini (options B/C):** add `GOOGLE_API_KEY` from [Google AI Studio](https://aistudio.google.com/apikey). Staging enables split mode (`A=openai`, `B/C=gemini`) via `fly.test.toml`.
 
