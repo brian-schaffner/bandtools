@@ -49,7 +49,7 @@ jobs:
       - name: Create volume snapshot
         id: snapshot
         env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN || secrets.FLY_IO_TOKEN }}
         run: |
           echo "==> Creating pre-deploy backup snapshot of production volume"
           
@@ -81,7 +81,7 @@ jobs:
 
       - name: Preflight Fly auth
         env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN || secrets.FLY_IO_TOKEN }}
         run: |
           flyctl version
           flyctl auth whoami
@@ -98,13 +98,16 @@ jobs:
             tests.test_wild_gemini_integration \
             tests.test_wild_color_correct \
             tests.test_assurance_profile \
+            tests.test_logistics_backtest \
+            tests.test_logistics_units \
+            tests.test_logistics_web \
             tests.test_calendar_cache \
             tests.test_facebook_calendar \
             -v
 
       - name: Sync Flyer Forge secrets (Facebook, Claude) to production
         env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN || secrets.FLY_IO_TOKEN }}
           FACEBOOK_PAGE_ID: ${{ secrets.FACEBOOK_PAGE_ID }}
           FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -116,7 +119,7 @@ jobs:
 
       - name: Deploy to production
         env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN || secrets.FLY_IO_TOKEN }}
         run: |
           source scripts/deploy/lib.sh
           resolve_fly_api_token
@@ -164,6 +167,19 @@ jobs:
           fi
           
           echo "✅ Production is healthy"
+
+          echo "Checking Flyer Forge..."
+          for i in 1 2 3 4 5 6; do
+            FORGE=$(curl -sS https://bandtools.fly.dev/forge/api/health || true)
+            if [[ "$(echo "$FORGE" | jq -r '.ok' 2>/dev/null)" == "true" ]]; then
+              echo "$FORGE" | jq .
+              echo "✅ Flyer Forge is healthy"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "ERROR: Flyer Forge health check failed: $FORGE" >&2
+          exit 1
 
       - name: Print recovery info
         if: always()
