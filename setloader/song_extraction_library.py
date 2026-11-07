@@ -4,6 +4,7 @@ Reusable library for extracting songs from validated titles and creating SBP fil
 """
 
 import json
+import uuid
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Tuple
 from sbp_library import SBPLibrary, SBPFile, Song, Set, SetItem, calculate_key_offset
@@ -217,106 +218,68 @@ class SongExtractor:
             folders=[]  # Don't carry over folders from backup - avoids duplicate set issues on import
         )
         
-        # Process each set
-        set_id = 1
         pdf_sets = validated_data.get('sets', [])
         has_extras = bool(validated_data.get('extras'))
         total_pdf_sets = len(pdf_sets)
 
-        for set_data in pdf_sets:
-            set_songs_with_keys, missing_titles = self.extract_songs_from_set(set_data)
-            
-            if set_songs_with_keys:
-                set_label = set_data.get('name', 'Set')
-                set_obj = self.sbp_lib.create_set(
-                    name=format_sbp_set_name(
-                        set_name,
-                        set_label,
-                        total_pdf_sets=total_pdf_sets,
-                        has_extras=has_extras,
-                    ),
-                    songs=[],
-                    id=set_id
-                )
-                
-                # Add songs to set with key offsets
-                for i, (song, setlist_key) in enumerate(set_songs_with_keys):
-                    # Calculate key_offset based on setlist key vs song default key
-                    key_offset = 0
-                    if setlist_key:
-                        key_offset = calculate_key_offset(
-                            setlist_key, 
-                            song.key, 
-                            song.key_shift
-                        )
-                    
-                    item = SetItem(
-                        id=i,
-                        order=i,
-                        capo=0,
-                        set_id=set_id,
-                        song_id=song.id,
-                        key_offset=key_offset,
-                        modified_datetime=datetime.now().isoformat() + 'Z',
-                        deleted=False,
-                        sync_id=None,
-                        notes_text=None,
-                        section_order="",
-                        item_type=1,
-                        content=""
+        # Song Book Pro keys set items by Id across the whole file (like its own
+        # database), so item Ids must not restart per set.
+        next_item_id = 1
+
+        def add_set(label: str, songs_with_keys: List[Tuple[Song, Optional[str]]]) -> None:
+            nonlocal next_item_id
+            set_id = len(new_sbp.sets) + 1
+            set_obj = self.sbp_lib.create_set(
+                name=format_sbp_set_name(
+                    set_name,
+                    label,
+                    total_pdf_sets=total_pdf_sets,
+                    has_extras=has_extras,
+                ),
+                songs=[],
+                id=set_id,
+                sync_id=str(uuid.uuid4()),
+            )
+
+            for order, (song, setlist_key) in enumerate(songs_with_keys):
+                key_offset = 0
+                if setlist_key:
+                    key_offset = calculate_key_offset(
+                        setlist_key,
+                        song.key,
+                        song.key_shift
                     )
-                    set_obj.items.append(item)
-                
-                new_sbp.sets.append(set_obj)
-                set_id += 1
-        
-        # Process extras as a separate set
+
+                set_obj.items.append(SetItem(
+                    id=next_item_id,
+                    order=order,
+                    capo=0,
+                    set_id=set_id,
+                    song_id=song.id,
+                    key_offset=key_offset,
+                    modified_datetime=datetime.now().isoformat() + 'Z',
+                    deleted=False,
+                    sync_id=str(uuid.uuid4()),
+                    notes_text=None,
+                    section_order="",
+                    item_type=1,
+                    content=""
+                ))
+                next_item_id += 1
+
+            new_sbp.sets.append(set_obj)
+
+        for set_data in pdf_sets:
+            set_songs_with_keys, _ = self.extract_songs_from_set(set_data)
+            if set_songs_with_keys:
+                add_set(set_data.get('name', 'Set'), set_songs_with_keys)
+
         extras = validated_data.get('extras', [])
         if extras:
-            extra_songs_with_keys, missing_extras = self.extract_songs_from_extras(extras)
-            
+            extra_songs_with_keys, _ = self.extract_songs_from_extras(extras)
             if extra_songs_with_keys:
-                extras_set = self.sbp_lib.create_set(
-                    name=format_sbp_set_name(
-                        set_name,
-                        "Extras",
-                        total_pdf_sets=total_pdf_sets,
-                        has_extras=True,
-                    ),
-                    songs=[],
-                    id=set_id
-                )
-                
-                # Add extra songs to set with key offsets
-                for i, (song, setlist_key) in enumerate(extra_songs_with_keys):
-                    # Calculate key_offset based on setlist key vs song default key
-                    key_offset = 0
-                    if setlist_key:
-                        key_offset = calculate_key_offset(
-                            setlist_key, 
-                            song.key, 
-                            song.key_shift
-                        )
-                    
-                    item = SetItem(
-                        id=i,
-                        order=i,
-                        capo=0,
-                        set_id=set_id,
-                        song_id=song.id,
-                        key_offset=key_offset,
-                        modified_datetime=datetime.now().isoformat() + 'Z',
-                        deleted=False,
-                        sync_id=None,
-                        notes_text=None,
-                        section_order="",
-                        item_type=1,
-                        content=""
-                    )
-                    extras_set.items.append(item)
-                
-                new_sbp.sets.append(extras_set)
-        
+                add_set("Extras", extra_songs_with_keys)
+
         return new_sbp
     
     def extract_and_save(self, input_data: Dict[str, Any], output_path: Path, set_name: str = "Extracted Set") -> Dict[str, Any]:
