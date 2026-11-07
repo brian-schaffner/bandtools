@@ -19,21 +19,12 @@ const tools = [
     available: true,
   },
   {
-    id: "flyer-agent",
-    title: "Flyer Agent",
+    id: "flyer-forge",
+    title: "Flyer Forge",
     description:
-      "Sign in with Google, pick an upcoming gig, and generate or revise concert posters with an expert design agent.",
-    href: "/flyers/agent",
-    icon: Megaphone,
-    accent: "from-violet-600 to-purple-700",
-    available: true,
-  },
-  {
-    id: "gig-flyers",
-    title: "Gig Flyers",
-    description:
-      "Generate promoter-style flyer options from your gig calendar, review on the web, and approve via iMessage.",
-    href: "/flyers/",
+      "Your gig calendar (synced from the band's Facebook events), flyer design with your real photos and logos, set lists, and print-ready exports.",
+    href: "/forge/",
+    external: true,
     icon: Megaphone,
     accent: "from-amber-500 to-orange-600",
     available: true,
@@ -44,6 +35,7 @@ const tools = [
     description:
       "Pick a published gig and build its departure & setup schedule — pull-out, arrival, soundcheck, dead stage and teardown.",
     href: "/flyers/logistics",
+    external: true,
     icon: CalendarClock,
     accent: "from-emerald-500 to-teal-600",
     available: true,
@@ -108,10 +100,18 @@ export default function BandToolsHome() {
                   </CardHeader>
                   <CardContent>
                     <Button asChild className="w-full gap-2 group-hover:gap-3 transition-all">
-                      <Link href={tool.href}>
-                        Open {tool.title}
-                        <ArrowRight className="h-4 w-4" />
-                      </Link>
+                      {/* Other apps behind the same host need a full page load, not client-side routing */}
+                      {"external" in tool && tool.external ? (
+                        <a href={tool.href}>
+                          Open {tool.title}
+                          <ArrowRight className="h-4 w-4" />
+                        </a>
+                      ) : (
+                        <Link href={tool.href}>
+                          Open {tool.title}
+                          <ArrowRight className="h-4 w-4" />
+                        </Link>
+                      )}
                     </Button>
                   </CardContent>
                 </Card>

@@ -8,7 +8,7 @@ import './globals.css'
 
 export const metadata: Metadata = {
   title: 'Band Tools',
-  description: 'Setlist Loader, Gig Flyers, and more for gigging musicians',
+  description: 'Setlist Loader, Flyer Forge, and more for gigging musicians',
 }
 
 export default function RootLayout({

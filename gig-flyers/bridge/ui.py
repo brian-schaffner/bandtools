@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import html
+import os
 from typing import Optional
 
 def band_tools_logo_svg(*, size: int = 36) -> str:
@@ -681,6 +682,22 @@ def site_nav(*, active: str = "", back_href: Optional[str] = None, back_label: s
     shell_cls = "nav-active" if active == "shell" else ""
     agent_cls = "nav-active" if active == "agent" else ""
 
+    # Flyer Forge replaces the flyer pages (pick, review, shell studio, Flyer Agent) where it is deployed.
+    forge = os.getenv("FLYER_FORGE_URL", "").strip()
+    if forge:
+        tool_links = (
+            f'<a href="{html.escape(forge)}">Flyer Forge</a>\n'
+            f'        <a class="{logistics_cls}" href="{logistics}">Day schedule</a>'
+        )
+    else:
+        tool_links = f"""<span class="{flyers_tool_cls} nav-active">Gig Flyers</span>
+        <span class="nav-divider" aria-hidden="true"></span>
+        <a class="{home_cls}" href="{flyers_home}">Home</a>
+        <a class="{pick_cls}" href="{pick}">Pick gig</a>
+        <a class="{logistics_cls}" href="{logistics}">Day schedule</a>
+        <a class="{shell_cls}" href="{shell_studio}">Shell studio</a>
+        <a class="{agent_cls}" href="{agent}">Flyer Agent</a>"""
+
     review_item = (
         f'<span class="{review_cls} nav-active">Review</span>' if active == "review" else ""
     )
@@ -713,13 +730,7 @@ def site_nav(*, active: str = "", back_href: Optional[str] = None, back_label: s
       <nav class="site-nav" aria-label="Main">
         <a href="{tools_home}">All tools</a>
         <a href="{setlist}">Setlist Loader</a>
-        <span class="{flyers_tool_cls} nav-active">Gig Flyers</span>
-        <span class="nav-divider" aria-hidden="true"></span>
-        <a class="{home_cls}" href="{flyers_home}">Home</a>
-        <a class="{pick_cls}" href="{pick}">Pick gig</a>
-        <a class="{logistics_cls}" href="{logistics}">Day schedule</a>
-        <a class="{shell_cls}" href="{shell_studio}">Shell studio</a>
-        <a class="{agent_cls}" href="{agent}">Flyer Agent</a>
+        {tool_links}
         {review_item}
         {progress_item}
       </nav>
