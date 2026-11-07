@@ -1,4 +1,4 @@
-import { sql, toBuffer } from "@/lib/db";
+import { getChunk, putChunk } from "@/lib/chunk-store";
 import { getAsset, jsonError } from "@/lib/repo";
 import { requireViewer, SAFE_IMAGE_HEADERS } from "@/lib/guard";
 
@@ -8,9 +8,10 @@ export async function GET(req: Request, ctx: RouteContext<"/api/assets/[id]/chun
   const viewer = await requireViewer(req);
   if (viewer instanceof Response) return viewer;
   const { id, idx } = await ctx.params;
-  const rows = await sql<{ data: unknown }>("select data from asset_chunks where asset_id = $1 and idx = $2", [id, Number(idx)]);
-  if (!rows[0]) return jsonError("Not found", 404);
-  const buf = toBuffer(rows[0].data);
+  const n = Number(idx);
+  if (!Number.isInteger(n) || n < 0) return jsonError("Not found", 404);
+  const buf = await getChunk(id, n);
+  if (!buf) return jsonError("Not found", 404);
   return new Response(new Uint8Array(buf), {
     headers: {
       ...SAFE_IMAGE_HEADERS,
@@ -32,9 +33,6 @@ export async function PUT(req: Request, ctx: RouteContext<"/api/assets/[id]/chun
   if (!Number.isInteger(n) || n < 0 || n >= asset.chunkCount) return jsonError("Bad part index");
   const buf = Buffer.from(await req.arrayBuffer());
   if (buf.byteLength === 0 || buf.byteLength > CHUNK_MAX) return jsonError("Bad part size");
-  await sql(
-    "insert into asset_chunks (asset_id, idx, data) values ($1, $2, $3) on conflict (asset_id, idx) do update set data = $3",
-    [id, n, buf],
-  );
+  await putChunk(id, n, buf);
   return Response.json({ ok: true });
 }

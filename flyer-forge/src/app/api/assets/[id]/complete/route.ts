@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
-import { sql, toBuffer } from "@/lib/db";
+import { deleteAssets, getChunk } from "@/lib/chunk-store";
+import { sql } from "@/lib/db";
 import { getAsset, jsonError } from "@/lib/repo";
 import { requireViewer } from "@/lib/guard";
 
@@ -14,15 +15,14 @@ export async function POST(req: Request, ctx: RouteContext<"/api/assets/[id]/com
   const hash = createHash("sha256");
   let total = 0;
   for (let i = 0; i < asset.chunkCount; i++) {
-    const rows = await sql<{ data: unknown }>("select data from asset_chunks where asset_id = $1 and idx = $2", [id, i]);
-    if (!rows[0]) return jsonError(`Part ${i + 1} is missing; please re-upload`, 409);
-    const buf = toBuffer(rows[0].data);
+    const buf = await getChunk(id, i);
+    if (!buf) return jsonError(`Part ${i + 1} is missing; please re-upload`, 409);
     total += buf.byteLength;
     hash.update(buf);
   }
   const digest = hash.digest("hex");
   if (total !== asset.byteSize || digest !== asset.sha256) {
-    await sql("delete from assets where id = $1", [id]);
+    await deleteAssets("id = $1", [id]);
     return jsonError("The stored file did not match the original byte-for-byte; upload discarded", 422);
   }
   await sql("update assets set complete = true where id = $1", [id]);

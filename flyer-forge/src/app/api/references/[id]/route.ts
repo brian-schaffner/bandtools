@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { deleteAssets } from "@/lib/chunk-store";
 import { sql } from "@/lib/db";
 import { jsonError, mapRef } from "@/lib/repo";
 import { requireViewer } from "@/lib/guard";
@@ -53,6 +54,6 @@ export async function DELETE(req: Request, ctx: RouteContext<"/api/references/[i
   if (viewer instanceof Response) return viewer;
   const { id } = await ctx.params;
   const rows = await sql<{ image_asset_id: string | null }>("delete from style_refs where id = $1 returning image_asset_id", [id]);
-  if (rows[0]?.image_asset_id) await sql("delete from assets where id = $1 and kind = 'reference'", [rows[0].image_asset_id]);
+  if (rows[0]?.image_asset_id) await deleteAssets("id = $1 and kind = 'reference'", [rows[0].image_asset_id]);
   return Response.json({ ok: true });
 }
