@@ -17,7 +17,7 @@ import { eventLabel, eventToBrief, type CalendarEvent } from "@/lib/events";
 import { useAssetImages } from "@/hooks/use-asset-images";
 import { api, ApiError } from "@/lib/api";
 import { directionToSpec, mockConcepts } from "@/lib/design";
-import { formatDate, RECIPE_MAP } from "@/lib/recipes";
+import { formatDate, RECIPES, RECIPE_MAP } from "@/lib/recipes";
 import { BriefSchema, type Brief, type FlyerSpec } from "@/lib/spec";
 import { thumbnailBlob } from "@/lib/render/export";
 import type { RenderReport, SourceImage } from "@/lib/render/render";
@@ -48,6 +48,7 @@ export function NewFlyer() {
     setBrief((b) => eventToBrief(linkedEvent, b));
   }
   const [concepts, setConcepts] = useState<ConceptDirection[]>([]);
+  const [seen, setSeen] = useState<string[]>([]);
   const [conceptSource, setConceptSource] = useState<"ai" | "builtin" | null>(null);
   const [loadingConcepts, setLoadingConcepts] = useState(false);
   const [showAssets, setShowAssets] = useState(false);
@@ -68,21 +69,29 @@ export function NewFlyer() {
   }, [specs, chosenSpec]);
   const { images, verified, loading: imagesLoading } = useAssetImages([...photos, ...logos], step === 0 ? [] : assetIds);
 
+  // Each round skips every layout already shown. When fewer than three are left, those come first, topped up with
+  // the earliest-seen ones, and the cycle starts over.
   const generate = async () => {
     setLoadingConcepts(true);
     setConcepts([]);
+    const unseen = RECIPES.length - seen.length;
+    const exclude = unseen >= 3 ? seen : seen.slice(3 - unseen);
+    const show = (next: ConceptDirection[]) => {
+      setConcepts(next);
+      setSeen([...(unseen >= 3 ? exclude : []), ...next.map((c) => c.recipeId)]);
+    };
     try {
       if (ai?.enabled) {
         try {
-          const out = await api<{ concepts: ConceptDirection[] }>("/api/ai/concepts", { method: "POST", json: { brief, count: 3 } });
-          setConcepts(out.concepts);
+          const out = await api<{ concepts: ConceptDirection[] }>("/api/ai/concepts", { method: "POST", json: { brief, count: 3, exclude } });
+          show(out.concepts);
           setConceptSource("ai");
           return;
         } catch (e) {
           if (!(e instanceof ApiError && e.status === 503)) toast.error(`Claude couldn't propose concepts (${e instanceof Error ? e.message : "error"}). Showing built-in directions.`);
         }
       }
-      setConcepts(mockConcepts(brief, bandInfo, photos, logos, [], 3));
+      show(mockConcepts(brief, bandInfo, photos, logos, exclude, 3));
       setConceptSource("builtin");
     } finally {
       setLoadingConcepts(false);
@@ -348,6 +357,15 @@ function LayerControls({ concept, onChange, photos, logos }: { concept: ConceptD
           })}
         </div>
       </Field>
+      {recipe.variants && recipe.variants.length > 1 && (
+        <Field label="Layout">
+          <Choice
+            value={concept.variant ?? recipe.variants[0].id}
+            onChange={(v) => onChange({ ...concept, variant: v })}
+            options={recipe.variants.map((v) => ({ value: v.id, label: v.label }))}
+          />
+        </Field>
+      )}
       {recipe.mirrorable && (
         <label className="flex items-center gap-2 text-sm">
           <Switch checked={!!concept.mirror} onCheckedChange={(v) => onChange({ ...concept, mirror: v })} /> Mirror layout

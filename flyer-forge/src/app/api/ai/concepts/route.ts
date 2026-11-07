@@ -42,7 +42,7 @@ You do not draw anything. You pick a layout recipe, palette, font pairing, photo
   const recipeList = RECIPES.filter((r) => !exclude.includes(r.id))
     .map(
       (r) =>
-        `- ${r.id}: ${r.name}. ${r.description}\n  palettes: ${r.palettes.map((p, i) => `#${i} paper ${p.paper} ink ${p.ink} accent ${p.accent} accent2 ${p.accent2}`).join(" | ")}\n  font pairs: ${r.fontPairs.map((f, i) => `#${i} ${f.display}/${f.text}`).join(" | ")}\n  treatments: ${r.treatments.join(", ")}${r.mirrorable ? "\n  mirrorable" : ""}`,
+        `- ${r.id}: ${r.name}. ${r.description}\n  palettes: ${r.palettes.map((p, i) => `#${i} paper ${p.paper} ink ${p.ink} accent ${p.accent} accent2 ${p.accent2}`).join(" | ")}\n  font pairs: ${r.fontPairs.map((f, i) => `#${i} ${f.display}/${f.text}`).join(" | ")}\n  treatments: ${r.treatments.join(", ")}${r.variants?.length ? `\n  variants: ${r.variants.map((v) => `${v.id} (${v.label})`).join(" | ")}` : ""}${r.mirrorable ? "\n  mirrorable" : ""}`,
     )
     .join("\n");
 
@@ -63,7 +63,9 @@ Allowed fonts (only if overriding a pair): ${FONT_IDS.map((f) => `${f} (${FONTS[
 Treatment modes: original, mono, duotone, tint, threshold.
 
 Return exactly ${count} distinct directions as JSON, each using a different recipe that suits the band and the mood:
-{"concepts":[{"recipeId":"...","title":"short evocative name","rationale":"2-3 sentences on why this fits and what makes it read as human-made","paletteIndex":0,"palette":null,"fontIndex":0,"fonts":null,"treatment":"mono","mirror":false,"photoId":"... or null","logoId":"... or null","avoids":["which AI tells this direction specifically sidesteps"]}]}
+{"concepts":[{"recipeId":"...","variant":"... or null","title":"short evocative name","rationale":"2-3 sentences on why this fits and what makes it read as human-made","paletteIndex":0,"palette":null,"fontIndex":0,"fonts":null,"treatment":"mono","mirror":false,"photoId":"... or null","logoId":"... or null","avoids":["which AI tells this direction specifically sidesteps"]}]}
+Pick a "variant" where the recipe lists them, choosing the structure that gives this photo and this gig the most presence.
+Do not repeat recipes the user has already seen; they are not in the list above.
 Only set "palette" (four hex colours) or "fonts" if a custom choice is clearly better than the recipe's options. Respond with JSON only.`;
 
   try {
@@ -72,10 +74,12 @@ Only set "palette" (four hex colours) or "fonts" if a custom choice is clearly b
     const photoIds = new Set(usablePhotos.map((p) => p.id));
     const logoIds = new Set(usableLogos.map((l) => l.id));
     const concepts = (out.concepts ?? [])
-      .filter((c) => RECIPE_MAP[c.recipeId])
+      .filter((c) => RECIPE_MAP[c.recipeId] && !exclude.includes(c.recipeId))
+      .filter((c, i, all) => all.findIndex((o) => o.recipeId === c.recipeId) === i)
       .slice(0, count)
       .map<ConceptDirection>((c) => ({
         recipeId: c.recipeId,
+        variant: RECIPE_MAP[c.recipeId].variants?.some((v) => v.id === c.variant) ? c.variant : undefined,
         title: String(c.title ?? RECIPE_MAP[c.recipeId].name).slice(0, 80),
         rationale: String(c.rationale ?? "").slice(0, 600),
         paletteIndex: Number.isInteger(c.paletteIndex) ? c.paletteIndex : 0,
