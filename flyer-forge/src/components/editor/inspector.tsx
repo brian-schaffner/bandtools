@@ -147,6 +147,55 @@ function TextFields({ l, onLayer, tokens }: { l: TextLayer; onLayer: (p: Partial
         </Field>
         <Misregister value={l.misregister} onChange={(v) => onLayer({ misregister: v })} tokens={tokens} />
       </div>
+      <Separator />
+      <LetteringEffects l={l} onLayer={onLayer} tokens={tokens} />
+    </div>
+  );
+}
+
+type Lettering = "none" | "outline" | "inline" | "shadow" | "outline-shadow";
+
+function letteringOf(l: TextLayer): Lettering {
+  if (l.inline && l.outline) return "inline";
+  if (l.outline && l.shadow) return "outline-shadow";
+  if (l.outline) return "outline";
+  if (l.shadow) return "shadow";
+  return "none";
+}
+
+/** Flat sign-painter effects in a second ink: an outline, an inline, a hard offset shadow, and an arch. */
+function LetteringEffects({ l, onLayer, tokens }: { l: TextLayer; onLayer: (p: Partial<TextLayer>) => void; tokens: Record<string, string> }) {
+  const effect = letteringOf(l);
+  const second = l.outline?.color ?? l.shadow?.color ?? "$accent";
+  const set = (e: Lettering, color = second) =>
+    onLayer({
+      outline: e === "outline" || e === "outline-shadow" || e === "inline" ? { color, width: e === "inline" ? 0.05 : 0.04 } : null,
+      inline: e === "inline" ? { color: "$paper", width: 0.03 } : null,
+      shadow: e === "shadow" || e === "outline-shadow" ? { color, dx: l.shadow?.dx ?? 0.05, dy: l.shadow?.dy ?? 0.05 } : null,
+    });
+  return (
+    <div className="space-y-3">
+      <Field label="Lettering" hint="Flat inks only, the way wood-type and screen printers did it. No glows or bevels.">
+        <Choice
+          value={effect}
+          onChange={(v) => set(v)}
+          options={[
+            { value: "none" as const, label: "Plain" },
+            { value: "outline" as const, label: "Outline" },
+            { value: "inline" as const, label: "Inline" },
+            { value: "shadow" as const, label: "Offset shadow" },
+            { value: "outline-shadow" as const, label: "Outline + shadow" },
+          ]}
+        />
+      </Field>
+      {effect !== "none" && (
+        <Field label="Effect ink">
+          <ColorField value={second} onChange={(c) => set(effect, c)} tokens={tokens} />
+        </Field>
+      )}
+      <Field label="Arch" hint="Bends a single line of type into an arc. Negative curves it down.">
+        <NumberSlider value={l.arc ?? 0} min={-1} max={1} step={0.05} onChange={(v) => onLayer({ arc: Math.abs(v) < 0.03 ? 0 : v })} format={(v) => (v === 0 ? "flat" : v.toFixed(2))} />
+      </Field>
     </div>
   );
 }
@@ -219,10 +268,17 @@ function PhotoFields({ l, onLayer, tokens, photos }: { l: PhotoLayer; onLayer: (
             { value: "duotone" as const, label: "Duotone" },
             { value: "tint" as const, label: "Tint" },
             { value: "threshold" as const, label: "Photocopy (1-bit)" },
+            { value: "posterize" as const, label: "Posterize (3 inks)" },
+            { value: "halftone" as const, label: "Halftone dots" },
           ]}
         />
       </Field>
-      {(t.mode === "duotone" || t.mode === "tint" || t.mode === "threshold") && (
+      {t.mode === "posterize" && (
+        <Field label="Mid-tones">
+          <ColorField value={t.mid ?? "$accent"} onChange={(v) => setT({ mid: v })} tokens={tokens} />
+        </Field>
+      )}
+      {(t.mode === "duotone" || t.mode === "tint" || t.mode === "threshold" || t.mode === "posterize" || t.mode === "halftone") && (
         <div className="grid gap-3">
           <Field label="Shadows">
             <ColorField value={t.dark} onChange={(v) => setT({ dark: v })} tokens={tokens} />
@@ -232,7 +288,7 @@ function PhotoFields({ l, onLayer, tokens, photos }: { l: PhotoLayer; onLayer: (
           </Field>
         </div>
       )}
-      {t.mode === "threshold" && (
+      {(t.mode === "threshold" || t.mode === "posterize") && (
         <Field label="Threshold">
           <NumberSlider value={t.threshold} min={0.1} max={0.9} onChange={(v) => setT({ threshold: v })} format={pct} />
         </Field>
@@ -246,6 +302,22 @@ function PhotoFields({ l, onLayer, tokens, photos }: { l: PhotoLayer; onLayer: (
         </Field>
       </div>
       <Misregister value={l.misregister} onChange={(v) => onLayer({ misregister: v })} tokens={tokens} />
+      <Separator />
+      <label className="flex items-center justify-between gap-2 text-sm">
+        <span>
+          Cut out the people
+          <span className="block text-xs text-muted-foreground">Keys out a plain backdrop (studio wall, sky, white sheet). Busy backgrounds stay as a rectangle.</span>
+        </span>
+        <Switch checked={!!l.cutout} onCheckedChange={(v) => onLayer({ cutout: v })} />
+      </label>
+      {l.cutout && (
+        <Field label="Sticker edge">
+          <div className="space-y-2">
+            <Switch checked={!!l.sticker} onCheckedChange={(v) => onLayer({ sticker: v ? "#FFFFFF" : null })} />
+            {l.sticker && <ColorField value={l.sticker} onChange={(c) => onLayer({ sticker: c })} tokens={{ ...tokens, white: "#FFFFFF" }} />}
+          </div>
+        </Field>
+      )}
     </div>
   );
 }
@@ -294,14 +366,19 @@ function ShapeFields({ l, onLayer, tokens }: { l: ShapeLayer; onLayer: (p: Parti
   return (
     <div className="space-y-4">
       <Field label="Shape">
-        <Choice value={l.shape} onChange={(v) => onLayer({ shape: v })} options={["rect", "ellipse", "ring", "stripes", "sunburst"].map((v) => ({ value: v as ShapeLayer["shape"], label: cap(v === "rect" ? "rectangle" : v) }))} />
+        <Choice value={l.shape} onChange={(v) => onLayer({ shape: v })} options={["rect", "ellipse", "ring", "stripes", "sunburst", "star", "burst", "ribbon", "frame"].map((v) => ({ value: v as ShapeLayer["shape"], label: cap(v === "rect" ? "rectangle" : v === "burst" ? "starburst" : v === "frame" ? "border" : v) }))} />
       </Field>
       <Field label="Ink">
         <ColorField value={l.fill} onChange={(v) => onLayer({ fill: v })} tokens={tokens} />
       </Field>
-      {(l.shape === "sunburst" || l.shape === "stripes") && (
-        <Field label={l.shape === "sunburst" ? "Rays" : "Stripes"}>
+      {(l.shape === "sunburst" || l.shape === "stripes" || l.shape === "burst") && (
+        <Field label={l.shape === "stripes" ? "Stripes" : l.shape === "burst" ? "Points" : "Rays"}>
           <NumberSlider value={l.rays} min={4} max={48} step={1} onChange={(v) => onLayer({ rays: v })} format={(v) => String(v)} />
+        </Field>
+      )}
+      {l.shape === "frame" && (
+        <Field label="Rules">
+          <Choice value={l.rays >= 2 ? "2" : "1"} onChange={(v) => onLayer({ rays: Number(v) })} options={[{ value: "1", label: "Single" }, { value: "2", label: "Double" }]} />
         </Field>
       )}
     </div>
@@ -352,7 +429,7 @@ function BackgroundInspector({ spec, onSpec }: { spec: FlyerSpec; onSpec: (s: Fl
         {spec.background.textures.map((t, i) => (
           <div key={i} className="space-y-2 rounded-md border border-border/60 p-2.5">
             <div className="flex items-center gap-2">
-              <Choice value={t.kind} onChange={(v) => setTex(i, { kind: v })} options={["grain", "speckle", "paper", "halftone", "lines"].map((k) => ({ value: k as Texture["kind"], label: cap(k) }))} className="h-7" />
+              <Choice value={t.kind} onChange={(v) => setTex(i, { kind: v })} options={["grain", "speckle", "paper", "halftone", "lines", "distress"].map((k) => ({ value: k as Texture["kind"], label: k === "distress" ? "Worn ink" : cap(k) }))} className="h-7" />
               <Button size="icon-xs" variant="ghost" onClick={() => onSpec({ ...spec, background: { ...spec.background, textures: spec.background.textures.filter((_, j) => j !== i) } })}>
                 <Trash2 />
               </Button>

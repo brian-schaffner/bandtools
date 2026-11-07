@@ -70,6 +70,32 @@ export function BriefForm({
         </Field>
       </section>
 
+      <section className="space-y-3">
+        <div>
+          <h3 className="text-sm font-medium">Poster wording (optional)</h3>
+          <p className="text-xs text-muted-foreground">Show-bill layouts set these as their own lines. Leave blank and they&apos;re skipped; nothing is made up.</p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Field label="Presented by">
+            <Input value={brief.presenter ?? ""} onChange={(e) => set("presenter", e.target.value)} placeholder="Ernie's Tavern presents" />
+          </Field>
+          <Field label="Tagline">
+            <Input value={brief.tagline ?? ""} onChange={(e) => set("tagline", e.target.value)} placeholder="Southern rock & honky-tonk" />
+          </Field>
+          <Field label="Banner / shout line">
+            <Input value={brief.banner ?? ""} onChange={(e) => set("banner", e.target.value)} placeholder="In person!" />
+          </Field>
+        </div>
+        <Field label="Songs to feature" hint="One per line, set in quotes like an old show bill. Filled from the gig's setlist when there is one.">
+          <Textarea
+            rows={3}
+            value={(brief.songs ?? []).join("\n")}
+            onChange={(e) => set("songs", e.target.value.split("\n").slice(0, 8))}
+            placeholder={"Sweet Home Alabama\nMidnight Rider"}
+          />
+        </Field>
+      </section>
+
       <section className="grid gap-4 sm:grid-cols-[1fr_220px]">
         <Field label="Mood / direction" hint="Plain words work best. This steers which print traditions get proposed.">
           <Textarea value={brief.mood} rows={2} onChange={(e) => set("mood", e.target.value)} placeholder="Sweaty basement show, a bit 70s, no neon" />
