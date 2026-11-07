@@ -264,7 +264,7 @@ function LogoFields({ l, onLayer, tokens, logos }: { l: LogoLayer; onLayer: (p: 
           value={l.backdrop ?? "auto"}
           onChange={(v) => onLayer({ backdrop: v })}
           options={[
-            { value: "auto" as const, label: "Auto (drop a white box)" },
+            { value: "auto" as const, label: "Auto (remove white box)" },
             { value: "remove" as const, label: "Transparent" },
             { value: "badge" as const, label: "White circle" },
             { value: "keep" as const, label: "As uploaded" },
