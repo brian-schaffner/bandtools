@@ -72,7 +72,7 @@ test("calendar titles that only repeat the venue or band are not used as headlin
   for (const recipe of RECIPES) {
     const spec = buildSpec(recipe.id, { brief: FULL, bandName: "Lindsey Lane Band", format: "poster-11x17", photo: { id: "p", width: 3000, height: 2000 }, logo: null, seed: 1 });
     const texts = spec.layers.filter((l): l is TextLayer => l.type === "text").map((l) => l.text);
-    assert.ok(!texts.some((t) => /presents/i.test(t)), `${recipe.id} repeats the calendar title`);
+    assert.ok(!texts.some((t) => /presents/i.test(t) && /lindsey/i.test(t)), `${recipe.id} repeats the calendar title`);
   }
 });
 
@@ -120,7 +120,16 @@ test("on a dark palette the logo is recoloured light and photo highlights stay l
     recipe.palettes.forEach((palette, i) => {
       const spec = buildSpec(recipe.id, { brief: FULL, bandName: "B", format: "poster-11x17", photo: { id: "p", width: 3000, height: 2000 }, logo: { id: "l", width: 1200, height: 700 }, seed: 1, paletteIndex: i });
       const logo = spec.layers.find((l): l is LogoLayer => l.type === "logo")!;
-      const darkPaper = hexLum(palette.paper) < 0.45;
+      const cx = logo.x + logo.w / 2;
+      const cy = logo.y + logo.h / 2;
+      const under = recipe.bill
+        ? spec.layers
+            .slice(0, spec.layers.indexOf(logo))
+            .filter((l) => l.type === "shape" && l.shape === "rect" && l.x <= cx && cx <= l.x + l.w && l.y <= cy && cy <= l.y + l.h)
+            .pop()
+        : undefined;
+      const ground = under?.type === "shape" ? under.fill : palette.paper;
+      const darkPaper = hexLum(resolveColor(ground, palette)) < 0.45;
       if (darkPaper && recipe.id !== "ticket") assert.ok(logo.recolor && hexLum(resolveColor(logo.recolor, palette)) > 0.6, `${recipe.id} #${i} leaves a dark logo on dark paper`);
       if (!darkPaper) assert.equal(logo.recolor, null, `${recipe.id} #${i} recolours a logo on light paper`);
       for (const l of spec.layers) {

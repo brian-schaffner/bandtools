@@ -4,13 +4,13 @@ import { FONT_IDS, FONTS } from "./fonts";
 import type { Asset, Band, ConceptDirection } from "./types";
 
 const MOOD_HINTS: [RegExp, string[]][] = [
-  [/jazz|soul|blues|swing|bebop|lounge/i, ["bluenote", "split", "ticket", "letterpress"]],
-  [/punk|hardcore|garage|thrash|grunge|noise|diy/i, ["punk", "bigtype", "screenprint", "riso"]],
-  [/folk|country|americana|bluegrass|roots|honky|western|rockabilly/i, ["letterpress", "ticket", "screenprint", "bluenote"]],
-  [/psych|60s|sixties|funk|groove|stoner|desert/i, ["psych", "screenprint", "riso"]],
+  [/jazz|soul|blues|swing|bebop|lounge|r&b|rhythm|motown/i, ["bluenote", "inperson", "split", "ticket", "letterpress"]],
+  [/punk|hardcore|garage|thrash|grunge|noise|diy/i, ["punk", "handbill", "bigtype", "screenprint", "riso"]],
+  [/folk|country|americana|bluegrass|roots|honky|western|rockabilly/i, ["opry", "woodtype", "letterpress", "showcard", "ticket"]],
+  [/psych|60s|sixties|funk|groove|stoner|desert|jam/i, ["ballroom", "psych", "screenprint", "riso"]],
   [/electro|synth|dream|shoegaze|pop|dance|zine|indie pop/i, ["riso", "split", "swiss", "screenprint"]],
   [/minimal|modern|post-rock|math|ambient|experimental|clean/i, ["swiss", "split", "bigtype", "bluenote"]],
-  [/rock|indie|alt|metal|surf/i, ["tour", "screenprint", "punk", "bigtype"]],
+  [/rock|indie|alt|metal|surf|southern|classic|cover/i, ["woodtype", "tour", "ballroom", "screenprint", "showcard"]],
 ];
 
 export function pickRecipes(text: string, exclude: string[], count: number, seed: number): string[] {
@@ -55,6 +55,13 @@ const AVOID_BY_RECIPE: Record<string, string[]> = {
   split: ["Dead-centre symmetry", "Edge-to-edge detail", "Unmotivated gradients"],
   bigtype: ["Info as an afterthought", "Effects on type", "Stock-photo hero shot"],
   ticket: ["Genre clip-art clichés", "Fake grunge overlays", "Garbled lettering"],
+  woodtype: ["Even sizes on every line", "Unmotivated gradients", "Glossy sheen"],
+  opry: ["Clip-art cowboys", "Fake leather textures", "Info as an afterthought"],
+  inperson: ["Airbrushed glow", "Stock-photo hero shot", "Timid scale"],
+  ballroom: ["Airbrushed glow", "Synthwave gradients", "Unreadable lettering"],
+  handbill: ["Cinematic HDR gloss", "Tidy grids", "Plastic people"],
+  showcard: ["Dead-flat hierarchy", "Smoke & lens-flare soup", "Glossy sheen"],
+  bill: ["Even sizes on every line", "Glows and bevels", "Invented facts"],
 };
 
 export function mockConcepts(brief: Brief, band: Band, photos: Asset[], logos: Asset[], exclude: string[], count = 3): ConceptDirection[] {
@@ -78,6 +85,7 @@ export function mockConcepts(brief: Brief, band: Band, photos: Asset[], logos: A
       photoId: photo?.id ?? null,
       logoId: logo?.id ?? null,
       avoids: AVOID_BY_RECIPE[id] ?? [],
+      seed: Math.floor(rng() * 1e9),
     };
   });
 }
@@ -109,7 +117,8 @@ export function directionToSpec(
     treatment: d.treatment as Treatment["mode"] | undefined,
     mirror: d.mirror,
     variant: d.variant,
-    seed,
+    bill: d.bill,
+    seed: d.seed ?? seed,
   });
   if (photo) {
     for (const l of spec.layers) {
@@ -170,7 +179,7 @@ function luminanceOf(hex: string) {
   return (0.2126 * ((n >> 16) & 255) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255)) / 255;
 }
 
-const TREATMENTS: Treatment["mode"][] = ["original", "mono", "duotone", "tint", "threshold"];
+const TREATMENTS: Treatment["mode"][] = ["original", "mono", "duotone", "tint", "threshold", "posterize", "halftone"];
 
 function mutate(spec: FlyerSpec, what: Lockable, rng: () => number, photos: Asset[]): { spec: FlyerSpec; label: string } {
   let s = clone(spec);
@@ -223,7 +232,7 @@ function mutate(spec: FlyerSpec, what: Lockable, rng: () => number, photos: Asse
       return { spec: s, label: "photo treatment" };
     }
     case "texture": {
-      const kinds = ["grain", "halftone", "paper", "speckle", "lines"] as const;
+      const kinds = ["grain", "halftone", "paper", "speckle", "lines", "distress"] as const;
       if (rng() < 0.5 && s.background.textures.length) {
         s.background.textures = s.background.textures.map((t) => ({ ...t, opacity: Math.min(0.6, Math.max(0.03, t.opacity * (0.5 + rng() * 1.2))) }));
       } else {
@@ -435,7 +444,7 @@ export function adaptFormat(spec: FlyerSpec, format: FlyerSpec["format"], brief:
   const logoId = (spec.layers.find((l) => l.type === "logo") as Layer & { assetId: string | null } | undefined)?.assetId ?? null;
   const treatment = (spec.layers.find((l) => l.type === "photo") as PhotoLayer | undefined)?.treatment.mode;
   const next = directionToSpec(
-    { recipeId: spec.recipeId, variant: spec.variant, title: "", rationale: "", palette: spec.palette, fonts: spec.fonts, photoId: photoId as string | null, logoId, treatment },
+    { recipeId: spec.recipeId, variant: spec.variant, bill: spec.bill, title: "", rationale: "", palette: spec.palette, fonts: spec.fonts, photoId: photoId as string | null, logoId, treatment },
     { ...brief, format },
     band,
     photos,

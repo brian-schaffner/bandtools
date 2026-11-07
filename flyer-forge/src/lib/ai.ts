@@ -75,4 +75,5 @@ export async function rulebookText(): Promise<string> {
 export const HARD_RULES = `Hard rules that are never negotiable:
 - The band's photos and logos are placed exactly as uploaded. They may be cropped, scaled uniformly, rotated, masked and recoloured, but never stretched, redrawn, regenerated or retouched.
 - No generated people, hands, instruments or lettering. All text is set in real fonts by the layout engine.
-- No glow, bevel, chrome, drop shadow or gradient effects on type. Flat inks only.`;
+- No glow, bevel, chrome, blurred drop shadow or gradient effects on type. Flat inks only. A solid outline, an inline, or a hard offset shadow in a second flat ink (as wood-type and screen printers did) is allowed.
+- Never invent facts: no dates, times, prices, venues, acts, song titles or quotes that are not in the brief. Decorative words (e.g. "In person!", "Live on stage", "Starring", "Tonight") are fine.`;

@@ -2,6 +2,7 @@
 
 import { FORMATS, resolveColor, type Brief, type FlyerSpec } from "../spec";
 import { ensureFontsLoaded } from "../fonts";
+import { RECIPE_MAP } from "../recipes";
 import type { Critique, CritiqueIssue } from "../types";
 import { contrastRatio, luminance, renderFlyer, type RenderReport, type SourceImage } from "./render";
 
@@ -39,7 +40,9 @@ export async function runChecks(
   issues.push(...sizeIssues(spec, report));
 
   const fonts = new Set(spec.layers.flatMap((l) => (l.type === "text" && !l.hidden ? [l.font] : [])));
-  if (fonts.size > 3) issues.push({ severity: "warn", area: "Type", note: `${fonts.size} typefaces in use; traditional posters rarely use more than two.`, fix: "Use the same typeface for the small info lines" });
+  // Show-printers mixed every wood face in the case; elsewhere more than three faces reads as indecision.
+  const maxFaces = RECIPE_MAP[spec.recipeId]?.bill ? 5 : 3;
+  if (fonts.size > maxFaces) issues.push({ severity: "warn", area: "Type", note: `${fonts.size} typefaces in use; traditional posters rarely use more than ${maxFaces === 3 ? "two" : "four"}.`, fix: "Use the same typeface for the small info lines" });
   else issues.push({ severity: "pass", area: "Type", note: `${fonts.size} typeface${fonts.size === 1 ? "" : "s"}, set from real font files. No generated lettering.` });
 
   const inks = new Set<string>([resolveColor(spec.background.color, spec.palette).toLowerCase()]);
@@ -52,7 +55,7 @@ export async function runChecks(
   else issues.push({ severity: "pass", area: "Colour", note: `${inks.size} flat inks, no gradients or glows.` });
 
   const texts = spec.layers.filter((l) => l.type === "text" && !l.hidden);
-  if (texts.length > 2 && texts.every((l) => l.type === "text" && l.align === "center") && !["letterpress", "psych", "tour", "ticket"].includes(spec.recipeId)) {
+  if (texts.length > 2 && texts.every((l) => l.type === "text" && l.align === "center") && !["letterpress", "psych", "tour", "ticket"].includes(spec.recipeId) && !RECIPE_MAP[spec.recipeId]?.bill) {
     issues.push({ severity: "info", area: "Composition", note: "Everything is centred. Symmetry by default is a common AI-flyer tell.", fix: "Set the info block flush left and let the photo bleed off one edge" });
   }
   if (spec.layers.length > 16) issues.push({ severity: "warn", area: "Composition", note: `${spec.layers.length} layers; risk of edge-to-edge clutter.`, fix: "Remove decorative shapes so one element dominates" });

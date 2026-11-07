@@ -179,7 +179,54 @@ function drawShape(ctx: CanvasRenderingContext2D, l: ShapeLayer, box: Box, pal: 
       for (let i = 0; i < n; i++) ctx.fillRect(box.x, box.y + i * 2 * sh, box.w, sh);
       break;
     }
+    case "star":
+      starPath(ctx, cx, cy, box.w / 2, box.h / 2, 5, 0.42);
+      ctx.fill();
+      break;
+    case "burst":
+      starPath(ctx, cx, cy, box.w / 2, box.h / 2, Math.max(8, l.rays), 0.8);
+      ctx.fill();
+      break;
+    case "ribbon": {
+      const notch = Math.min(box.h * 0.45, box.w * 0.12);
+      ctx.beginPath();
+      ctx.moveTo(box.x, box.y);
+      ctx.lineTo(box.x + box.w, box.y);
+      ctx.lineTo(box.x + box.w - notch, box.y + box.h / 2);
+      ctx.lineTo(box.x + box.w, box.y + box.h);
+      ctx.lineTo(box.x, box.y + box.h);
+      ctx.lineTo(box.x + notch, box.y + box.h / 2);
+      ctx.closePath();
+      ctx.fill();
+      break;
+    }
+    case "frame": {
+      const lw = Math.max(1.5, Math.min(box.w, box.h) * 0.011);
+      ctx.lineWidth = lw;
+      ctx.strokeRect(box.x + lw / 2, box.y + lw / 2, box.w - lw, box.h - lw);
+      if (l.rays >= 2) {
+        const inner = lw * 0.4;
+        const gap = lw * 1.6;
+        ctx.lineWidth = inner;
+        ctx.strokeRect(box.x + lw + gap, box.y + lw + gap, box.w - 2 * (lw + gap), box.h - 2 * (lw + gap));
+      }
+      break;
+    }
   }
+}
+
+/** A star whose points alternate between the box's edge and `inner` of it. */
+function starPath(ctx: CanvasRenderingContext2D, cx: number, cy: number, rx: number, ry: number, points: number, inner: number) {
+  ctx.beginPath();
+  for (let i = 0; i < points * 2; i++) {
+    const a = -Math.PI / 2 + (i * Math.PI) / points;
+    const k = i % 2 ? inner : 1;
+    const x = cx + Math.cos(a) * rx * k;
+    const y = cy + Math.sin(a) * ry * k;
+    if (i) ctx.lineTo(x, y);
+    else ctx.moveTo(x, y);
+  }
+  ctx.closePath();
 }
 
 // ---------- photos ----------
@@ -303,7 +350,7 @@ function drawPhoto(
   const ow = Math.max(1, Math.round(p.dw));
   const oh = Math.max(1, Math.round(p.dh));
   const t = l.treatment;
-  const key = [l.assetId, p.sx, p.sy, p.sw, p.sh, ow, oh, t.mode, resolveColor(t.dark, pal), resolveColor(t.light, pal), t.contrast, t.brightness, t.threshold].join("|");
+  const key = [l.assetId, p.sx, p.sy, p.sw, p.sh, ow, oh, t.mode, resolveColor(t.dark, pal), resolveColor(t.light, pal), resolveColor(t.mid ?? "$accent", pal), t.contrast, t.brightness, t.threshold].join("|");
   const processed = cacheGet(key, () => {
     const c = document.createElement("canvas");
     c.width = ow;
@@ -314,6 +361,44 @@ function drawPhoto(
     applyTreatment(cx, ow, oh, t, pal);
     return c;
   });
+
+  const matte = l.cutout ? subjectMatte(img, l.assetId!) : null;
+  if (matte) {
+    const ms = matte.width / iw;
+    const crop = { sx: p.sx * ms, sy: p.sy * ms, sw: p.sw * ms, sh: p.sh * ms };
+    const cut = cacheGet(`${key}|cut`, () => {
+      const c = document.createElement("canvas");
+      c.width = ow;
+      c.height = oh;
+      const cx = c.getContext("2d")!;
+      cx.drawImage(processed, 0, 0);
+      cx.globalCompositeOperation = "destination-in";
+      cx.imageSmoothingQuality = "high";
+      cx.drawImage(matte, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, ow, oh);
+      return c;
+    });
+    if (l.sticker) {
+      const color = resolveColor(l.sticker, pal);
+      const edge = cacheGet(`${key}|sticker|${color}`, () => {
+        const c = document.createElement("canvas");
+        c.width = ow;
+        c.height = oh;
+        const cx = c.getContext("2d")!;
+        cx.drawImage(matte, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, ow, oh);
+        cx.globalCompositeOperation = "source-in";
+        cx.fillStyle = color;
+        cx.fillRect(0, 0, ow, oh);
+        return c;
+      });
+      const r = Math.max(2, Math.min(p.dw, p.dh) * 0.022);
+      for (let i = 0; i < 16; i++) {
+        const a = (i / 16) * Math.PI * 2;
+        ctx.drawImage(edge, p.dx + Math.cos(a) * r, p.dy + Math.sin(a) * r, p.dw, p.dh);
+      }
+    }
+    ctx.drawImage(cut, p.dx, p.dy, p.dw, p.dh);
+    return;
+  }
 
   ctx.save();
   maskPath(ctx, l.mask, box);
@@ -329,6 +414,88 @@ function drawPhoto(
   }
   ctx.drawImage(processed, p.dx, p.dy, p.dw, p.dh);
   ctx.restore();
+}
+
+const matteCache = new Map<string, HTMLCanvasElement | null>();
+
+/**
+ * The subject of a photo shot against a plain backdrop, as an alpha matte: the backdrop colour is sampled from the
+ * border and flood-filled inwards. Busy backgrounds (a bar, a stage) don't key cleanly, so they return null and the
+ * photo is shown whole instead.
+ */
+export function subjectMatte(img: SourceImage, assetId: string): HTMLCanvasElement | null {
+  if (matteCache.has(assetId)) return matteCache.get(assetId)!;
+  const { iw, ih } = imgSize(img);
+  const s = Math.min(1, 640 / Math.max(iw, ih));
+  const w = Math.max(8, Math.round(iw * s));
+  const h = Math.max(8, Math.round(ih * s));
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  const cx = c.getContext("2d", { willReadFrequently: true })!;
+  cx.drawImage(img, 0, 0, w, h);
+  const data = cx.getImageData(0, 0, w, h);
+  const d = data.data;
+  const border: number[] = [];
+  for (let x = 0; x < w; x++) border.push(x, (h - 1) * w + x);
+  for (let y = 1; y < h - 1; y++) border.push(y * w, y * w + w - 1);
+  // People usually run off the bottom edge, so the backdrop is judged from the top and sides only, by the most
+  // common colour rather than the mean.
+  const sample = border.filter((i) => i < (h - 1) * w);
+  const bins = new Map<number, number[]>();
+  for (const i of sample) {
+    const k = ((d[i * 4] >> 4) << 8) | ((d[i * 4 + 1] >> 4) << 4) | (d[i * 4 + 2] >> 4);
+    const b = bins.get(k) ?? [0, 0, 0, 0];
+    b[0]++;
+    b[1] += d[i * 4];
+    b[2] += d[i * 4 + 1];
+    b[3] += d[i * 4 + 2];
+    bins.set(k, b);
+  }
+  const top = [...bins.values()].sort((a, b) => b[0] - a[0])[0];
+  const br = top[1] / top[0];
+  const bg = top[2] / top[0];
+  const bb = top[3] / top[0];
+  const dist = (i: number) => Math.hypot(d[i * 4] - br, d[i * 4 + 1] - bg, d[i * 4 + 2] - bb);
+  const TOL = 48;
+  const plain = sample.filter((i) => dist(i) < TOL).length / sample.length;
+  let result: HTMLCanvasElement | null = null;
+  if (plain > 0.7) {
+    const bgMask = new Uint8Array(w * h);
+    const stack = border.filter((i) => dist(i) < TOL);
+    for (const i of stack) bgMask[i] = 1;
+    while (stack.length) {
+      const i = stack.pop()!;
+      const x = i % w;
+      const y = (i - x) / w;
+      for (const n of [x > 0 ? i - 1 : -1, x < w - 1 ? i + 1 : -1, y > 0 ? i - w : -1, y < h - 1 ? i + w : -1]) {
+        if (n < 0 || bgMask[n]) continue;
+        if (dist(n) < TOL) {
+          bgMask[n] = 1;
+          stack.push(n);
+        }
+      }
+    }
+    let subject = 0;
+    for (let i = 0; i < w * h; i++) {
+      const keep = !bgMask[i];
+      if (keep) subject++;
+      d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = 0;
+      d[i * 4 + 3] = keep ? 255 : 0;
+    }
+    // A keyed subject that is nearly all or nearly nothing of the frame means the key failed.
+    if (subject > w * h * 0.08 && subject < w * h * 0.92) {
+      cx.putImageData(data, 0, 0);
+      result = document.createElement("canvas");
+      result.width = w;
+      result.height = h;
+      const rx = result.getContext("2d")!;
+      rx.filter = "blur(1px)";
+      rx.drawImage(c, 0, 0);
+    }
+  }
+  matteCache.set(assetId, result);
+  return result;
 }
 
 function drawPlaceholder(ctx: CanvasRenderingContext2D, box: Box, pal: Palette, label: string) {
@@ -375,6 +542,7 @@ function applyTreatment(cx: CanvasRenderingContext2D, w: number, h: number, t: T
   const d = data.data;
   const [dr, dg, db] = hexToRgb(resolveColor(t.dark, pal));
   const [lr, lg, lb] = hexToRgb(resolveColor(t.light, pal));
+  const [mr, mg, mb] = hexToRgb(resolveColor(t.mid ?? "$accent", pal));
   const k = 1 + t.contrast;
   const br = t.brightness;
   const adj = (v: number) => Math.min(1, Math.max(0, (v - 0.5) * k + 0.5 + br));
@@ -393,6 +561,13 @@ function applyTreatment(cx: CanvasRenderingContext2D, w: number, h: number, t: T
       d[i] = d[i + 1] = d[i + 2] = L * 255;
       continue;
     }
+    if (t.mode === "posterize") {
+      const [r2, g2, b2] = L < t.threshold - 0.17 ? [dr, dg, db] : L < t.threshold + 0.17 ? [mr, mg, mb] : [lr, lg, lb];
+      d[i] = r2;
+      d[i + 1] = g2;
+      d[i + 2] = b2;
+      continue;
+    }
     if (t.mode === "threshold") L = L > t.threshold ? 1 : 0;
     else if (t.mode === "tint") L = Math.pow(L, 0.8);
     d[i] = dr + (lr - dr) * L;
@@ -400,6 +575,31 @@ function applyTreatment(cx: CanvasRenderingContext2D, w: number, h: number, t: T
     d[i + 2] = db + (lb - db) * L;
   }
   cx.putImageData(data, 0, 0);
+  if (t.mode === "halftone") halftone(cx, w, h, data, [dr, dg, db], [lr, lg, lb]);
+}
+
+/** Re-screens a duotone-mapped image as dots of the dark ink on the light ink, like a newspaper print. */
+function halftone(cx: CanvasRenderingContext2D, w: number, h: number, mapped: ImageData, dark: number[], light: number[]) {
+  const d = mapped.data;
+  const cell = Math.max(3, Math.round(Math.max(w, h) / 110));
+  const span = Math.hypot(light[0] - dark[0], light[1] - dark[1], light[2] - dark[2]) || 1;
+  cx.fillStyle = `rgb(${light.join(",")})`;
+  cx.fillRect(0, 0, w, h);
+  cx.fillStyle = `rgb(${dark.join(",")})`;
+  for (let y = 0; y < h + cell; y += cell) {
+    const shift = (y / cell) % 2 ? cell / 2 : 0;
+    for (let x = shift; x < w + cell; x += cell) {
+      const sx = Math.min(w - 1, Math.max(0, Math.round(x)));
+      const sy = Math.min(h - 1, Math.max(0, Math.round(y)));
+      const i = (sy * w + sx) * 4;
+      const toward = Math.hypot(d[i] - light[0], d[i + 1] - light[1], d[i + 2] - light[2]) / span;
+      const r = (cell / 2) * 1.15 * Math.sqrt(Math.min(1, toward));
+      if (r < 0.3) continue;
+      cx.beginPath();
+      cx.arc(x, y, r, 0, Math.PI * 2);
+      cx.fill();
+    }
+  }
 }
 
 /** Same pixels as the input, mapped dark→colour / light→white, for overprint misregistration. */
@@ -587,16 +787,58 @@ function wrap(ctx: CanvasRenderingContext2D, text: string, maxW: number): string
   return out;
 }
 
+interface Glyph {
+  s: string;
+  x: number;
+  y: number;
+  rot: number;
+}
+
 function drawText(ctx: CanvasRenderingContext2D, l: TextLayer, box: Box, pal: Palette, W: number, H: number, report: RenderReport) {
   const text = applyCase(l.text, l.transform);
   const requested = l.size * W;
+  const arc = (l.arc ?? 0) !== 0 && !text.includes("\n") ? l.arc : 0;
+  // Outlines and shadows sit outside the letters, so a filled line leaves room for them.
+  const fx = (l.outline?.width ?? 0) + (l.inline?.width ?? 0) + Math.max(Math.abs(l.shadow?.dx ?? 0), Math.abs(l.shadow?.dy ?? 0));
   let px = requested;
   let lines: string[];
-  if (l.fill) {
+  let glyphs: Glyph[] = [];
+  let align: CanvasTextAlign = l.align;
+  if (arc) {
+    lines = [text];
+    setFont(ctx, l, 100);
+    const w100 = Math.max(ctx.measureText(text).width, 1);
+    const cap100 = (ctx.measureText("H").actualBoundingBoxAscent || 70) * 1.12;
+    const theta = Math.abs(arc) * Math.PI * 0.9;
+    const chord = Math.sin(theta / 2) / (theta / 2);
+    const sag = (1 - Math.cos(theta / 2)) / theta;
+    const pad = 1 + fx * 2;
+    px = l.fill
+      ? Math.min((100 * box.w) / (w100 * chord * pad), (100 * box.h) / ((cap100 + w100 * sag) * pad))
+      : Math.min(px, (100 * box.w) / (w100 * chord * pad), (100 * box.h) / ((cap100 + w100 * sag) * pad));
+    setFont(ctx, l, px);
+    const tw = (w100 * px) / 100;
+    const capPx = (cap100 * px) / 100;
+    const R = tw / theta;
+    const total = capPx + tw * sag;
+    const top = l.valign === "top" ? box.y : l.valign === "bottom" ? box.y + box.h - total : box.y + (box.h - total) / 2;
+    const cx = box.x + box.w / 2;
+    const up = arc > 0;
+    const midBaseline = up ? top + capPx * 0.9 : top + tw * sag + capPx * 0.9;
+    const cy = up ? midBaseline + R : midBaseline - R;
+    let a = -theta / 2;
+    align = "center";
+    for (const ch of Array.from(text)) {
+      const cw = ctx.measureText(ch).width;
+      const mid = a + cw / 2 / R;
+      glyphs.push(up ? { s: ch, x: cx + R * Math.sin(mid), y: cy - R * Math.cos(mid), rot: mid } : { s: ch, x: cx + R * Math.sin(mid), y: cy + R * Math.cos(mid), rot: -mid });
+      a += cw / R;
+    }
+  } else if (l.fill) {
     lines = text.split("\n");
     setFont(ctx, l, 100);
     const widest = Math.max(...lines.map((s) => ctx.measureText(s).width), 1);
-    px = Math.min((100 * box.w) / widest, box.h / (lines.length * l.leading));
+    px = Math.min((100 * box.w) / (widest * (1 + fx * 2)), box.h / (lines.length * l.leading + fx * 2));
     setFont(ctx, l, px);
   } else {
     setFont(ctx, l, px);
@@ -613,30 +855,58 @@ function drawText(ctx: CanvasRenderingContext2D, l: TextLayer, box: Box, pal: Pa
   }
   report.text.push({ layerId: l.id, role: l.role, requestedPx: l.fill ? px : requested, finalPx: px, box, color: resolveColor(l.color, pal) });
 
-  const lineH = px * l.leading;
-  const cap = ctx.measureText("H").actualBoundingBoxAscent || px * 0.7;
-  const total = lines.length * lineH;
-  let top = box.y;
-  if (l.valign === "middle") top = box.y + (box.h - total) / 2;
-  else if (l.valign === "bottom") top = box.y + box.h - total;
+  if (!arc) {
+    const lineH = px * l.leading;
+    const cap = ctx.measureText("H").actualBoundingBoxAscent || px * 0.7;
+    const total = lines.length * lineH;
+    let top = box.y;
+    if (l.valign === "middle") top = box.y + (box.h - total) / 2;
+    else if (l.valign === "bottom") top = box.y + box.h - total;
+    const inset = fx * px;
+    const ax = l.align === "left" ? box.x + inset : l.align === "right" ? box.x + box.w - inset : box.x + box.w / 2;
+    glyphs = lines.map((s, i) => ({ s, x: ax, y: top + i * lineH + lineH / 2 + cap / 2, rot: 0 }));
+  }
   ctx.textBaseline = "alphabetic";
-  ctx.textAlign = l.align;
-  const ax = l.align === "left" ? box.x : l.align === "right" ? box.x + box.w : box.x + box.w / 2;
+  ctx.textAlign = align;
+  ctx.lineJoin = "round";
+  ctx.miterLimit = 2;
 
-  const paint = (color: string, ox: number, oy: number) => {
+  const run = (op: "fill" | "stroke", color: string, ox: number, oy: number, lineWidth = 0) => {
     ctx.fillStyle = color;
-    lines.forEach((s, i) => {
-      const baseline = top + i * lineH + lineH / 2 + cap / 2;
-      ctx.fillText(s, ax + ox, baseline + oy);
-    });
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lineWidth;
+    for (const g of glyphs) {
+      if (g.rot) {
+        ctx.save();
+        ctx.translate(g.x + ox, g.y + oy);
+        ctx.rotate(g.rot);
+        if (op === "fill") ctx.fillText(g.s, 0, 0);
+        else ctx.strokeText(g.s, 0, 0);
+        ctx.restore();
+      } else if (op === "fill") ctx.fillText(g.s, g.x + ox, g.y + oy);
+      else ctx.strokeText(g.s, g.x + ox, g.y + oy);
+    }
   };
+  const ow = (l.outline?.width ?? 0) * px;
+  const iw = (l.inline?.width ?? 0) * px;
+  const body = (dx: number, dy: number, fill: string, outline: string | null, inline: string | null) => {
+    if (outline && inline) {
+      run("stroke", outline, dx, dy, 2 * (ow + iw));
+      run("stroke", inline, dx, dy, 2 * iw);
+    } else if (outline) run("stroke", outline, dx, dy, 2 * ow);
+    run("fill", fill, dx, dy);
+  };
+  if (l.shadow) {
+    const sc = resolveColor(l.shadow.color, pal);
+    body(l.shadow.dx * px, l.shadow.dy * px, sc, l.outline ? sc : null, l.inline && l.outline ? sc : null);
+  }
   if (l.misregister) {
     const prev = ctx.globalCompositeOperation;
     ctx.globalCompositeOperation = "multiply";
-    paint(resolveColor(l.misregister.color, pal), l.misregister.dx * W, l.misregister.dy * H);
+    run("fill", resolveColor(l.misregister.color, pal), l.misregister.dx * W, l.misregister.dy * H);
     ctx.globalCompositeOperation = prev;
   }
-  paint(resolveColor(l.color, pal), 0, 0);
+  body(0, 0, resolveColor(l.color, pal), l.outline ? resolveColor(l.outline.color, pal) : null, l.inline ? resolveColor(l.inline.color, pal) : null);
 }
 
 // ---------- textures ----------
@@ -708,6 +978,33 @@ function textureTile(t: Texture, color: string, tile: number, seed: number): HTM
         cx.fill();
       }
     }
+  } else if (t.kind === "distress") {
+    // Worn ink: clusters of flecks where the paper shows through, plus a few hairline scratches.
+    for (let c = 0; c < 14; c++) {
+      const cx0 = rng() * tile;
+      const cy0 = rng() * tile;
+      const spread = (6 + rng() * 26) * unit;
+      for (let i = 0; i < 40; i++) {
+        const s = (0.4 + rng() * rng() * 3) * unit;
+        cx.globalAlpha = 0.5 + rng() * 0.5;
+        cx.beginPath();
+        cx.ellipse(cx0 + (rng() - 0.5) * spread * 2, cy0 + (rng() - 0.5) * spread, s, s * (0.4 + rng() * 0.8), rng() * Math.PI, 0, Math.PI * 2);
+        cx.fill();
+      }
+    }
+    cx.lineCap = "round";
+    for (let i = 0; i < 6; i++) {
+      const x = rng() * tile;
+      const y = rng() * tile;
+      const a = (rng() - 0.5) * 0.6;
+      const len = (20 + rng() * 60) * unit;
+      cx.globalAlpha = 0.6;
+      cx.lineWidth = (0.4 + rng() * 0.6) * unit;
+      cx.beginPath();
+      cx.moveTo(x, y);
+      cx.lineTo(x + Math.cos(a) * len, y + Math.sin(a) * len);
+      cx.stroke();
+    }
   } else if (t.kind === "lines") {
     const step = 6 * unit;
     for (let y = 0; y < tile; y += step) cx.fillRect(0, y, tile, Math.max(1, unit));
@@ -725,7 +1022,8 @@ function drawTexture(ctx: CanvasRenderingContext2D, t: Texture, pal: Palette, W:
   if (!pattern) return;
   ctx.save();
   ctx.globalAlpha = t.opacity;
-  ctx.globalCompositeOperation = "multiply";
+  // Distress knocks ink back to paper, so it paints over rather than darkening.
+  ctx.globalCompositeOperation = t.kind === "distress" ? "source-over" : "multiply";
   ctx.fillStyle = pattern;
   ctx.fillRect(-bleed, -bleed, W + 2 * bleed, H + 2 * bleed);
   ctx.restore();

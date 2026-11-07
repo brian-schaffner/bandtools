@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, ArrowRight, CalendarDays, Check, RefreshCw, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, CalendarDays, Check, RefreshCw, ShieldCheck, Shuffle, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -12,8 +12,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Choice, Field } from "@/components/fields";
 import { FlyerCanvas } from "@/components/flyer-canvas";
 import { BriefForm } from "./brief-form";
-import { useAiStatus, useAssets, useBand, useFetch } from "@/hooks/use-fetch";
-import { eventLabel, eventToBrief, type CalendarEvent } from "@/lib/events";
+import { useAiStatus, useAssets, useBand, useFetch, useRefs } from "@/hooks/use-fetch";
+import { eventLabel, eventToBrief, type CalendarEvent, type Setlist } from "@/lib/events";
 import { useAssetImages } from "@/hooks/use-asset-images";
 import { api, ApiError } from "@/lib/api";
 import { directionToSpec, mockConcepts } from "@/lib/design";
@@ -21,7 +21,7 @@ import { formatDate, RECIPES, RECIPE_MAP } from "@/lib/recipes";
 import { BriefSchema, type Brief, type FlyerSpec } from "@/lib/spec";
 import { thumbnailBlob } from "@/lib/render/export";
 import type { RenderReport, SourceImage } from "@/lib/render/render";
-import type { Asset, Band, ConceptDirection, Flyer, FlyerVersion } from "@/lib/types";
+import type { Asset, Band, ConceptDirection, Flyer, FlyerVersion, StyleRef } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { withBase } from "@/lib/base-path";
 
@@ -30,7 +30,7 @@ const STEPS = ["Gig details", "Design concept", "Layer in photo & logo"];
 export function NewFlyer() {
   const router = useRouter();
   const eventId = useSearchParams().get("event");
-  const eventQ = useFetch<{ event: CalendarEvent }>(eventId ? `/api/events/${eventId}` : null);
+  const eventQ = useFetch<{ event: CalendarEvent; setlists?: Setlist[] }>(eventId ? `/api/events/${eventId}` : null);
   const linkedEvent = eventQ.data?.event ?? null;
   const band = useBand();
   const photosQ = useAssets("photo");
@@ -45,8 +45,12 @@ export function NewFlyer() {
   const [appliedEvent, setAppliedEvent] = useState<string | null>(null);
   if (linkedEvent && appliedEvent !== linkedEvent.id) {
     setAppliedEvent(linkedEvent.id);
-    setBrief((b) => eventToBrief(linkedEvent, b));
+    const songs = setlistSongs(eventQ.data?.setlists ?? []);
+    setBrief((b) => ({ ...eventToBrief(linkedEvent, b), songs: b.songs.length ? b.songs : songs }));
   }
+  const refsQ = useRefs();
+  const references = useMemo(() => (refsQ.data ?? []).filter((r) => r.kind === "inspire" && !r.archived), [refsQ.data]);
+  const [referenceId, setReferenceId] = useState<string | null>(null);
   const [concepts, setConcepts] = useState<ConceptDirection[]>([]);
   const [seen, setSeen] = useState<string[]>([]);
   const [conceptSource, setConceptSource] = useState<"ai" | "builtin" | null>(null);
@@ -77,13 +81,14 @@ export function NewFlyer() {
     const unseen = RECIPES.length - seen.length;
     const exclude = unseen >= 3 ? seen : seen.slice(3 - unseen);
     const show = (next: ConceptDirection[]) => {
-      setConcepts(next);
-      setSeen([...(unseen >= 3 ? exclude : []), ...next.map((c) => c.recipeId)]);
+      setConcepts(next.map((c) => ({ ...c, seed: c.seed ?? Math.floor(Math.random() * 1e9) })));
+      const shown = next.map((c) => c.recipeId).filter((id) => RECIPES.some((r) => r.id === id));
+      setSeen([...(unseen >= 3 ? exclude : []), ...shown]);
     };
     try {
       if (ai?.enabled) {
         try {
-          const out = await api<{ concepts: ConceptDirection[] }>("/api/ai/concepts", { method: "POST", json: { brief, count: 3, exclude } });
+          const out = await api<{ concepts: ConceptDirection[] }>("/api/ai/concepts", { method: "POST", json: { brief, count: 3, exclude, referenceId } });
           show(out.concepts);
           setConceptSource("ai");
           return;
@@ -180,10 +185,13 @@ export function NewFlyer() {
               </Button>
             </div>
           </div>
+          <ReferencePicker references={references} value={referenceId} onChange={setReferenceId} aiEnabled={!!ai?.enabled} />
           {conceptSource && (
             <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <Sparkles className="size-3.5" />
-              {conceptSource === "ai" ? `Directed by Claude (${ai?.model}) using your References rulebook.` : "Built-in art direction. Add an ANTHROPIC_API_KEY for Claude-directed concepts."}
+              {conceptSource === "ai"
+                ? `Directed by Claude (${ai?.model}) using your References rulebook${referenceId ? `, modelled on "${references.find((r) => r.id === referenceId)?.title ?? "your reference"}"` : ""}.`
+                : "Built-in art direction. Add an ANTHROPIC_API_KEY for Claude-directed concepts."}
             </p>
           )}
           <div className="grid gap-6 md:grid-cols-3">
@@ -329,7 +337,7 @@ function LayerControls({ concept, onChange, photos, logos }: { concept: ConceptD
           <Choice
             value={(concept.treatment as string) ?? recipe.treatments[0]}
             onChange={(v) => onChange({ ...concept, treatment: v })}
-            options={["original", "mono", "duotone", "tint", "threshold"].map((t) => ({ value: t, label: t === "threshold" ? "Photocopy (1-bit)" : t[0].toUpperCase() + t.slice(1) }))}
+            options={TREATMENT_OPTIONS}
           />
         </Field>
         <Field label="Type pairing">
@@ -366,11 +374,60 @@ function LayerControls({ concept, onChange, photos, logos }: { concept: ConceptD
           />
         </Field>
       )}
+      {recipe.bill && (
+        <Button variant="outline" size="sm" onClick={() => onChange({ ...concept, seed: Math.floor(Math.random() * 1e9) })} title="Same style, a different stack: line faces, ornaments and photo placement">
+          <Shuffle /> Reshuffle the bill
+        </Button>
+      )}
       {recipe.mirrorable && (
         <label className="flex items-center gap-2 text-sm">
           <Switch checked={!!concept.mirror} onCheckedChange={(v) => onChange({ ...concept, mirror: v })} /> Mirror layout
         </label>
       )}
+    </div>
+  );
+}
+
+const TREATMENT_OPTIONS = [
+  { value: "original", label: "Original" },
+  { value: "mono", label: "Mono" },
+  { value: "duotone", label: "Duotone" },
+  { value: "tint", label: "Tint" },
+  { value: "threshold", label: "Photocopy (1-bit)" },
+  { value: "posterize", label: "Posterize (3 inks)" },
+  { value: "halftone", label: "Halftone dots" },
+];
+
+/** Song titles from the gig's first setlist, as hit titles for show-bill layouts. */
+function setlistSongs(setlists: Setlist[]): string[] {
+  const songs = (setlists[0]?.items ?? []).filter((i) => i.type === "song").map((i) => i.title.trim()).filter(Boolean);
+  return songs.slice(0, 4);
+}
+
+function ReferencePicker({ references, value, onChange, aiEnabled }: { references: StyleRef[]; value: string | null; onChange: (id: string | null) => void; aiEnabled: boolean }) {
+  if (!references.length) return null;
+  const tile = (active: boolean) => cn("relative grid h-20 w-14 shrink-0 place-items-center overflow-hidden rounded-sm border text-[11px] text-muted-foreground", active ? "border-primary ring-2 ring-primary/50" : "border-border hover:border-foreground/40");
+  return (
+    <div className="space-y-1.5">
+      <p className="text-sm font-medium">Make it like…</p>
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        <button className={tile(!value)} onClick={() => onChange(null)}>
+          Any
+        </button>
+        {references.map((r) => (
+          <button key={r.id} className={tile(value === r.id)} onClick={() => onChange(r.id)} title={r.title} disabled={!aiEnabled}>
+            {r.imageAssetId ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={withBase(`/api/assets/${r.imageAssetId}/preview`)} alt={r.title} className="absolute inset-0 h-full w-full object-cover" />
+            ) : (
+              <span className="px-1 text-center">{r.title}</span>
+            )}
+          </button>
+        ))}
+      </div>
+      <p className="text-xs text-muted-foreground">
+        {aiEnabled ? "Pick one of your References and press New concepts: Claude sets three bills on its structure, with your gig's facts." : "Copying a reference needs Claude (ANTHROPIC_API_KEY)."}
+      </p>
     </div>
   );
 }
