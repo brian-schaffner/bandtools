@@ -7,7 +7,7 @@ export async function proxy(request: NextRequest) {
   const provider = authProvider();
   if (provider === "cursor") return NextResponse.next();
   const { pathname, search } = request.nextUrl;
-  if (pathname === "/signin" || pathname.startsWith("/api/auth/")) return NextResponse.next();
+  if (pathname === "/signin" || pathname === "/api/health" || pathname.startsWith("/api/auth/")) return NextResponse.next();
   let configured: boolean;
   let signedIn: boolean;
   if (provider === "bandtools") {

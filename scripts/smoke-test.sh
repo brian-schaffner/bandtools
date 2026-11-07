@@ -35,6 +35,7 @@ check /forge/signin 200
 check /forge 307
 check /forge/calendar 307
 check /forge/api/events 401
+check /forge/api/health 200
 PROVIDER=$(curl -sS "${BASE}/forge/api/auth/provider" | python3 -c "import sys,json; print(json.load(sys.stdin).get('provider',''))" 2>/dev/null || echo "")
 if [[ "$PROVIDER" != "bandtools" ]]; then
   echo "FAIL /forge/api/auth/provider expected bandtools got '${PROVIDER}'"
