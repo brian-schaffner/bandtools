@@ -16,6 +16,8 @@ primary_region = 'ord'
   ROOT_PATH = '/flyers'
   GIG_OUTPUT_DIR = '/data/flyers-output'
   GIG_CALENDAR_CACHE_PATH = '/data/cache/calendar.json'
+  # Facebook Page events; falls back to the website if FACEBOOK_PAGE_* secrets are missing
+  GIG_CALENDAR_SOURCE = 'facebook'
   SETLOADER_DATA_DIR = '/data/setloader'
 
 [mounts]
