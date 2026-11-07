@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="translation-page">
+    <h1>Translation Result</h1>
+    <div id="translation-content">
+        <p>Loading translation...</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const presetId = '{{ mxr_preset_id }}';
+
+async function loadAndTranslate() {
+    const translateResponse = await fetch(`/api/translate/${presetId}`, { method: 'POST' });
+    if (!translateResponse.ok) {
+        document.getElementById('translation-content').innerHTML = '<p class="error">Translation failed</p>';
+        return;
+    }
+    
+    const data = await translateResponse.json();
+    const preset = data.axioma_preset;
+    const translation = preset.translation;
+    
+    let html = `
+        <div class="translation-result">
+            <section class="result-section">
+                <h2>Axioma Preset: ${preset.name}</h2>
+                <p class="confidence">Overall Confidence: <strong>${(translation.overall_confidence * 100).toFixed(1)}%</strong></p>
+            </section>
+            
+            <section class="result-section">
+                <h3>Oscillator Settings</h3>
+                <table class="param-table">
+                    <tr><td>OSC 1 Waveform</td><td>${preset.oscillators.osc1_waveform.toUpperCase()}</td></tr>
+                    <tr><td>OSC 1 Level</td><td>${(preset.oscillators.osc1_level * 100).toFixed(0)}%</td></tr>
+                    <tr><td>OSC 2 Waveform</td><td>${preset.oscillators.osc2_waveform.toUpperCase()}</td></tr>
+                    <tr><td>OSC 2 Level</td><td>${(preset.oscillators.osc2_level * 100).toFixed(0)}%</td></tr>
+                    <tr><td>OSC 2 Tune</td><td>${preset.oscillators.osc2_tune} semitones</td></tr>
+                    <tr><td>OSC 2 Detune</td><td>${preset.oscillators.osc2_detune.toFixed(0)} cents</td></tr>
+                    <tr><td>SUB Level</td><td>${(preset.oscillators.sub_level * 100).toFixed(0)}%</td></tr>
+                </table>
+            </section>
+            
+            <section class="result-section">
+                <h3>Filter Settings</h3>
+                <table class="param-table">
+                    <tr><td>Cutoff</td><td>${(preset.filter.cutoff * 100).toFixed(0)}%</td></tr>
+                    <tr><td>Resonance</td><td>${(preset.filter.resonance * 100).toFixed(0)}%</td></tr>
+                    <tr><td>Envelope Amount</td><td>${(preset.filter.env_amount * 100).toFixed(0)}%</td></tr>
+                    <tr><td>Envelope Decay</td><td>${(preset.filter.env_decay * 100).toFixed(0)}%</td></tr>
+                </table>
+            </section>
+            
+            <section class="result-section">
+                <h3>Envelope Settings</h3>
+                <table class="param-table">
+                    <tr><td>Attack</td><td>${(preset.envelope.attack * 100).toFixed(0)}%</td></tr>
+                    <tr><td>Release</td><td>${(preset.envelope.release * 100).toFixed(0)}%</td></tr>
+                </table>
+            </section>
+            
+            <section class="result-section">
+                <h3>Mixer</h3>
+                <table class="param-table">
+                    <tr><td>Blend (Dry/Synth)</td><td>${(preset.mixer.blend * 100).toFixed(0)}% synth</td></tr>
+                </table>
+            </section>
+            
+            <section class="result-section">
+                <h3>Instrument Mode</h3>
+                <p>${preset.instrument_mode}</p>
+            </section>
+    `;
+    
+    if (translation.gaps && translation.gaps.length > 0) {
+        html += `
+            <section class="result-section warning">
+                <h3>Unmapped Features</h3>
+                <ul>
+                    ${translation.gaps.map(g => `
+                        <li>
+                            <strong>${g.feature}</strong>: ${g.reason}
+                            ${g.workaround ? `<br><em>Workaround: ${g.workaround}</em>` : ''}
+                        </li>
+                    `).join('')}
+                </ul>
+            </section>
+        `;
+    }
+    
+    if (translation.additional_blocks && translation.additional_blocks.length > 0) {
+        html += `
+            <section class="result-section info">
+                <h3>Recommended Additional Blocks</h3>
+                <ul>
+                    ${translation.additional_blocks.map(b => `
+                        <li><strong>${b.block_type}</strong>: ${b.purpose}</li>
+                    `).join('')}
+                </ul>
+            </section>
+        `;
+    }
+    
+    html += `
+            <section class="result-section">
+                <h3>Export</h3>
+                <button class="btn btn-primary" onclick="showGuide('${preset.id}')">View Configuration Guide</button>
+                <button class="btn btn-secondary" onclick="copyJSON()">Copy JSON</button>
+            </section>
+        </div>
+    `;
+    
+    document.getElementById('translation-content').innerHTML = html;
+    window.presetData = preset;
+}
+
+async function showGuide(id) {
+    const response = await fetch(`/api/export/${id}/guide`);
+    const data = await response.json();
+    
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <button class="modal-close" onclick="this.parentElement.parentElement.remove()">×</button>
+            <h2>Configuration Guide</h2>
+            <pre>${data.guide}</pre>
+            <button class="btn" onclick="navigator.clipboard.writeText(this.previousElementSibling.textContent); alert('Copied!')">Copy to Clipboard</button>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+
+function copyJSON() {
+    navigator.clipboard.writeText(JSON.stringify(window.presetData, null, 2));
+    alert('JSON copied to clipboard!');
+}
+
+loadAndTranslate();
+</script>
+{% endblock %}
