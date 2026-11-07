@@ -83,6 +83,8 @@ export const LogoLayerSchema = z.object({
   /** tone keeps internal logo detail (luminance → colour); solid flattens every opaque pixel to one ink. */
   recolorMode: z.enum(["tone", "solid"]).default("tone"),
   align: z.enum(["left", "center", "right"]).default("center"),
+  /** auto turns a flat white box (a logo saved without transparency) transparent; badge sets it in a white circle. */
+  backdrop: z.enum(["auto", "keep", "remove", "badge"]).default("auto"),
 });
 
 export const TEXT_ROLES = [
@@ -150,8 +152,10 @@ export const BriefSchema = z.object({
   date: z.string().default(""),
   doors: z.string().default(""),
   showTime: z.string().default(""),
+  endTime: z.string().default(""),
   venue: z.string().default(""),
   city: z.string().default(""),
+  address: z.string().default(""),
   price: z.string().default(""),
   ages: z.string().default(""),
   support: z.array(z.string()).default([]),

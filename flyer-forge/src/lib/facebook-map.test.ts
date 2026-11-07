@@ -9,6 +9,7 @@ const ROWS: FacebookEvent[] = [
     id: "1502409618320369",
     name: "Ernie's Tavern Presents The Lindsey Lane Band",
     start_time: "2027-08-21T19:00:00-0400",
+    end_time: "2027-08-21T23:00:00-0400",
     ticket_uri: "https://tickets.example/ernies",
     place: { name: "Ernie's Tavern", location: { street: "104 Taylorsville Rd", city: "Bloomfield", state: "KY", zip: "40008" } },
   },
@@ -38,6 +39,7 @@ test("maps venue, address, city, local time and tickets", () => {
     city: "Bloomfield, KY",
     address: "104 Taylorsville Rd, Bloomfield, KY 40008",
     showTime: "7:00 pm",
+    endTime: "11:00 pm",
     tickets: "https://tickets.example/ernies",
     notes: "",
   });

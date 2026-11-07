@@ -424,6 +424,66 @@ function silhouette(src: HTMLCanvasElement, color: string): HTMLCanvasElement {
 
 // ---------- logos ----------
 
+function badgeCircle(box: Box, align: LogoLayer["align"]) {
+  const r = Math.min(box.w, box.h) / 2;
+  const cx = align === "left" ? box.x + r : align === "right" ? box.x + box.w - r : box.x + box.w / 2;
+  return { cx, cy: box.y + box.h / 2, r };
+}
+
+const whiteBoxCache = new Map<string, boolean>();
+
+/** True when the logo was saved on an opaque near-white box: its whole border is solid and light. */
+export function hasWhiteBox(img: SourceImage, assetId: string): boolean {
+  const cached = whiteBoxCache.get(assetId);
+  if (cached !== undefined) return cached;
+  const { iw, ih } = imgSize(img);
+  const s = Math.min(1, 256 / Math.max(iw, ih));
+  const w = Math.max(2, Math.round(iw * s));
+  const h = Math.max(2, Math.round(ih * s));
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  const cx = c.getContext("2d", { willReadFrequently: true })!;
+  cx.drawImage(img, 0, 0, w, h);
+  const d = cx.getImageData(0, 0, w, h).data;
+  let total = 0;
+  let light = 0;
+  const at = (x: number, y: number) => {
+    const i = (y * w + x) * 4;
+    total++;
+    if (d[i + 3] > 250 && Math.min(d[i], d[i + 1], d[i + 2]) > 225) light++;
+  };
+  for (let x = 0; x < w; x++) {
+    at(x, 0);
+    at(x, h - 1);
+  }
+  for (let y = 1; y < h - 1; y++) {
+    at(0, y);
+    at(w - 1, y);
+  }
+  const result = light / total > 0.9;
+  whiteBoxCache.set(assetId, result);
+  return result;
+}
+
+/** Colour-to-alpha against white: white becomes transparent, inks keep their exact colour, anti-aliased edges stay smooth. */
+export function whiteToAlpha(cx: CanvasRenderingContext2D, w: number, h: number) {
+  const data = cx.getImageData(0, 0, w, h);
+  const d = data.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const a = Math.max(255 - d[i], 255 - d[i + 1], 255 - d[i + 2]) / 255;
+    if (a === 0) {
+      d[i + 3] = 0;
+      continue;
+    }
+    d[i] = 255 - (255 - d[i]) / a;
+    d[i + 1] = 255 - (255 - d[i + 1]) / a;
+    d[i + 2] = 255 - (255 - d[i + 2]) / a;
+    d[i + 3] = Math.round(d[i + 3] * a);
+  }
+  cx.putImageData(data, 0, 0);
+}
+
 function drawLogo(
   ctx: CanvasRenderingContext2D,
   l: LogoLayer,
@@ -440,17 +500,31 @@ function drawLogo(
     return;
   }
   const { iw, ih } = imgSize(img);
-  const p = placeImage(iw, ih, box, "contain", 1, 0.5, 0.5, l.align);
+  const backdrop = l.backdrop ?? "auto";
+  // Inside a badge the logo sits in the circle's inscribed square so its corners never poke out.
+  const badge = backdrop === "badge" ? badgeCircle(box, l.align) : null;
+  const target = badge ? { x: badge.cx - badge.r * 0.68, y: badge.cy - badge.r * 0.68, w: badge.r * 1.36, h: badge.r * 1.36 } : box;
+  const p = placeImage(iw, ih, target, "contain", 1, 0.5, 0.5, badge ? "center" : l.align);
   report.fidelity.push({ layerId: l.id, assetId: l.assetId!, kind: "logo", ...fidelityOf(p, iw, ih) });
-  if (!l.recolor) {
+  if (badge) {
+    ctx.beginPath();
+    ctx.arc(badge.cx, badge.cy, badge.r, 0, Math.PI * 2);
+    ctx.fillStyle = "#FFFFFF";
+    ctx.fill();
+    ctx.lineWidth = Math.max(2, badge.r * 0.05);
+    ctx.strokeStyle = "#0D0D0D";
+    ctx.stroke();
+  }
+  const ow = Math.max(1, Math.round(p.dw));
+  const oh = Math.max(1, Math.round(p.dh));
+  const knockout = backdrop === "remove" || (backdrop === "auto" && hasWhiteBox(img, l.assetId!));
+  if (!l.recolor && !knockout) {
     ctx.imageSmoothingQuality = "high";
     ctx.drawImage(img, p.dx, p.dy, p.dw, p.dh);
     return;
   }
-  const ow = Math.max(1, Math.round(p.dw));
-  const oh = Math.max(1, Math.round(p.dh));
-  const color = resolveColor(l.recolor, pal);
-  const key = `logo|${l.assetId}|${ow}|${oh}|${color}|${l.recolorMode}`;
+  const color = l.recolor ? resolveColor(l.recolor, pal) : "";
+  const key = `logo|${l.assetId}|${ow}|${oh}|${color}|${l.recolorMode}|${knockout}`;
   const c = cacheGet(key, () => {
     const c = document.createElement("canvas");
     c.width = ow;
@@ -458,11 +532,12 @@ function drawLogo(
     const cx = c.getContext("2d", { willReadFrequently: true })!;
     cx.imageSmoothingQuality = "high";
     cx.drawImage(img, 0, 0, ow, oh);
-    if (l.recolorMode === "solid") {
+    if (knockout) whiteToAlpha(cx, ow, oh);
+    if (l.recolor && l.recolorMode === "solid") {
       cx.globalCompositeOperation = "source-in";
       cx.fillStyle = color;
       cx.fillRect(0, 0, ow, oh);
-    } else {
+    } else if (l.recolor) {
       const data = cx.getImageData(0, 0, ow, oh);
       const d = data.data;
       const [r, g, b] = hexToRgb(color);

@@ -259,6 +259,18 @@ function LogoFields({ l, onLayer, tokens, logos }: { l: LogoLayer; onLayer: (p: 
       <Field label="Align in box">
         <Choice value={l.align} onChange={(v) => onLayer({ align: v })} options={["left", "center", "right"].map((v) => ({ value: v as LogoLayer["align"], label: cap(v) }))} />
       </Field>
+      <Field label="Background">
+        <Choice
+          value={l.backdrop ?? "auto"}
+          onChange={(v) => onLayer({ backdrop: v })}
+          options={[
+            { value: "auto" as const, label: "Auto (drop a white box)" },
+            { value: "remove" as const, label: "Transparent" },
+            { value: "badge" as const, label: "White circle" },
+            { value: "keep" as const, label: "As uploaded" },
+          ]}
+        />
+      </Field>
       <label className="flex items-center justify-between text-sm">
         <span>
           Recolour
